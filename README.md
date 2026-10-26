@@ -80,6 +80,6 @@ Il Super Admin è unico e coincide con l’account amministratore iniziale. Può
 
 La tabella Tipi di riparazione è gestita dagli amministratori. Ogni voce è a pezzi (prezzo unitario in euro a tre decimali) oppure a minuti. È disponibile un tempo predefinito, modificabile durante la registrazione del lavoro eseguito.
 
-Dalle Riparazioni del lotto: Segna completato apre la scelta del tipo, la quantità, i minuti eseguiti e le note. Salva e aggiungi altro consente più interventi sullo stesso prodotto. Completa senza consuntivo mantiene disponibile la semplice chiusura della segnalazione, senza inventare tempi o prezzi.
+Dalle Riparazioni: apri il lotto, premi Apri prodotto e poi Registra riparazione eseguita. La scheda del prodotto mostra gli interventi riferiti esclusivamente a quel lotto, con tipo, quantità, minuti, note, data e operatore (nome ed email dell’utente collegato). Il modulo propone i tipi di riparazione configurati dall’amministratore. Salva e aggiungi altro consente più interventi sullo stesso prodotto. Completa senza consuntivo mantiene disponibile la semplice chiusura della segnalazione, senza inventare tempi o prezzi.
 
 Il lotto mostra minuti registrati, pezzi per tipo e importi dei lavori completati. Gli importi sono memorizzati in millesimi interi di euro e i tempi in centesimi di minuto. Ogni intervento conserva tipo, unità, prezzo applicato, quantità, tempo, operatore e data: la modifica successiva del listino non cambia i consuntivi precedenti. Le voci usate nei consuntivi non possono essere cancellate.
