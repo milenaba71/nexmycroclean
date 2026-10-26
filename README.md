@@ -38,15 +38,15 @@ Gli stati sono rappresentati da pallini: rosso (Aperto), giallo (In lavorazione,
 
 ## Acquisizione e tipo prodotto
 
-In Entrata anche i barcode nuovi vengono acquisiti automaticamente: la stessa operazione crea il prodotto del cliente del lotto e la riga di ingresso. Proprietà, taglia e colore non noti restano da definire. I duplicati nello stesso lotto sono bloccati dal database, anche con diverse maiuscole e dopo l’uscita. Un prodotto già presente in un altro lotto aperto non viene acquisito di nuovo.
+In Entrata un barcode assente dall’anagrafica apre una finestra con la sola scelta del tipo prodotto. Selezionata la voce, il prodotto del cliente del lotto e l’ingresso vengono registrati automaticamente. Annulla non crea il prodotto. Il flusso usa le RPC esistenti lot_acquire e lot_set_type; se la seconda operazione viene interrotta, una richiesta di completamento resta nella sessione del browser e consente di riprendere dopo il ricaricamento, senza duplicare il prodotto o la riga lotto. Proprietà, taglia e colore non noti restano da definire. I duplicati nello stesso lotto sono bloccati dal database, anche con diverse maiuscole e dopo l’uscita. Un prodotto già presente in un altro lotto aperto non viene acquisito di nuovo.
 
 Seleziona tutto il lotto comprende anche le righe nascoste dai filtri. Assegna tipo ai selezionati aggiorna le schede prodotto, il campo TIPO per le etichette e i riepiloghi. Gli operatori possono eseguire questa operazione circoscritta sui prodotti del lotto; la creazione dei valori anagrafici resta riservata agli amministratori.
 
 In Uscita un prodotto senza riparazioni, etichettature o verifiche aperte può essere registrato direttamente, anche se manca una precedente conferma di completamento. Il trattamento e gli eventuali lavaggi ancora da conteggiare vengono contabilizzati una sola volta durante l’uscita.
 
-## Barcode progressivi e modificabili: predisposizione non attivata
+## Barcode progressivi e modificabili
 
-`product-barcodes.js` e `sql/product_barcodes.sql` preparano un barcode numerico progressivo o manuale, con identificativo interno stabile. Questi file **non sono attivati**: la migrazione è in attesa di autorizzazione dopo il blocco della revisione automatica. Il modulo non è incluso in index.html. Dopo approvazione servono applicazione della migrazione, verifica del salvataggio e attivazione del modulo, con controllo di stampe, import/export e collegamenti al lotto.
+La migrazione sql/product_barcodes.sql è applicata e il modulo product-barcodes.js è attivo. Gli amministratori possono scegliere un progressivo numerico assegnato dal database oppure inserire/modificare il barcode manualmente. L’identificativo interno resta stabile e le etichette, la ricerca e l’esportazione mostrano il barcode corrente. I precedenti codici rimangono riservati e riconducono allo stesso prodotto durante la lettura. Lotti, riparazioni e storico conservano i collegamenti. La nuova API richiede una sessione confermata e un amministratore attivo; non è accessibile agli utenti anonimi.
 
 ## Pubblicazione
 
@@ -96,6 +96,6 @@ Leggi numero attiva la fotocamera posteriore e l’OCR del solo codice stampato 
 
 Su smartphone il gestionale presenta una testata compatta e navigazione in basso, con menu completo Altro. Lotti, prodotti e righe lotto sono schede leggibili; i filtri sono richiudibili e i moduli si dispongono in una colonna. I dettagli aggiuntivi del prodotto si espandono nell’elenco. La vista desktop conserva le tabelle.
 
-La migrazione barcode predisposta è stata rivista per riservare anche i precedenti codici e risolverli durante l’acquisizione server. È stata verificata in PostgreSQL isolato con creazione progressiva, modifica manuale, scansione di vecchie etichette, protezione dai duplicati e controllo dei ruoli. Rimane da autorizzare e applicare sul database di produzione prima di attivare product-barcodes.js.
+La migrazione barcode predisposta è stata rivista per riservare anche i precedenti codici e risolverli durante l’acquisizione server. È stata verificata in PostgreSQL isolato con creazione progressiva, modifica manuale, scansione di vecchie etichette, protezione dai duplicati e controllo dei ruoli. Dopo l’autorizzazione esplicita è stata applicata e verificata anche sul database condiviso, usando una transazione di prova annullata senza lasciare prodotti o lotti fittizi.
 
 La sezione Accessori e riparazioni della scheda prodotto è un menu richiudibile con ricerca e selezione multipla. Il riepilogo indica il numero di voci selezionate. Le selezioni restano attive durante la ricerca e i valori storici già presenti vengono conservati al salvataggio.
