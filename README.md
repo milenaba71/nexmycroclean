@@ -97,3 +97,5 @@ Leggi numero attiva la fotocamera posteriore e l’OCR del solo codice stampato 
 Su smartphone il gestionale presenta una testata compatta e navigazione in basso, con menu completo Altro. Lotti, prodotti e righe lotto sono schede leggibili; i filtri sono richiudibili e i moduli si dispongono in una colonna. I dettagli aggiuntivi del prodotto si espandono nell’elenco. La vista desktop conserva le tabelle.
 
 La migrazione barcode predisposta è stata rivista per riservare anche i precedenti codici e risolverli durante l’acquisizione server. È stata verificata in PostgreSQL isolato con creazione progressiva, modifica manuale, scansione di vecchie etichette, protezione dai duplicati e controllo dei ruoli. Rimane da autorizzare e applicare sul database di produzione prima di attivare product-barcodes.js.
+
+La sezione Accessori e riparazioni della scheda prodotto è un menu richiudibile con ricerca e selezione multipla. Il riepilogo indica il numero di voci selezionate. Le selezioni restano attive durante la ricerca e i valori storici già presenti vengono conservati al salvataggio.
