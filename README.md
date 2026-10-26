@@ -72,7 +72,7 @@ Supabase JS 2.57.4 e SheetJS CE 0.20.3 sono caricate da CDN con versioni fissate
 
 ## Ricerca nei menu e sicurezza amministrativa
 
-I menu permettono di scrivere per trovare una voce esistente, mantenendo valori e permessi del controllo originale. I valori non presenti non vengono aggiunti tramite digitazione. Un prodotto di un cliente diverso apre un avviso e l’acquisizione rimane bloccata.
+I menu permettono di scrivere per trovare una voce esistente, mantenendo valori e permessi del controllo originale. I risultati compaiono in un elenco visibile nella pagina, anche su iPhone e nei moduli a comparsa: scrivendo una parte del nome (es. toppa) si può toccare la voce completa (es. Toppa · Minuti). La scelta aggiorna i valori collegati, inclusi minuti e prezzo degli interventi. Sono supportati anche frecce, Invio, Escape e ricerca senza distinzione di accenti o maiuscole. I valori non presenti non vengono aggiunti tramite digitazione. Un prodotto di un cliente diverso apre un avviso e l’acquisizione rimane bloccata.
 
 Il Super Admin è unico e coincide con l’account amministratore iniziale. Può creare ulteriori amministratori; gli amministratori ordinari gestiscono gli utenti operatore/lettore e le anagrafiche. Il ruolo e l’accesso del Super Admin sono protetti sul database. Cancella rimuove solo voci anagrafiche non collegate a prodotti, lotti o interventi; una voce utilizzata può essere disattivata.
 
