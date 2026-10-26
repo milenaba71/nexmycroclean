@@ -19,6 +19,19 @@ Le nuove tabelle Supabase hanno RLS e accesso diretto negato. Le operazioni pass
 
 Integrazione CO/Airtable e ordini di produzione: fase successiva, non implementata in questo aggiornamento.
 
+## Scansione e operatività dei lotti
+
+- Il lettore può terminare la scansione con Invio o Tab. È disponibile anche il riconoscimento automatico dopo 500 ms sul barcode completo conosciuto. I codici sono testo: zeri iniziali e maiuscole/minuscole vengono conservati.
+- Le scansioni vengono salvate in coda, una per volta, con il lotto, la fase e la lavorazione scelti al momento della lettura. Gli errori restano visibili tra le scansioni da controllare. Durante gli avvisi temporizzati è possibile acquisire i prossimi codici nel campo della finestra.
+- Le tre fasi sono Entrata, Lavorazione, Uscita. La lettura in Lavorazione registra il trattamento eseguito e il suo completamento; il lavaggio aumenta una sola volta quando previsto. Le scansioni duplicate non aggiungono lavaggi. L’uscita richiede lavorazione completata e assenza di interventi aperti.
+- Aggiungi prodotti riporta all’Entrata e conserva tutte le righe e le uscite precedenti. È possibile aggiungere nuovi codici al lotto anche dopo una riconsegna completa. Un nuovo ingresso dello stesso codice già presente richiede un nuovo lotto, per conservare la tracciabilità.
+- Note nel lotto, filtri per codice/utilizzatore/note, tipo, reparto, taglia, fase e segnalazione. Esportazione CSV dei risultati con note e flag.
+- I flag Sostituzione e Rilavaggio alimentano il riepilogo per tipo. Sostituzione è una segnalazione del prodotto: il flag non assegna un nuovo barcode. Rilavaggio su un prodotto già completato richiede un nuovo ciclo prima dell’uscita; la nuova lettura in Lavorazione aggiunge un lavaggio e conserva il conteggio dei cicli. Togliere il flag prima del nuovo ciclo ripristina il completamento precedente.
+- Le etichette totali nel riepilogo includono le richieste completate; le etichette ancora da fare sono indicate separatamente. I conteggi riguardano l’intero lotto anche quando la tabella è filtrata.
+- Ogni apertura della scheda prodotto ricarica da Supabase le anagrafiche aggiornate prima di mostrare i menu. I file JavaScript hanno un identificativo di versione per evitare di usare menu precedenti rimasti in cache.
+
+Il trigger documentato in `sql/lot_workflow.sql` controlla anche sul server le uscite, il cliente dei nuovi prodotti e la conservazione delle righe precedenti.
+
 ## Pubblicazione
 
 In GitHub: Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: main → Folder: / (root) → Save.

@@ -30,3 +30,8 @@ clientTable=function(){clientTableBeforeCatalogs();let rows=[...document.querySe
 
 const applyImportBeforeCatalogs=applyImport;
 applyImport=function(){if(!importPending)return;applyImportBeforeCatalogs();registerMissingClients();save();void cloudFlush().then(()=>cloudRefresh()).catch(e=>notify(e.message))};
+
+// Read fresh masters on every card opening, including after a deployment or an import.
+const productCardWithCatalogControls=productCard;
+let productCardRequest=0;
+productCard=async function(id){let request=++productCardRequest;show('<h2>Caricamento scheda prodotto…</h2><p>Aggiornamento delle anagrafiche condivise.</p><button class="btn secondary" style="margin-top:20px" onclick="document.querySelector(\'dialog\').close()">Annulla</button>');try{await cloudFlush();let snapshot=await cloudRequest();if(request!==productCardRequest||!$('#modal').open)return;if(!snapshot.db?.catalogs)throw Error('Anagrafiche non disponibili. Aggiorna il gestionale e riprova.');cloudAccept(snapshot,false);if(id&&!db.garments.some(g=>g.id===id))throw Error('Prodotto non più disponibile.');productCardWithCatalogControls(id);let info=document.createElement('p');info.className='wide';info.style='font-size:12px';info.textContent='Anagrafiche aggiornate da Supabase: '+['type','size','color'].map(k=>catalogLabels[k]+' '+catalogRows(k).filter(r=>r.active).length).join(' · ')+'. Il reparto dipende dal cliente selezionato.';$('#productForm').prepend(info)}catch(error){if(request===productCardRequest&&$('#modal').open)show(`<h2>Scheda non caricata</h2><p>${esc(error.message)}</p><button class="btn secondary" onclick="$('#modal').close()">Chiudi</button>`)}};
