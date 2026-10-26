@@ -69,3 +69,17 @@ Da Prodotti: selezionare uno o più capi e scegliere Etichette selezionate. Dall
 ## Librerie
 
 Supabase JS 2.57.4 e SheetJS CE 0.20.3 sono caricate da CDN con versioni fissate. Il modello etichette usa inoltre JsBarcode, qrcode-generator, PDF.js e Tesseract tramite CDN con versioni dichiarate nel file.
+
+## Ricerca nei menu e sicurezza amministrativa
+
+I menu permettono di scrivere per trovare una voce esistente, mantenendo valori e permessi del controllo originale. I valori non presenti non vengono aggiunti tramite digitazione. Un prodotto di un cliente diverso apre un avviso e l’acquisizione rimane bloccata.
+
+Il Super Admin è unico e coincide con l’account amministratore iniziale. Può creare ulteriori amministratori; gli amministratori ordinari gestiscono gli utenti operatore/lettore e le anagrafiche. Il ruolo e l’accesso del Super Admin sono protetti sul database. Cancella rimuove solo voci anagrafiche non collegate a prodotti, lotti o interventi; una voce utilizzata può essere disattivata.
+
+## Tipi di riparazione e consuntivi
+
+La tabella Tipi di riparazione è gestita dagli amministratori. Ogni voce è a pezzi (prezzo unitario in euro a tre decimali) oppure a minuti. È disponibile un tempo predefinito, modificabile durante la registrazione del lavoro eseguito.
+
+Dalle Riparazioni del lotto: Segna completato apre la scelta del tipo, la quantità, i minuti eseguiti e le note. Salva e aggiungi altro consente più interventi sullo stesso prodotto. Completa senza consuntivo mantiene disponibile la semplice chiusura della segnalazione, senza inventare tempi o prezzi.
+
+Il lotto mostra minuti registrati, pezzi per tipo e importi dei lavori completati. Gli importi sono memorizzati in millesimi interi di euro e i tempi in centesimi di minuto. Ogni intervento conserva tipo, unità, prezzo applicato, quantità, tempo, operatore e data: la modifica successiva del listino non cambia i consuntivi precedenti. Le voci usate nei consuntivi non possono essere cancellate.
