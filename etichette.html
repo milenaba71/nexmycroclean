@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mycroclean – Stampa Etichette</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f3f4f6; color:#111; }
+
+  #toolbar {
+    position: sticky; top: 0; z-index: 50;
+    background:#0f172a; color:#fff; padding:12px 18px;
+    display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);
+  }
+  #toolbar h1 { font-size:16px; margin:0 8px 0 0; font-weight:700; letter-spacing:.3px; }
+  #toolbar .grp { display:flex; align-items:center; gap:6px; font-size:13px; }
+  #toolbar label { font-size:13px; }
+  #toolbar select, #toolbar input[type=number] {
+    background:#1e293b; color:#fff; border:1px solid #334155; border-radius:6px; padding:4px 6px; font-size:13px;
+  }
+  #toolbar input[type=number] { width:58px; }
+  #toggles { display:flex; flex-wrap:wrap; gap:4px 6px; max-width:100%; }
+  #toggles .chk { display:flex; align-items:center; gap:3px; font-size:11px; background:#1e293b; padding:2px 7px; border-radius:6px; white-space:nowrap; }
+  #toolbar button { background:#2563eb; color:#fff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer; }
+  #toolbar button:hover { background:#1d4ed8; }
+  #toolbar button.ghost { background:#334155; }
+  #toolbar button.ghost:hover { background:#475569; }
+  #toolbar button.imgbtn { background:#0e7490; }
+  #toolbar button.editbtn { background:#7c3aed; }
+  #toolbar button.editbtn.on { background:#16a34a; }
+  #count { font-size:12px; opacity:.85; }
+  #logoName { font-size:11px; opacity:.8; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  #editbar { display:none; background:#ecfdf5; color:#065f46; border-bottom:1px solid #a7f3d0; padding:8px 18px; font-size:13px; position:sticky; top:52px; z-index:49; }
+  body.editing #editbar { display:block; }
+  #editbar b { color:#047857; }
+
+  #drop {
+    margin:28px auto; max-width:660px; border:3px dashed #94a3b8; border-radius:14px;
+    background:#fff; padding:42px 24px; text-align:center; color:#475569; cursor:pointer; transition:.15s;
+  }
+  #drop.hover { border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
+  #drop b { color:#0f172a; }
+  #drop .big { font-size:17px; margin-bottom:8px; }
+  #drop .small { font-size:13px; opacity:.8; margin-top:10px; }
+  #busy { display:none; text-align:center; padding:20px; color:#2563eb; font-weight:600; }
+
+  #out { padding:10px 0 60px; }
+  .foglio { background:#fff; width:210mm; min-height:297mm; margin:0 auto 16px; padding:8mm 6mm;
+            display:grid; gap:3mm; align-content:start; box-shadow:0 3px 14px rgba(0,0,0,.12); }
+  .et { position:relative; border:1px solid #cbd5e1; border-radius:2mm; overflow:hidden; page-break-inside:avoid; break-inside:avoid; }
+  .el { position:absolute; }
+  .el .qrbox svg, .el .bcbox svg { display:block; }
+  .el.txt { font-size:2.8mm; line-height:1.15; color:#1e293b; white-space:normal; word-break:break-word; overflow:hidden; }
+  .el.txt.strong { font-weight:700; color:#0f172a; }
+  .el.txt .k { color:#64748b; font-weight:600; }
+  .el[contenteditable="true"]{ outline:1px dashed #2563eb; cursor:text; }
+  .rzh { position:absolute; right:-4px; bottom:-4px; width:10px; height:10px; background:#16a34a; border:1px solid #fff; border-radius:2px; cursor:nwse-resize; z-index:40; }
+  .et.editable .el.fsactive { outline:2px solid #2563eb !important; background:rgba(37,99,235,.08); }
+  #fsCtl { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #a7f3d0; border-radius:8px; padding:3px 8px; margin-left:6px; }
+  #fsCtl button { background:#2563eb; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-size:14px; font-weight:700; cursor:pointer; }
+  #fsCtl button:disabled { background:#cbd5e1; cursor:default; }
+  #fsVal { min-width:40px; text-align:center; font-weight:700; }
+  .ftdel { position:absolute; left:-7px; top:-7px; width:15px; height:15px; background:#dc2626; color:#fff; border:1px solid #fff; border-radius:50%; font-size:10px; line-height:13px; text-align:center; cursor:pointer; z-index:41; font-family:Arial; }
+  .el.taglia { text-align:center; line-height:1; border:1px solid #0f172a; border-radius:1.5mm; padding:.8mm 1.4mm; }
+  .el.taglia .lbl { font-size:1.9mm; color:#475569; text-transform:uppercase; letter-spacing:.3px; }
+  .el.taglia .val { font-size:5.2mm; font-weight:800; }
+  .el.logo img { display:block; object-fit:contain; }
+
+  .et.editable { outline:2px solid #16a34a; }
+  .et.editable .el { cursor:move; outline:1px dashed #94a3b8; border-radius:1mm; overflow:visible; }
+  .et.editable .el:hover { outline-color:#16a34a; background:rgba(22,163,74,.06); }
+  .et.editable .el.dragging { outline:2px solid #16a34a; background:rgba(22,163,74,.12); z-index:30; }
+
+  .rotolo { background:#fff; margin:0 auto 10px; box-shadow:0 3px 14px rgba(0,0,0,.12); }
+  .rotolo .et { width:100%; height:100%; border:1px solid #cbd5e1; border-radius:0; }
+
+  @media print {
+    #toolbar, #editbar, #drop, #busy { display:none !important; }
+    body { background:#fff; }
+    #out { padding:0; }
+    .foglio { box-shadow:none; margin:0; width:auto; min-height:auto; padding:8mm 6mm; }
+    .foglio + .foglio { page-break-before:always; }
+    .rotolo { box-shadow:none; margin:0; page-break-after:always; break-after:page; }
+    .rotolo .et { border:none; }
+    .et.editable { outline:none; }
+    .et.editable .el { outline:none !important; background:none !important; }
+    .rzh { display:none !important; }
+    .ftdel { display:none !important; }
+  }
+</style>
+<style id="pageStyle">@page { size:A4; margin:0; }</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>🏷️ Etichette Mycroclean</h1>
+  <div class="grp">
+    <label>Formato</label>
+    <select id="formato">
+      <option value="a4" selected>A4 (foglio)</option>
+      <option value="rotolo">Rotolo termico</option>
+    </select>
+  </div>
+  <div class="grp a4only">
+    <label>Per riga</label>
+    <select id="perRiga"><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option></select>
+  </div>
+  <div class="grp a4only">
+    <label>Altezza mm</label>
+    <input type="number" id="hmm" value="40" min="22" max="140">
+  </div>
+  <div class="grp rollonly" style="display:none">
+    <label>Etichetta L×A mm</label>
+    <input type="number" id="rollW" value="60" min="20" max="200">
+    <span>×</span>
+    <input type="number" id="rollH" value="40" min="15" max="200">
+  </div>
+  <div class="grp rollonly" style="display:none">
+    <label>Gap mm</label>
+    <input type="number" id="rollGap" value="2" min="0" max="20">
+  </div>
+  <div class="grp"><label>Copie/capo</label><input type="number" id="copie" value="1" min="1" max="50"></div>
+  <div class="grp"><label>Filtra</label><input type="text" id="filtro" placeholder="codici o nome…" style="width:150px;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:4px 8px;font-size:13px"></div>
+
+  <span id="toggles"></span>
+
+  <button class="imgbtn" id="btnImg">🖼️ Immagine</button>
+  <button class="imgbtn" id="btnText">➕ Testo</button>
+  <span id="logoName"></span>
+  <button class="editbtn" id="btnEdit">✏️ Sposta/ridimensiona</button>
+  <button class="ghost" id="btnData">📝 Dati</button>
+  <div class="grp">
+    <label>Layout</label>
+    <select id="presetSel" title="Layout salvati"><option value="">— layout —</option></select>
+    <button class="ghost" id="btnSavePreset" title="Salva il layout attuale">💾</button>
+    <button class="ghost" id="btnDelPreset" title="Elimina il layout selezionato">🗑</button>
+    <button class="ghost" id="btnExportLayout" title="Esporta i layout in un file">⬇️ Esporta</button>
+    <button class="ghost" id="btnImportLayout" title="Carica i layout da un file">⬆️ Carica</button>
+    <input type="file" id="layoutInput" accept=".json,application/json" style="display:none">
+  </div>
+  <button id="btnPrint">🖨️ Stampa</button>
+  <button class="ghost" id="btnNew">📂 Altro file</button>
+  <span id="count"></span>
+  <input type="file" id="imgInput" accept="image/*" style="display:none">
+</div>
+
+<div id="editbar">
+  ✏️ <b>Modalità sposta/ridimensiona</b>: trascina gli elementi sulla <b>prima etichetta</b> (bordo verde) per spostarli; usa il <b>quadratino verde</b> in basso a destra per allargare il campo (il testo va a capo) o ingrandire QR/barcode/logo/taglia. <b>Clicca un testo</b> (diventa blu) e usa <b>A− / A+</b> qui sotto per cambiare la <b>dimensione del carattere</b>. La <b>✕ rossa</b> (o il <b>doppio click</b>) toglie un campo; sui <b>testi liberi</b> il doppio click serve a correggerli. Tutto si applica a tutte le etichette e viene salvato. Per correggere i valori usa <b>📝 Dati</b>.
+  <div style="margin-top:6px">
+    <span id="fsCtl">🔤 Carattere di <b id="fsName">— clicca un testo —</b>
+      <button id="fsMinus" title="Carattere più piccolo" disabled>A−</button>
+      <span id="fsVal">–</span>
+      <button id="fsPlus" title="Carattere più grande" disabled>A+</button>
+    </span>
+  &nbsp; <button class="ghost" id="btnReset" style="padding:4px 12px">↺ Ripristina layout</button>
+  </div>
+</div>
+
+<div id="drop">
+  <div class="big">Trascina qui il file <b>CSV</b> o <b>PDF</b> esportato da next.mycroclean.com</div>
+  <div>oppure clicca per selezionarlo</div>
+  <div class="small">Il file resta sul tuo computer: nessun caricamento, nessuna password. Il PDF viene convertito in tabella automaticamente.</div>
+  <input type="file" id="file" accept=".csv,text/csv,.pdf,application/pdf" style="display:none">
+</div>
+<div id="busy">⏳ Conversione PDF in corso…</div>
+
+<div id="grid" style="display:none; padding:12px 18px; background:#fff; border-bottom:1px solid #e2e8f0; overflow:auto; max-height:40vh;">
+  <div style="font-size:13px; color:#475569; margin-bottom:8px;">📝 <b>Modifica dati</b> — correggi o aggiungi i valori. Le etichette si aggiornano subito. (Il barcode usa il campo <b>Codice</b>.)</div>
+  <div id="gridWrap"></div>
+</div>
+
+<div id="out"></div>
+
+<script>
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+
+// ===== campi =====
+// kind: qr | bc | taglia | logo | text
+var FIELDS = [
+  { key:'qr',       lab:'QR',        kind:'qr',     on:true,  x:2,  y:4 },
+  { key:'bc',       lab:'Barcode',   kind:'bc',     on:true,  x:2,  y:60 },
+  { key:'cod',      lab:'Codice',    kind:'text',   on:true,  strong:true, x:38, y:4,  cols:['codice','CODICE'] },
+  { key:'nome',     lab:'Nome',      kind:'text',   on:true,  strong:true, x:38, y:17, cols:['fullname','NOME E COGNOME','nome cognome','nome e cognome','nome','cognome'] },
+  { key:'cliente',  lab:'Azienda',   kind:'text',   on:true,  x:38, y:30, cols:['azienda','AZIENDA','cliente','client'] },
+  { key:'reparto',  lab:'Reparto',   kind:'text',   on:true,  x:38, y:42, prefix:'Reparto', cols:['reparto','REPARTO'] },
+  { key:'taglia',   lab:'Taglia',    kind:'taglia', on:true,  x:80, y:6,  cols:['taglia','TAGLIA','size'] },
+  { key:'logo',     lab:'Logo',      kind:'logo',   on:true,  x:74, y:52 },
+  { key:'armadio',  lab:'Armadio',   kind:'text',   on:false, x:38, y:54, prefix:'Armadio', cols:['armadio','ARMADIO'] },
+  { key:'posizione',lab:'Posizione', kind:'text',   on:false, x:38, y:62, prefix:'Posizione', cols:['posizione','POSIZIONE'] },
+  { key:'tipo',     lab:'Tipo',      kind:'text',   on:false, x:38, y:70, prefix:'Tipo', cols:['tipo','TIPO'] },
+  { key:'matricola',lab:'Matricola', kind:'text',   on:false, x:38, y:78, prefix:'Matr.', cols:['matricola','MATRICOLA'] },
+  { key:'iniziali', lab:'Iniziali',  kind:'text',   on:false, x:38, y:86, prefix:'Iniz.', cols:['iniziali','INIZIALI'] },
+  { key:'lotto',    lab:'Lotto',     kind:'text',   on:false, x:62, y:78, prefix:'Lotto', cols:['lotto','LOTTO'] },
+  { key:'dataCr',   lab:'Data',      kind:'text',   on:false, x:62, y:86, prefix:'Data', cols:['created_at','DATA DI CREAZIONE','data di creazione','DATA','data'] },
+  { key:'dataPe',   lab:'Data pers.',kind:'text',   on:false, x:62, y:92, prefix:'Pers.', cols:['data_personalizzazione','DATA DI PERSONALIZZAZIONE','data di personalizzazione'] },
+  { key:'esterna',  lab:'Esterna',   kind:'text',   on:false, x:62, y:70, prefix:'Est.', cols:['esterna','ESTERNA'] },
+  { key:'note',     lab:'Note',      kind:'text',   on:false, x:38, y:94, prefix:'Note', cols:['note','NOTE'] }
+];
+
+// ===== stato =====
+var ROWS = [];
+var LOGO = 'mycroclean-logo.png';
+var EDIT = false;
+var MODE = 'data';     // 'data' (CSV / PDF con testo) | 'pdfimg' (PDF già impaginato)
+var PDFIMG = [];       // immagini pagine PDF (data URL)
+var CSVROWS = [];      // CSV completo caricato (master per l'aggancio OCR)
+var LS_KEY = 'myc_etichetta_layout_v4';
+
+var DEFAULT_FS = 8;     // pt, corrisponde ai 2.8mm del CSS .el.txt
+var DEFAULT_LAYOUT = {};
+FIELDS.forEach(function(f){ DEFAULT_LAYOUT[f.key] = {x:f.x, y:f.y}; });
+var LAYOUT = loadLayout();
+
+function loadLayout(){
+  try{
+    var s = localStorage.getItem(LS_KEY);
+    if(s){
+      var o = JSON.parse(s) || {}, m = {};
+      // mantieni TUTTE le chiavi salvate (inclusi i testi liberi ft_*)
+      for(var k in o){ if(o[k] && typeof o[k].x==='number') m[k]=o[k]; }
+      FIELDS.forEach(function(f){ if(!m[f.key]) m[f.key]={x:f.x, y:f.y}; });
+      return m;
+    }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+}
+function saveLayout(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(LAYOUT)); }catch(e){} }
+
+// ===== testi liberi =====
+var FT_KEY = 'myc_etichetta_freetexts_v1';
+var FREETEXTS = loadFT();
+function loadFT(){ try{ var s=localStorage.getItem(FT_KEY); if(s) return JSON.parse(s)||[]; }catch(e){} return []; }
+function saveFT(){ try{ localStorage.setItem(FT_KEY, JSON.stringify(FREETEXTS)); }catch(e){} }
+function ftById(key){ for(var i=0;i<FREETEXTS.length;i++){ if('ft_'+FREETEXTS[i].id===key) return FREETEXTS[i]; } return null; }
+
+// ===== layout salvati (preset) =====
+var PRESETS_KEY = 'myc_etichetta_presets_v1';
+function loadPresets(){ try{ var s=localStorage.getItem(PRESETS_KEY); if(s) return JSON.parse(s)||{}; }catch(e){} return {}; }
+function savePresets(p){ try{ localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); return true; }
+  catch(e){ alert('Spazio insufficiente per salvare il layout (il logo potrebbe essere troppo grande).'); return false; } }
+function gatherFields(){ var o={}; FIELDS.forEach(function(f){ var cb=document.getElementById('f_'+f.key); o[f.key]=cb?cb.checked:false; }); return o; }
+function currentPreset(){
+  return {
+    layout: JSON.parse(JSON.stringify(LAYOUT)),
+    freetexts: JSON.parse(JSON.stringify(FREETEXTS)),
+    fields: gatherFields(),
+    logo: LOGO||'',
+    format: document.getElementById('formato').value,
+    perRiga: document.getElementById('perRiga').value,
+    hmm: document.getElementById('hmm').value,
+    rollW: document.getElementById('rollW').value,
+    rollH: document.getElementById('rollH').value,
+    rollGap: document.getElementById('rollGap').value
+  };
+}
+function applyPreset(p){
+  if(!p) return;
+  if(p.layout) LAYOUT=JSON.parse(JSON.stringify(p.layout));
+  if(p.freetexts) FREETEXTS=JSON.parse(JSON.stringify(p.freetexts));
+  if(p.fields) FIELDS.forEach(function(f){ var cb=document.getElementById('f_'+f.key); if(cb && p.fields[f.key]!==undefined) cb.checked=p.fields[f.key]; });
+  if(typeof p.logo==='string'){ LOGO=p.logo; document.getElementById('logoName').textContent=LOGO?'(logo dal layout)':''; }
+  if(p.format) document.getElementById('formato').value=p.format;
+  if(p.perRiga) document.getElementById('perRiga').value=p.perRiga;
+  if(p.hmm) document.getElementById('hmm').value=p.hmm;
+  if(p.rollW) document.getElementById('rollW').value=p.rollW;
+  if(p.rollH) document.getElementById('rollH').value=p.rollH;
+  if(p.rollGap!==undefined && p.rollGap!=='') document.getElementById('rollGap').value=p.rollGap;
+  saveLayout(); saveFT(); updateFormatoUI(); render();
+}
+function refreshPresetSelect(selName){
+  var presets=loadPresets(); var el=document.getElementById('presetSel');
+  var cur = selName || el.value;
+  el.innerHTML='<option value="">— layout —</option>';
+  Object.keys(presets).forEach(function(n){
+    var o=document.createElement('option'); o.value=n; o.textContent=n; el.appendChild(o);
+  });
+  if(cur && presets[cur]) el.value=cur;
+}
+
+// ===== toolbar toggles =====
+(function buildToggles(){
+  var box = document.getElementById('toggles');
+  FIELDS.forEach(function(f){
+    var span = document.createElement('span'); span.className='chk';
+    var cb = document.createElement('input'); cb.type='checkbox'; cb.id='f_'+f.key; cb.checked=f.on;
+    var lb = document.createElement('label'); lb.htmlFor='f_'+f.key; lb.textContent=f.lab;
+    span.appendChild(cb); span.appendChild(lb); box.appendChild(span);
+    cb.addEventListener('change', render);
+  });
+})();
+
+// ===== CSV =====
+function parseCSV(text){
+  if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  var firstLine = text.split(/\r?\n/)[0] || '';
+  var delim = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+  var rows=[], cur=[], field='', inQ=false;
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    if(inQ){ if(ch==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false; } else field+=ch; }
+    else { if(ch==='"') inQ=true; else if(ch===delim){ cur.push(field); field=''; }
+           else if(ch==='\n'){ cur.push(field); rows.push(cur); cur=[]; field=''; }
+           else if(ch==='\r'){} else field+=ch; }
+  }
+  if(field.length || cur.length){ cur.push(field); rows.push(cur); }
+  return rowsToObjects(rows);
+}
+function rowsToObjects(rows){
+  if(!rows.length) return [];
+  var head = rows[0].map(function(h){ return (h||'').trim(); });
+  var out=[];
+  for(var r=1;r<rows.length;r++){
+    if(rows[r].length===1 && (rows[r][0]||'').trim()==='') continue;
+    var obj={}; for(var c=0;c<head.length;c++){ obj[head[c]]=(rows[r][c]||'').trim(); }
+    out.push(obj);
+  }
+  return out;
+}
+function get(row, names){
+  if(typeof names==='string') names=[names];
+  var keys=Object.keys(row);
+  for(var n=0;n<names.length;n++){
+    var want=names[n].toLowerCase();
+    for(var k=0;k<keys.length;k++){ if(keys[k].toLowerCase()===want) return row[keys[k]]; }
+    for(var k2=0;k2<keys.length;k2++){ if(keys[k2].toLowerCase().indexOf(want)!==-1) return row[keys[k2]]; }
+  }
+  return '';
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+// ===== PDF -> tabella (solo se il PDF ha testo vero) =====
+async function extractTableFromPdf(pdf){
+  var allRows = [];
+  for(var p=1; p<=pdf.numPages; p++){
+    var page = await pdf.getPage(p);
+    var tc = await page.getTextContent();
+    // raggruppa gli item in righe per coordinata Y
+    var items = tc.items.filter(function(it){ return (it.str||'').trim()!==''; })
+      .map(function(it){ return { x: it.transform[4], y: Math.round(it.transform[5]), s: it.str.trim() }; });
+    if(!items.length) continue;
+    // ordina per Y decrescente (origine PDF in basso), poi X
+    var byY = {};
+    items.forEach(function(it){
+      var found=null;
+      for(var yk in byY){ if(Math.abs(yk - it.y) <= 3){ found=yk; break; } }
+      var key = found!==null ? found : it.y;
+      (byY[key] = byY[key] || []).push(it);
+    });
+    var lines = Object.keys(byY).map(Number).sort(function(a,b){ return b-a; })
+      .map(function(yk){ return byY[yk].sort(function(a,b){ return a.x-b.x; }); });
+    // raccogli i confini colonna (x di partenza) su tutta la pagina
+    var xs = [];
+    lines.forEach(function(ln){ ln.forEach(function(it){ xs.push(it.x); }); });
+    var cols = clusterX(xs, 18);
+    // costruisci la tabella
+    lines.forEach(function(ln){
+      var cells = new Array(cols.length).fill('');
+      ln.forEach(function(it){
+        var ci = nearestCol(cols, it.x);
+        cells[ci] = (cells[ci] ? cells[ci]+' ' : '') + it.s;
+      });
+      allRows.push(cells.map(function(c){ return c.trim(); }));
+    });
+  }
+  // togli righe totalmente vuote
+  allRows = allRows.filter(function(r){ return r.join('').trim()!==''; });
+  return rowsToObjects(allRows);
+}
+function clusterX(xs, tol){
+  var sorted = xs.slice().sort(function(a,b){ return a-b; });
+  var clusters = [];
+  sorted.forEach(function(x){
+    var last = clusters[clusters.length-1];
+    if(last && Math.abs(x - last.c) <= tol){ last.vals.push(x); last.c = avg(last.vals); }
+    else clusters.push({ c:x, vals:[x] });
+  });
+  return clusters.map(function(c){ return c.c; });
+}
+function avg(a){ var s=0; for(var i=0;i<a.length;i++) s+=a[i]; return s/a.length; }
+function nearestCol(cols, x){
+  var best=0, bd=1e9;
+  for(var i=0;i<cols.length;i++){ var d=Math.abs(cols[i]-x); if(d<bd){ bd=d; best=i; } }
+  return best;
+}
+
+// ===== etichetta =====
+function cleanVal(v){
+  v = (v==null ? '' : String(v)).trim();
+  // l'export mette '.' o '-' nei campi vuoti: trattali come vuoti
+  if(/^[.\-–—\s]*$/.test(v)) return '';
+  return v;
+}
+function fieldValue(f, row){
+  if(!f.cols) return '';
+  return cleanVal(get(row, f.cols));
+}
+function buildLabel(row, hmm, largMm){
+  var et=document.createElement('div'); et.className='et'; et.style.height=hmm+'mm';
+  // valore per QR/barcode: usa la colonna 'barcode' se presente, altrimenti 'codice'
+  var codice = cleanVal(get(row, ['barcode','codice','CODICE']));
+
+  function place(el, key){
+    el.classList.add('el'); el.dataset.key=key;
+    el.style.left=LAYOUT[key].x+'%'; el.style.top=LAYOUT[key].y+'%';
+    // scala per QR / barcode / logo / taglia
+    var s = LAYOUT[key] && LAYOUT[key].s;
+    if(s && s!==1){ el.style.transform='scale('+s+')'; el.style.transformOrigin='top left'; }
+    et.appendChild(el);
+  }
+
+  FIELDS.forEach(function(f){
+    var cb = document.getElementById('f_'+f.key);
+    if(!cb || !cb.checked) return;
+
+    if(f.kind==='qr'){
+      if(!codice) return;
+      var qd=document.createElement('div'); qd.className='qrbox';
+      try{ var qr=qrcode(0,'M'); qr.addData(codice); qr.make();
+        var qrSize=Math.max(10, Math.min(hmm-10,22));
+        qd.innerHTML=qr.createSvgTag({cellSize:2,margin:0,scalable:true});
+        var qsvg=qd.querySelector('svg'); if(qsvg){ qsvg.style.width=qrSize+'mm'; qsvg.style.height=qrSize+'mm'; }
+      }catch(e){}
+      place(qd,'qr');
+    }
+    else if(f.kind==='bc'){
+      if(!codice) return;
+      var bd=document.createElement('div'); bd.className='bcbox';
+      var bsvg=document.createElementNS('http://www.w3.org/2000/svg','svg'); bd.appendChild(bsvg);
+      try{ JsBarcode(bsvg,String(codice),{format:'CODE128',displayValue:false,height:34,margin:0,width:1.4});
+        bsvg.style.width=Math.min(largMm*0.5,34)+'mm'; bsvg.style.height='8mm';
+      }catch(e){}
+      place(bd,'bc');
+    }
+    else if(f.kind==='taglia'){
+      var v=fieldValue(f,row); if(!v) return;
+      var tg=document.createElement('div'); tg.className='taglia';
+      tg.innerHTML='<div class="lbl">Taglia</div><div class="val">'+esc(v)+'</div>';
+      place(tg,'taglia');
+    }
+    else if(f.kind==='logo'){
+      if(!LOGO) return;
+      var lg=document.createElement('div'); lg.className='logo';
+      var img=document.createElement('img'); img.src=LOGO;
+      img.style.maxHeight=Math.min(hmm/2,16)+'mm'; img.style.maxWidth='20mm';
+      lg.appendChild(img); place(lg,'logo');
+    }
+    else { // text
+      var val=fieldValue(f,row); if(!val) return;
+      var d=document.createElement('div'); d.className='txt'+(f.strong?' strong':'');
+      var wPct = (LAYOUT[f.key] && LAYOUT[f.key].w) || 55;
+      d.style.width = wPct+'%';   // il testo va a capo dentro questa larghezza (niente taglio)
+      if(LAYOUT[f.key] && LAYOUT[f.key].fs) d.style.fontSize = LAYOUT[f.key].fs+'pt';
+      d.innerHTML = (f.prefix ? '<span class="k">'+esc(f.prefix)+': </span>' : '') + esc(val);
+      place(d,f.key);
+    }
+  });
+
+  // testi liberi
+  FREETEXTS.forEach(function(ft){
+    var key='ft_'+ft.id;
+    if(!LAYOUT[key]) LAYOUT[key]={x:35,y:50,w:40};
+    var d=document.createElement('div'); d.className='txt strong';
+    d.style.width=((LAYOUT[key] && LAYOUT[key].w)||40)+'%';
+    if(LAYOUT[key].fs) d.style.fontSize=LAYOUT[key].fs+'pt';
+    d.innerHTML=esc(ft.text).replace(/\n/g,'<br>');
+    place(d,key);
+  });
+
+  return et;
+}
+
+// ===== render =====
+function render(){
+  setTimeout(updateFsCtl,0);
+  var out=document.getElementById('out'); out.innerHTML='';
+  var copie=parseInt(document.getElementById('copie').value,10)||1;
+
+  if(MODE==='pdfimg'){
+    if(!PDFIMG.length){ document.getElementById('count').textContent=''; return; }
+    var imgs=[]; for(var i=0;i<PDFIMG.length;i++){ for(var c=0;c<copie;c++) imgs.push(PDFIMG[i]); }
+    if(document.getElementById('formato').value==='rotolo') renderImagesRotolo(out, imgs);
+    else renderImagesA4(out, imgs);
+    return;
+  }
+
+  if(!ROWS.length){ document.getElementById('count').textContent=''; return; }
+
+  // 1) solo le righe spuntate "da stampare" (default: tutte)
+  var base = ROWS.filter(function(row){ return row.__print !== false; });
+  // 2) filtro testo: mostra solo le righe che contengono uno dei termini (codici, nome, ecc.)
+  var fq = (document.getElementById('filtro').value||'').trim().toLowerCase();
+  if(fq){
+    var terms = fq.split(/[\s,;\n]+/).filter(function(t){ return t.length; });
+    base = base.filter(function(row){
+      var blob = Object.keys(row).map(function(k){ return row[k]; }).join(' ').toLowerCase();
+      return terms.some(function(t){ return blob.indexOf(t)!==-1; });
+    });
+  }
+
+  var items=[]; for(var j=0;j<base.length;j++){ for(var c2=0;c2<copie;c2++) items.push(base[j]); }
+  if(document.getElementById('formato').value==='rotolo') renderRotolo(out, items);
+  else renderA4(out, items);
+}
+
+// ---- ristampa PDF come immagini (con logo sovrapponibile) ----
+function imgLabel(src, hmm, largMm){
+  var et=document.createElement('div'); et.className='et'; et.style.height=hmm+'mm';
+  // sfondo = pagina PDF, centrata
+  var bgwrap=document.createElement('div');
+  bgwrap.style.position='absolute'; bgwrap.style.inset='0';
+  bgwrap.style.display='flex'; bgwrap.style.alignItems='center'; bgwrap.style.justifyContent='center';
+  var img=document.createElement('img'); img.src=src;
+  img.style.maxWidth='100%'; img.style.maxHeight='100%'; img.style.objectFit='contain';
+  bgwrap.appendChild(img); et.appendChild(bgwrap);
+  // logo sovrapposto (spostabile)
+  var lcb=document.getElementById('f_logo');
+  if(LOGO && lcb && lcb.checked){
+    var lg=document.createElement('div'); lg.className='el logo'; lg.dataset.key='logo';
+    lg.style.left=LAYOUT.logo.x+'%'; lg.style.top=LAYOUT.logo.y+'%';
+    var limg=document.createElement('img'); limg.src=LOGO;
+    limg.style.maxHeight=Math.min(hmm/2,16)+'mm'; limg.style.maxWidth='22mm';
+    lg.appendChild(limg); et.appendChild(lg);
+  }
+  return et;
+}
+function renderImagesA4(out, imgs){
+  var perRiga=parseInt(document.getElementById('perRiga').value,10)||3;
+  var hmm=parseInt(document.getElementById('hmm').value,10)||40;
+  document.getElementById('pageStyle').textContent='@page { size:A4; margin:0; }';
+  var largMm=((210-12)/perRiga)-3;
+  var perColonna=Math.max(1,Math.floor((297-16)/(hmm+3)));
+  var perFoglio=perRiga*perColonna, foglio=null;
+  for(var idx=0;idx<imgs.length;idx++){
+    if(idx%perFoglio===0){ foglio=document.createElement('div'); foglio.className='foglio';
+      foglio.style.gridTemplateColumns='repeat('+perRiga+', '+largMm+'mm)'; out.appendChild(foglio); }
+    var et=imgLabel(imgs[idx],hmm,largMm);
+    if(EDIT && idx===0){ et.classList.add('editable'); makeDraggable(et); }
+    foglio.appendChild(et);
+  }
+  document.getElementById('count').textContent='ristampa PDF · '+imgs.length+' etichette · '+out.childNodes.length+' foglio/i';
+}
+function renderImagesRotolo(out, imgs){
+  var W=parseInt(document.getElementById('rollW').value,10)||60;
+  var H=parseInt(document.getElementById('rollH').value,10)||40;
+  var gap=parseInt(document.getElementById('rollGap').value,10); if(isNaN(gap)) gap=0;
+  document.getElementById('pageStyle').textContent='@page { size:'+W+'mm '+(H+gap)+'mm; margin:0; }';
+  for(var idx=0;idx<imgs.length;idx++){
+    var wrap=document.createElement('div'); wrap.className='rotolo';
+    wrap.style.width=W+'mm'; wrap.style.height=H+'mm';
+    var et=imgLabel(imgs[idx],H,W);
+    if(EDIT && idx===0){ et.classList.add('editable'); makeDraggable(et); }
+    wrap.appendChild(et); out.appendChild(wrap);
+  }
+  document.getElementById('count').textContent='ristampa PDF · '+imgs.length+' etichette · rotolo '+W+'×'+H+' mm';
+}
+function renderA4(out, items){
+  var perRiga=parseInt(document.getElementById('perRiga').value,10)||3;
+  var hmm=parseInt(document.getElementById('hmm').value,10)||40;
+  document.getElementById('pageStyle').textContent='@page { size:A4; margin:0; }';
+  var largMm=((210-12)/perRiga)-3;
+  var perColonna=Math.max(1,Math.floor((297-16)/(hmm+3)));
+  var perFoglio=perRiga*perColonna, foglio=null;
+  for(var idx=0;idx<items.length;idx++){
+    if(idx%perFoglio===0){ foglio=document.createElement('div'); foglio.className='foglio';
+      foglio.style.gridTemplateColumns='repeat('+perRiga+', '+largMm+'mm)'; out.appendChild(foglio); }
+    var et=buildLabel(items[idx],hmm,largMm);
+    if(EDIT && idx===0){ et.classList.add('editable'); makeDraggable(et); }
+    foglio.appendChild(et);
+  }
+  document.getElementById('count').textContent=items.length+' etichette · '+out.childNodes.length+' foglio/i';
+}
+function renderRotolo(out, items){
+  var W=parseInt(document.getElementById('rollW').value,10)||60;
+  var H=parseInt(document.getElementById('rollH').value,10)||40;
+  var gap=parseInt(document.getElementById('rollGap').value,10); if(isNaN(gap)) gap=0;
+  document.getElementById('pageStyle').textContent='@page { size:'+W+'mm '+(H+gap)+'mm; margin:0; }';
+  for(var idx=0;idx<items.length;idx++){
+    var wrap=document.createElement('div'); wrap.className='rotolo';
+    wrap.style.width=W+'mm'; wrap.style.height=H+'mm';
+    var et=buildLabel(items[idx],H,W);
+    if(EDIT && idx===0){ et.classList.add('editable'); makeDraggable(et); }
+    wrap.appendChild(et); out.appendChild(wrap);
+  }
+  document.getElementById('count').textContent=items.length+' etichette · rotolo '+W+'×'+H+' mm';
+}
+function updateFormatoUI(){
+  var roll=document.getElementById('formato').value==='rotolo';
+  document.querySelectorAll('.a4only').forEach(function(e){ e.style.display=roll?'none':''; });
+  document.querySelectorAll('.rollonly').forEach(function(e){ e.style.display=roll?'':'none'; });
+}
+
+// ===== drag =====
+function makeDraggable(et){
+  et.querySelectorAll('.el').forEach(function(el){
+    var key=el.dataset.key;
+    // --- testo libero: pulsante elimina (✕) + doppio click per correggere ---
+    if(key.indexOf('ft_')===0){
+      var del=document.createElement('div'); del.className='ftdel'; del.textContent='✕'; del.title='Elimina testo';
+      del.addEventListener('mousedown', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+      del.addEventListener('click', function(ev){
+        ev.preventDefault(); ev.stopPropagation();
+        FREETEXTS=FREETEXTS.filter(function(f){ return 'ft_'+f.id!==key; });
+        delete LAYOUT[key]; saveFT(); saveLayout(); render();
+      });
+      el.appendChild(del);
+      el.addEventListener('dblclick', function(ev){
+        ev.preventDefault();
+        var ft=ftById(key); if(!ft) return;
+        var nt=prompt('Correggi il testo (lascia vuoto per eliminarlo):', ft.text);
+        if(nt===null) return;
+        if(nt===''){ FREETEXTS=FREETEXTS.filter(function(f){ return 'ft_'+f.id!==key; }); delete LAYOUT[key]; }
+        else { ft.text=nt; }
+        saveFT(); saveLayout(); render();
+      });
+    } else {
+      // campo dati: ✕ o doppio click lo nascondono (si riattiva dalla casella in alto)
+      var fcb=document.getElementById('f_'+key);
+      var hideField=function(){
+        if(!fcb) return;
+        if(!confirm('Togliere il campo "'+fcb.nextSibling.textContent+'" dalle etichette?\n(Puoi rimetterlo spuntando la sua casella in alto.)')) return;
+        fcb.checked=false; render();
+      };
+      var del2=document.createElement('div'); del2.className='ftdel'; del2.textContent='✕'; del2.title='Togli questo campo';
+      del2.addEventListener('mousedown', function(ev){ ev.preventDefault(); ev.stopPropagation(); });
+      del2.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); hideField(); });
+      el.appendChild(del2);
+      el.addEventListener('dblclick', function(ev){ ev.preventDefault(); hideField(); });
+    }
+    // --- SPOSTAMENTO ---
+    el.addEventListener('mousedown', function(ev){
+      if(ev.target.classList && ev.target.classList.contains('rzh')) return; // la maniglia gestisce il resize
+      ev.preventDefault();
+      var rect=et.getBoundingClientRect();
+      var sx=ev.clientX, sy=ev.clientY, sl=LAYOUT[key].x, st=LAYOUT[key].y;
+      el.classList.add('dragging');
+      function move(e){
+        var dx=((e.clientX-sx)/rect.width)*100, dy=((e.clientY-sy)/rect.height)*100;
+        LAYOUT[key].x=Math.round(Math.max(-2,Math.min(98,sl+dx))*10)/10;
+        LAYOUT[key].y=Math.round(Math.max(-2,Math.min(98,st+dy))*10)/10;
+        el.style.left=LAYOUT[key].x+'%'; el.style.top=LAYOUT[key].y+'%';
+      }
+      function up(){ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up);
+        el.classList.remove('dragging'); saveLayout(); applyLayoutToAll(); }
+      document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+    });
+    // --- MANIGLIA DI RIDIMENSIONAMENTO ---
+    var h=document.createElement('div'); h.className='rzh'; el.appendChild(h);
+    var isText = el.classList.contains('txt');
+    // --- DIMENSIONE CARATTERE (solo testi) ---
+    if(isText){
+      if(key===SELKEY) el.classList.add('fsactive');
+      el.addEventListener('mousedown', function(){ selectText(key); });
+    }
+    h.addEventListener('mousedown', function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      var rect=et.getBoundingClientRect();
+      var sx=ev.clientX;
+      var startW = (LAYOUT[key].w || (isText?55:0));
+      var startS = (LAYOUT[key].s || 1);
+      function move(e){
+        var dxPx = e.clientX - sx;
+        if(isText){
+          var dxPct = (dxPx/rect.width)*100;
+          var w = Math.max(10, Math.min(98, startW + dxPct));
+          LAYOUT[key].w = Math.round(w*10)/10;
+          el.style.width = LAYOUT[key].w + '%';
+        } else {
+          var s = Math.max(0.3, Math.min(5, startS + dxPx/90));
+          LAYOUT[key].s = Math.round(s*100)/100;
+          el.style.transform='scale('+LAYOUT[key].s+')'; el.style.transformOrigin='top left';
+        }
+      }
+      function up(){ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up);
+        saveLayout(); render(); }
+      document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+    });
+  });
+}
+// ===== dimensione carattere del testo selezionato =====
+var SELKEY = null;
+function keyLabel(key){
+  if(key.indexOf('ft_')===0){ var ft=ftById(key); return ft ? '"'+ft.text.slice(0,20)+'"' : 'testo'; }
+  for(var i=0;i<FIELDS.length;i++){ if(FIELDS[i].key===key) return FIELDS[i].lab; }
+  return key;
+}
+function selectText(key){
+  SELKEY=key;
+  document.querySelectorAll('#out .et.editable .el').forEach(function(o){ o.classList.toggle('fsactive', o.dataset.key===key); });
+  updateFsCtl();
+}
+function updateFsCtl(){
+  var ok = SELKEY && LAYOUT[SELKEY] && document.querySelector('#out .et.editable .el[data-key="'+SELKEY+'"]');
+  document.getElementById('fsName').textContent = ok ? keyLabel(SELKEY) : '— clicca un testo —';
+  document.getElementById('fsVal').textContent = ok ? (LAYOUT[SELKEY].fs || DEFAULT_FS)+'pt' : '–';
+  document.getElementById('fsMinus').disabled = !ok;
+  document.getElementById('fsPlus').disabled = !ok;
+}
+function stepFs(d){
+  if(!SELKEY || !LAYOUT[SELKEY]) return;
+  var cur = LAYOUT[SELKEY].fs || DEFAULT_FS;
+  LAYOUT[SELKEY].fs = Math.round(Math.max(4, Math.min(40, cur+d))*2)/2;
+  saveLayout(); applyLayoutToAll(); updateFsCtl();
+}
+function applyLayoutToAll(){
+  document.querySelectorAll('#out .et').forEach(function(et){
+    et.querySelectorAll('.el').forEach(function(el){
+      var k=el.dataset.key; if(!LAYOUT[k]) return;
+      el.style.left=LAYOUT[k].x+'%'; el.style.top=LAYOUT[k].y+'%';
+      if(el.classList.contains('txt') && LAYOUT[k].w) el.style.width=LAYOUT[k].w+'%';
+      if(el.classList.contains('txt') && LAYOUT[k].fs) el.style.fontSize=LAYOUT[k].fs+'pt';
+      if(LAYOUT[k].s && LAYOUT[k].s!==1){ el.style.transform='scale('+LAYOUT[k].s+')'; el.style.transformOrigin='top left'; }
+    });
+  });
+}
+
+// ===== pannello Modifica dati =====
+var GRID_COLS = [
+  {key:'codice', lab:'Codice'},
+  {key:'nome', lab:'Nome', col:'fullname'},
+  {key:'azienda', lab:'Azienda', col:'azienda'},
+  {key:'reparto', lab:'Reparto', col:'reparto'},
+  {key:'taglia', lab:'Taglia', col:'taglia'},
+  {key:'tipo', lab:'Tipo', col:'tipo'},
+  {key:'data', lab:'Data', col:'created_at'},
+  {key:'armadio', lab:'Armadio', col:'armadio'},
+  {key:'posizione', lab:'Posizione', col:'posizione'},
+  {key:'matricola', lab:'Matricola', col:'matricola'},
+  {key:'iniziali', lab:'Iniziali', col:'iniziali'},
+  {key:'lotto', lab:'Lotto', col:'lotto'},
+  {key:'note', lab:'Note', col:'note'}
+];
+var GRID_READ = {
+  codice:['barcode','codice','CODICE'], nome:['fullname','NOME E COGNOME','nome'],
+  azienda:['azienda','AZIENDA'], reparto:['reparto','REPARTO'], taglia:['taglia','TAGLIA'],
+  tipo:['tipo','TIPO'], data:['created_at','DATA'], armadio:['armadio','ARMADIO'],
+  posizione:['posizione','POSIZIONE'], matricola:['matricola','MATRICOLA'],
+  iniziali:['iniziali','INIZIALI'], lotto:['lotto','LOTTO'], note:['note','NOTE']
+};
+var GRID_WRITE = { codice:'codice', nome:'fullname', azienda:'azienda', reparto:'reparto',
+  taglia:'taglia', tipo:'tipo', data:'created_at', armadio:'armadio', posizione:'posizione',
+  matricola:'matricola', iniziali:'iniziali', lotto:'lotto', note:'note' };
+
+function buildGrid(){
+  var wrap=document.getElementById('gridWrap');
+  if(MODE!=='data' || !ROWS.length){ wrap.innerHTML='<div style="color:#94a3b8;font-size:13px">Carica un CSV o un PDF per modificare i dati.</div>'; return; }
+  var allOn = ROWS.every(function(r){ return r.__print!==false; });
+  var html='<table style="border-collapse:collapse;font-size:12px;width:100%"><thead><tr>';
+  html+='<th style="padding:4px 6px;border:1px solid #e2e8f0;background:#ecfdf5;text-align:center"><label style="font-size:11px;color:#047857;display:block">Stampa</label><input type="checkbox" id="gridAll" '+(allOn?'checked':'')+'></th>';
+  html+='<th style="position:sticky;left:0;background:#f1f5f9;padding:4px 6px;border:1px solid #e2e8f0">#</th>';
+  GRID_COLS.forEach(function(c){ html+='<th style="padding:4px 6px;border:1px solid #e2e8f0;background:#f1f5f9;text-align:left">'+c.lab+'</th>'; });
+  html+='</tr></thead><tbody>';
+  ROWS.forEach(function(row, ri){
+    var chk = row.__print!==false ? 'checked' : '';
+    html+='<tr>';
+    html+='<td style="text-align:center;border:1px solid #e2e8f0;background:#f0fdf4"><input type="checkbox" class="prchk" data-ri="'+ri+'" '+chk+'></td>';
+    html+='<td style="position:sticky;left:0;background:#f8fafc;padding:3px 6px;border:1px solid #e2e8f0;color:#64748b">'+(ri+1)+'</td>';
+    GRID_COLS.forEach(function(c){
+      var v = cleanVal(get(row, GRID_READ[c.key]));
+      html+='<td style="padding:0;border:1px solid #e2e8f0"><input data-ri="'+ri+'" data-ck="'+c.key+'" value="'+esc(v).replace(/"/g,'&quot;')+'" style="border:none;padding:3px 6px;width:120px;font-size:12px;background:transparent"></td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+  // modifica valori
+  wrap.querySelectorAll('input[data-ck]').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      var ri=+this.dataset.ri, ck=this.dataset.ck;
+      ROWS[ri][GRID_WRITE[ck]] = this.value;
+      render();
+    });
+  });
+  // spunta "da stampare" per riga
+  wrap.querySelectorAll('.prchk').forEach(function(cb){
+    cb.addEventListener('change', function(){
+      ROWS[+this.dataset.ri].__print = this.checked;
+      render();
+      var all=ROWS.every(function(r){ return r.__print!==false; });
+      var ga=document.getElementById('gridAll'); if(ga) ga.checked=all;
+    });
+  });
+  // seleziona / deseleziona tutto
+  var ga=document.getElementById('gridAll');
+  if(ga) ga.addEventListener('change', function(){
+    var on=this.checked;
+    ROWS.forEach(function(r){ r.__print = on; });
+    wrap.querySelectorAll('.prchk').forEach(function(cb){ cb.checked=on; });
+    render();
+  });
+}
+
+// ===== file input =====
+function isPDF(f){ return /\.pdf$/i.test(f.name) || f.type==='application/pdf'; }
+function handleFile(f){
+  if(!f) return;
+  if(isPDF(f)){
+    if(!window.pdfjsLib){ alert('Libreria PDF non caricata. Riprova online.'); return; }
+    document.getElementById('busy').style.display='block';
+    document.getElementById('drop').style.display='none';
+    var reader=new FileReader();
+    reader.onload=function(e){ handlePDF(e.target.result); };
+    reader.readAsArrayBuffer(f);
+  } else {
+    MODE='data'; PDFIMG=[];
+    var reader=new FileReader();
+    reader.onload=function(e){
+      ROWS=parseCSV(e.target.result);
+      CSVROWS=ROWS.slice();   // salva il master per l'aggancio OCR dei PDF
+      document.getElementById('drop').style.display=ROWS.length?'none':'block';
+      render();
+      if(!ROWS.length) alert('Nessuna riga trovata nel CSV.');
+    };
+    reader.readAsText(f,'UTF-8');
+  }
+}
+
+async function handlePDF(arrbuf){
+  var busy=document.getElementById('busy'), dropEl=document.getElementById('drop');
+  try{
+    var pdf=await pdfjsLib.getDocument({data:arrbuf}).promise;
+    // 1) prova a leggere testo tabellare (raro)
+    var rows=await extractTableFromPdf(pdf);
+    var hasText = rows.length>0 && Object.keys(rows[0]||{}).some(function(k){ return k && k.trim()!==''; });
+    if(hasText){
+      MODE='data'; PDFIMG=[]; ROWS=rows;
+      busy.style.display='none'; dropEl.style.display='none'; render();
+      return;
+    }
+    // 2) SOLUZIONE B: se c'è il CSV caricato, leggi il PDF con OCR e aggancia i codici al CSV
+    if(CSVROWS.length && window.Tesseract){
+      await pdfOcrMatch(pdf);
+      return;
+    }
+    // 3) nessun CSV ma OCR disponibile -> estrai i campi dal PDF (da verificare)
+    if(window.Tesseract){
+      await pdfOcrParse(pdf);
+      return;
+    }
+    // 4) ultima spiaggia -> ristampa immagini
+    var res=await pdfPagesToImages(pdf);
+    MODE='pdfimg'; PDFIMG=res.imgs; ROWS=[];
+    if(res.wpt && res.hpt){
+      document.getElementById('rollW').value=Math.round(res.wpt/2.834);
+      document.getElementById('rollH').value=Math.round(res.hpt/2.834);
+    }
+    busy.style.display='none'; dropEl.style.display='none';
+    render();
+  }catch(err){
+    busy.style.display='none'; dropEl.style.display='block';
+    alert('Errore nella lettura del PDF: '+(err&&err.message)+'\nProva con il CSV.');
+  }
+}
+
+// ---- SOLUZIONE B: OCR del PDF + aggancio ai codici del CSV ----
+function normCode(s){ return (s==null?'':String(s)).toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function levenshtein(a,b){
+  if(a===b) return 0;
+  var m=a.length, n=b.length; if(!m) return n; if(!n) return m;
+  var prev=new Array(n+1), cur=new Array(n+1), i, j;
+  for(j=0;j<=n;j++) prev[j]=j;
+  for(i=1;i<=m;i++){
+    cur[0]=i;
+    for(j=1;j<=n;j++){
+      var cost = a.charAt(i-1)===b.charAt(j-1)?0:1;
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost);
+    }
+    var t=prev; prev=cur; cur=t;
+  }
+  return prev[n];
+}
+function buildCodeIndex(rows){
+  var map={}, list=[];
+  rows.forEach(function(r){
+    var code = cleanVal(get(r,['codice','CODICE','barcode']));
+    var nc = normCode(code);
+    if(nc){ map[nc]=r; list.push({nc:nc, row:r}); }
+  });
+  return {map:map, list:list};
+}
+function matchCode(tokens, idx){
+  var toks = tokens.map(normCode).filter(function(t){ return t.length>=4; });
+  // 1) match esatto
+  for(var i=0;i<toks.length;i++){ if(idx.map[toks[i]]) return {row:idx.map[toks[i]], token:toks[i], dist:0}; }
+  // 2) substring (il token contiene un codice o viceversa, lunghezza >=5)
+  for(var s=0;s<toks.length;s++){
+    for(var k=0;k<idx.list.length;k++){
+      var c=idx.list[k].nc;
+      if(c.length>=5 && (toks[s].indexOf(c)!==-1 || c.indexOf(toks[s])!==-1 && toks[s].length>=5))
+        return {row:idx.list[k].row, token:toks[s], dist:1};
+    }
+  }
+  // 3) distanza minima (<=2) e univoca
+  var best=null, best2=99;
+  for(var t=0;t<toks.length;t++){
+    for(var m=0;m<idx.list.length;m++){
+      var d=levenshtein(toks[t], idx.list[m].nc);
+      if(d<best2){ best2=d; best={row:idx.list[m].row, token:toks[t], dist:d}; }
+    }
+  }
+  if(best && best.dist<=2) return best;
+  return null;
+}
+// ---- SENZA CSV: OCR puro -> estrai i campi dal template (da verificare) ----
+function looksLikeCode(t){
+  var s=normCode(t);
+  return s.length>=5 && /[0-9]/.test(s) && /[A-Z]/.test(s);
+}
+function parseLabelText(text){
+  var lines = text.split(/[\n\r]+/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length; });
+  var tokens = text.split(/[\s\n\r]+/).map(function(t){ return t.trim(); }).filter(function(t){ return t.length; });
+  var row = {};
+  // CODICE: il token "codice-simile" più lungo
+  var codeCand = tokens.filter(looksLikeCode).sort(function(a,b){ return b.length-a.length; });
+  var codeTok = codeCand.length ? codeCand[0] : '';
+  if(codeTok) row.codice = codeTok.replace(/[^A-Za-z0-9]/g,'');
+  // TAGLIA: dopo "TG" o "TG." (anche se attaccato, es. "TGL")
+  var mt = text.match(/\bTG\.?\s*([A-Za-z0-9]{1,4})\b/i);
+  if(mt) row.taglia = mt[1].toUpperCase();
+  // DATA
+  var md = text.match(/\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})\b/);
+  if(md) row.created_at = md[1];
+  // REPARTO: testo sulla riga della taglia, prima di "TG"
+  for(var i=0;i<lines.length;i++){
+    var mr = lines[i].match(/^(.*?)\s*\bTG\.?\s*[A-Za-z0-9]{1,4}\b/i);
+    if(mr && mr[1].trim()){ row.reparto = mr[1].trim(); break; }
+  }
+  // TIPO / AZIENDA: la prima riga con lettere che NON è il codice e NON è la riga taglia/data
+  for(var j=0;j<lines.length;j++){
+    var ln=lines[j].trim();
+    if(codeTok && normCode(ln)===normCode(codeTok)) continue;        // riga del codice
+    if(/\bTG\b/i.test(ln) && /\d/.test(ln)) continue;                // riga taglia/data
+    if(!/[A-Za-zÀ-ÿ]{2,}/.test(ln)) continue;                        // deve contenere lettere
+    if(ln.indexOf('-')!==-1){
+      var p=ln.split('-'); row.tipo=p[0].trim(); row.azienda=p.slice(1).join('-').trim();
+    } else {
+      row.azienda = ln;
+    }
+    break;
+  }
+  return row;
+}
+async function pdfOcrParse(pdf){
+  var busy=document.getElementById('busy'), dropEl=document.getElementById('drop');
+  busy.style.display='block';
+  busy.innerHTML='⏳ Lettura PDF con OCR… (il primo avvio scarica il motore OCR)';
+  var res=await pdfPagesToImages(pdf, 5);
+  var out=[];
+  var worker=await Tesseract.createWorker('eng');
+  for(var i=0;i<res.imgs.length;i++){
+    busy.innerHTML='⏳ OCR etichetta '+(i+1)+' di '+res.imgs.length+'…';
+    var r=await worker.recognize(res.imgs[i]);
+    var row=parseLabelText((r&&r.data&&r.data.text)||'');
+    if(Object.keys(row).length) out.push(row);
+  }
+  await worker.terminate();
+  busy.style.display='none'; dropEl.style.display='none';
+  if(!out.length){
+    MODE='pdfimg'; PDFIMG=res.imgs; ROWS=[]; render();
+    alert('OCR: non sono riuscito a estrarre dati dal PDF. Mostro la ristampa.');
+    return;
+  }
+  MODE='data'; PDFIMG=[]; ROWS=out; render();
+  alert('OCR senza CSV: estratte '+out.length+' etichette dal PDF.\n⚠️ I codici NON sono stati verificati: controllali a vista prima di stampare, perché l OCR puo sbagliare caratteri. Per la massima precisione carica il CSV e ricarica il PDF.');
+}
+
+async function pdfOcrMatch(pdf){
+  var busy=document.getElementById('busy'), dropEl=document.getElementById('drop');
+  busy.innerHTML='⏳ Lettura PDF con OCR… (il primo avvio scarica il motore OCR, può volerci qualche secondo)';
+  var idx=buildCodeIndex(CSVROWS);
+  var res=await pdfPagesToImages(pdf, 5);
+  var matched=[], unmatched=[];
+  var worker = await Tesseract.createWorker('eng');
+  for(var i=0;i<res.imgs.length;i++){
+    busy.innerHTML='⏳ OCR etichetta '+(i+1)+' di '+res.imgs.length+'…';
+    var out = await worker.recognize(res.imgs[i]);
+    var text = (out && out.data && out.data.text) || '';
+    var tokens = text.split(/[\s\n\r]+/);
+    var mm = matchCode(tokens, idx);
+    if(mm) matched.push({row:mm.row, dist:mm.dist});
+    else unmatched.push(i+1);
+  }
+  await worker.terminate();
+  busy.style.display='none'; dropEl.style.display='none';
+
+  if(!matched.length){
+    MODE='pdfimg'; PDFIMG=res.imgs; ROWS=[];
+    render();
+    alert('OCR: non sono riuscito ad agganciare nessun codice del PDF ai codici del CSV.\nControlla che il CSV contenga gli stessi capi del PDF. Intanto mostro la ristampa.');
+    return;
+  }
+  MODE='data'; PDFIMG=[]; ROWS = matched.map(function(x){ return x.row; });
+  render();
+  var approx = matched.filter(function(x){ return x.dist>0; }).length;
+  var msg = 'Soluzione B: '+matched.length+' etichette lette dal PDF e agganciate al CSV';
+  if(approx) msg += '\n• '+approx+' codici corretti automaticamente (OCR impreciso): VERIFICALI a vista';
+  if(unmatched.length) msg += '\n• '+unmatched.length+' pagine non agganciate (pagine '+unmatched.join(', ')+'): controlla manualmente';
+  alert(msg);
+}
+
+async function pdfPagesToImages(pdf, scale){
+  scale = scale || 3;
+  var imgs=[], wpt=0, hpt=0;
+  for(var i=1;i<=pdf.numPages;i++){
+    var page=await pdf.getPage(i);
+    if(i===1){ var v1=page.getViewport({scale:1}); wpt=v1.width; hpt=v1.height; }
+    var vp=page.getViewport({scale:scale});
+    var canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
+    await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
+    imgs.push(canvas.toDataURL('image/png'));
+  }
+  return {imgs:imgs, wpt:wpt, hpt:hpt};
+}
+function handleImg(f){
+  if(!f) return;
+  var reader=new FileReader();
+  reader.onload=function(e){ LOGO=e.target.result; document.getElementById('logoName').textContent=f.name;
+    document.getElementById('f_logo').checked=true; render(); };
+  reader.readAsDataURL(f);
+}
+
+// ===== eventi =====
+var drop=document.getElementById('drop'), fileInput=document.getElementById('file'), imgInput=document.getElementById('imgInput');
+drop.addEventListener('click', function(){ fileInput.click(); });
+fileInput.addEventListener('change', function(){ handleFile(this.files[0]); });
+document.getElementById('btnImg').addEventListener('click', function(){ imgInput.click(); });
+imgInput.addEventListener('change', function(){ handleImg(this.files[0]); });
+document.getElementById('btnText').addEventListener('click', function(){
+  var t=prompt('Testo libero da aggiungere (compare su tutte le etichette):');
+  if(t===null || t==='') return;
+  var id=Date.now().toString(36)+Math.floor(Math.random()*1000);
+  FREETEXTS.push({id:id, text:t});
+  LAYOUT['ft_'+id]={x:35, y:50, w:40};
+  saveFT(); saveLayout();
+  if(!EDIT){ document.getElementById('btnEdit').click(); } // entra in modalità modifica per posizionarlo
+  else render();
+});
+
+drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('hover'); });
+drop.addEventListener('dragleave', function(){ drop.classList.remove('hover'); });
+drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('hover');
+  if(e.dataTransfer.files && e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+window.addEventListener('dragover', function(e){ e.preventDefault(); });
+window.addEventListener('drop', function(e){ e.preventDefault();
+  if(e.dataTransfer.files && e.dataTransfer.files.length && !ROWS.length) handleFile(e.dataTransfer.files[0]); });
+
+['perRiga','hmm','copie','rollW','rollH','rollGap'].forEach(function(id){
+  document.getElementById(id).addEventListener('change', render);
+});
+document.getElementById('filtro').addEventListener('input', render);
+document.getElementById('formato').addEventListener('change', function(){ updateFormatoUI(); render(); });
+document.getElementById('btnEdit').addEventListener('click', function(){
+  EDIT=!EDIT; document.body.classList.toggle('editing',EDIT); this.classList.toggle('on',EDIT);
+  this.textContent=EDIT?'✅ Fine modifica':'✏️ Sposta/ridimensiona'; render();
+});
+document.getElementById('btnSavePreset').addEventListener('click', function(){
+  var cur=document.getElementById('presetSel').value;
+  var name=prompt('Nome del layout da salvare:', cur||'');
+  if(name===null) return; name=name.trim(); if(!name) return;
+  var presets=loadPresets(); presets[name]=currentPreset();
+  if(savePresets(presets)){ refreshPresetSelect(name); alert('Layout "'+name+'" salvato.'); }
+});
+document.getElementById('presetSel').addEventListener('change', function(){
+  if(!this.value) return;
+  applyPreset(loadPresets()[this.value]);
+});
+document.getElementById('btnDelPreset').addEventListener('click', function(){
+  var name=document.getElementById('presetSel').value;
+  if(!name){ alert('Seleziona prima un layout da eliminare.'); return; }
+  if(!confirm('Eliminare il layout "'+name+'"?')) return;
+  var presets=loadPresets(); delete presets[name]; savePresets(presets);
+  refreshPresetSelect(''); document.getElementById('presetSel').value='';
+});
+// --- esporta / carica layout su file ---
+function downloadJSON(obj, filename){
+  var blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 100);
+}
+document.getElementById('btnExportLayout').addEventListener('click', function(){
+  var name=document.getElementById('presetSel').value||'layout';
+  var data={ app:'myc-etichetta', version:1, name:name, current:currentPreset(), presets:loadPresets() };
+  downloadJSON(data, 'layout-etichette-'+name.replace(/[^a-z0-9]+/gi,'_')+'.json');
+});
+document.getElementById('btnImportLayout').addEventListener('click', function(){
+  document.getElementById('layoutInput').click();
+});
+document.getElementById('layoutInput').addEventListener('change', function(){
+  var f=this.files[0]; if(!f) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=JSON.parse(e.target.result);
+      var presets=loadPresets(), added=0;
+      if(data.presets && typeof data.presets==='object'){
+        for(var k in data.presets){ presets[k]=data.presets[k]; added++; }
+        savePresets(presets);
+      }
+      refreshPresetSelect();
+      if(data.current){ applyPreset(data.current); }
+      else if(data.layout){ applyPreset(data); } // file che contiene direttamente un layout
+      alert('Layout caricati: '+added+' aggiunti all elenco'+(data.current||data.layout?' e applicato il layout del file.':'.'));
+    }catch(err){ alert('File non valido: '+err.message); }
+  };
+  reader.readAsText(f,'UTF-8');
+  this.value='';
+});
+document.getElementById('btnData').addEventListener('click', function(){
+  var g=document.getElementById('grid');
+  var show = g.style.display==='none';
+  g.style.display = show?'block':'none';
+  this.classList.toggle('on', show);
+  if(show) buildGrid();
+});
+document.getElementById('fsMinus').addEventListener('click', function(){ stepFs(-0.5); });
+document.getElementById('fsPlus').addEventListener('click', function(){ stepFs(0.5); });
+document.getElementById('btnReset').addEventListener('click', function(){
+  LAYOUT=JSON.parse(JSON.stringify(DEFAULT_LAYOUT)); saveLayout(); render();
+});
+document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+document.getElementById('btnNew').addEventListener('click', function(){
+  ROWS=[]; PDFIMG=[]; MODE='data'; fileInput.value='';
+  document.getElementById('drop').style.display='block'; render();
+});
+updateFormatoUI();
+refreshPresetSelect();
+</script>
+<script>
+try { var transferred=sessionStorage.getItem('mycro-label-transfer');if(transferred){ sessionStorage.removeItem('mycro-label-transfer');ROWS=JSON.parse(transferred);CSVROWS=ROWS.slice();MODE='data';document.getElementById('drop').style.display='none';render(); }}catch(e){console.error('Impossibile caricare i prodotti',e)}
+</script></body>
+</html>
