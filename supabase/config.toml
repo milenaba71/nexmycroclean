@@ -1,0 +1,3 @@
+# Webhook authentication is performed using a scoped key inside the handler.
+[functions.mycroclean-airtable]
+verify_jwt = false
