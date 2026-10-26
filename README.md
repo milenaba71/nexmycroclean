@@ -21,16 +21,32 @@ Integrazione CO/Airtable e ordini di produzione: fase successiva, non implementa
 
 ## Scansione e operatività dei lotti
 
-- Il lettore può terminare la scansione con Invio o Tab. È disponibile anche il riconoscimento automatico dopo 500 ms sul barcode completo conosciuto. I codici sono testo: zeri iniziali e maiuscole/minuscole vengono conservati.
+- Il lettore può terminare la scansione con Invio o Tab. È disponibile anche il riconoscimento automatico dopo 500 ms di pausa sul barcode. I codici sono testo: zeri iniziali e maiuscole/minuscole vengono conservati.
 - Le scansioni vengono salvate in coda, una per volta, con il lotto, la fase e la lavorazione scelti al momento della lettura. Gli errori restano visibili tra le scansioni da controllare. Durante gli avvisi temporizzati è possibile acquisire i prossimi codici nel campo della finestra.
-- Le tre fasi sono Entrata, Lavorazione, Uscita. La lettura in Lavorazione registra il trattamento eseguito e il suo completamento; il lavaggio aumenta una sola volta quando previsto. Le scansioni duplicate non aggiungono lavaggi. L’uscita richiede lavorazione completata e assenza di interventi aperti.
+- Le tre fasi sono Entrata, Lavorazione, Uscita. La lettura in Lavorazione registra il trattamento eseguito e il suo completamento; il lavaggio aumenta una sola volta quando previsto. Le scansioni duplicate non aggiungono lavaggi. L’uscita richiede assenza di interventi aperti; l’eventuale completamento ancora da registrare viene contabilizzato automaticamente.
 - Aggiungi prodotti riporta all’Entrata e conserva tutte le righe e le uscite precedenti. È possibile aggiungere nuovi codici al lotto anche dopo una riconsegna completa. Un nuovo ingresso dello stesso codice già presente richiede un nuovo lotto, per conservare la tracciabilità.
 - Note nel lotto, filtri per codice/utilizzatore/note, tipo, reparto, taglia, fase e segnalazione. Esportazione CSV dei risultati con note e flag.
-- I flag Sostituzione e Rilavaggio alimentano il riepilogo per tipo. Sostituzione è una segnalazione del prodotto: il flag non assegna un nuovo barcode. Rilavaggio su un prodotto già completato richiede un nuovo ciclo prima dell’uscita; la nuova lettura in Lavorazione aggiunge un lavaggio e conserva il conteggio dei cicli. Togliere il flag prima del nuovo ciclo ripristina il completamento precedente.
+- I flag Sostituzione e Rilavaggio alimentano il riepilogo per tipo. Sostituzione è una segnalazione del prodotto: il flag non assegna un nuovo barcode. Rilavaggio su un prodotto già completato richiede un nuovo ciclo; la lettura in Lavorazione, oppure direttamente in Uscita senza interventi aperti, contabilizza il lavaggio una sola volta e conserva il conteggio dei cicli. Togliere il flag prima del nuovo ciclo ripristina il completamento precedente.
 - Le etichette totali nel riepilogo includono le richieste completate; le etichette ancora da fare sono indicate separatamente. I conteggi riguardano l’intero lotto anche quando la tabella è filtrata.
 - Ogni apertura della scheda prodotto ricarica da Supabase le anagrafiche aggiornate prima di mostrare i menu. I file JavaScript hanno un identificativo di versione per evitare di usare menu precedenti rimasti in cache.
 
 Il trigger documentato in `sql/lot_workflow.sql` controlla anche sul server le uscite, il cliente dei nuovi prodotti e la conservazione delle righe precedenti.
+
+## Stato e storico dei lotti
+
+Gli stati sono rappresentati da pallini: rosso (Aperto), giallo (In lavorazione, compresa l’uscita parziale), verde (tutti i prodotti usciti). La sezione Storico contiene i lotti archiviati, mostrando inizialmente quelli ancora da finire. Il filtro consente di includere i completati. L’archiviazione conserva prodotti mancanti, note, flag e movimenti; il lotto può essere completato dallo storico o ripristinato nell’elenco attivo.
+
+## Acquisizione e tipo prodotto
+
+In Entrata anche i barcode nuovi vengono acquisiti automaticamente: la stessa operazione crea il prodotto del cliente del lotto e la riga di ingresso. Proprietà, taglia e colore non noti restano da definire. I duplicati nello stesso lotto sono bloccati dal database, anche con diverse maiuscole e dopo l’uscita. Un prodotto già presente in un altro lotto aperto non viene acquisito di nuovo.
+
+Seleziona tutto il lotto comprende anche le righe nascoste dai filtri. Assegna tipo ai selezionati aggiorna le schede prodotto, il campo TIPO per le etichette e i riepiloghi. Gli operatori possono eseguire questa operazione circoscritta sui prodotti del lotto; la creazione dei valori anagrafici resta riservata agli amministratori.
+
+In Uscita un prodotto senza riparazioni, etichettature o verifiche aperte può essere registrato direttamente, anche se manca una precedente conferma di completamento. Il trattamento e gli eventuali lavaggi ancora da conteggiare vengono contabilizzati una sola volta durante l’uscita.
+
+## Barcode progressivi e modificabili: predisposizione non attivata
+
+`product-barcodes.js` e `sql/product_barcodes.sql` preparano un barcode numerico progressivo o manuale, con identificativo interno stabile. Questi file **non sono attivati**: la migrazione è in attesa di autorizzazione dopo il blocco della revisione automatica. Il modulo non è incluso in index.html. Dopo approvazione servono applicazione della migrazione, verifica del salvataggio e attivazione del modulo, con controllo di stampe, import/export e collegamenti al lotto.
 
 ## Pubblicazione
 
