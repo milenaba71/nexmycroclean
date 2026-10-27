@@ -4,7 +4,7 @@ let prod=null,prodRevision=0,prodMembers=[],prodBusy=false,prodTab='board',prodD
 const prodKinds={decon:'Lavaggio e decontaminazione',dry:'Lavaggio a secco',water:'Lavaggio ad acqua',dryer:'Asciugatura'};
 const prodStatuses={pending:'Da eseguire',running:'In corso',paused:'In pausa / attesa',completed:'Completata',cancelled:'Annullata'};
 const prodTabs={board:'Pianificazione',mine:'Il mio lavoro',calendar:'Arrivi e consegne',loads:'Carichi operatori',operators:'Operatori e turni',stations:'Postazioni',types:'Tempi lavorazioni',machines:'Macchine',tickets:'Guasti e ticket'};
-function pAdmin(){return cloudUser?.role==='admin'}
+function pAdmin(){return userCan('production_manage')}
 function pWrite(){return ['admin','operator'].includes(cloudUser?.role)}
 function pId(){return crypto.randomUUID()}
 function pBtn(action,id,text,primary=false){return `<button type="button" class="btn ${primary?'':'secondary'}" data-prod-action="${action}" data-prod-id="${esc(id||'')}">${esc(text)}</button>`}
@@ -89,3 +89,4 @@ function pStations(){ $('#prodBody').innerHTML='<div class="tools">'+(pAdmin()?p
 function pEditStation(id){let s=prod.stations.find(s=>s.id===id)||{kind:'other',active:true};pForm('Postazione di lavoro','stations',id,pField('name','Nome postazione',s.name,'text','required maxlength="120"')+pSelect('kind','Funzione operativa',Object.entries({...PC.stations,other:'Altre lavorazioni'}),s.kind,'required '+(id?'disabled':''))+pSelect('active','Stato',[['yes','Attiva'],['no','Disattivata']],s.active!==false?'yes':'no','required')+'<p class="wide">Puoi rinominare la postazione senza cambiare operatori e lavorazioni collegate. La funzione di una postazione esistente resta invariata per conservare i controlli operativi.</p>');if(id){let h=document.createElement('input');h.type='hidden';h.name='kind';h.value=s.kind;$('#productionForm').appendChild(h)}}
 
 function pMachineProgramOptions(drying){return prod.types.filter(t=>t.active!==false&&t.mode==='machine'&&(drying?t.machineKind==='dryer':['water','decon','dry'].includes(t.machineKind))&&prod.stations.some(s=>s.id===t.station&&s.active!==false)).map(t=>[t.id,t.name+(!(Number(t.value)>0)||t.operatorMinutes==null?' · Tempi da definire':'')])}
+

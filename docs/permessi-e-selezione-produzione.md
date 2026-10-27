@@ -6,7 +6,7 @@ Aprire **Utenti e ruoli → Ruolo e permessi** accanto all'utente. Scegliere Amm
 
 Le dieci caselle distinguono lavoro nei lotti (scansioni, note, segnalazioni e riparazioni), creazione lotti, schede prodotto, anagrafiche/clienti/contratti, esecuzione attività e macchinate, pianificazione/configurazione produzione, cancellazioni, ticket, abbinamenti Airtable e PDF.
 
-L'Operatore base parte con il lavoro nei lotti e l'esecuzione delle attività assegnate. L'Operatore parte anche con creazione lotti e ticket. I poteri amministrativi richiedono il profilo Amministratore. La consultazione dei dati rimane disponibile: queste caselle limitano le operazioni, non la visibilità dei dati per cliente o reparto.
+L'Operatore base parte con il lavoro nei lotti e l'esecuzione delle attività assegnate. L'Operatore parte anche con creazione lotti e ticket. Il Super amministratore può aggiungere o togliere i nove poteri operativi anche a Operatore e Operatore base. Solo le eliminazioni di pianificazioni/lotti e le cancellazioni delle anagrafiche richiedono ancora il ruolo Amministratore. Cambiare profilo mantiene le selezioni compatibili. I pulsanti «Seleziona permessi disponibili» e «Togli tutte le selezioni» permettono di partire da una selezione completa o vuota; premere «Salva permessi» per applicare le scelte. La consultazione dei dati rimane disponibile: queste caselle limitano le operazioni, non la visibilità dei dati per cliente o reparto.
 
 Solo l'unico Super amministratore può gestire ruoli e permessi. Non è possibile rimuovere o ridurre il suo accesso da questa schermata. I permessi sono verificati nelle operazioni sul server; nascondere o disabilitare un pulsante non costituisce l'unico controllo.
 
@@ -24,3 +24,5 @@ Per la cancellazione occorrono ruolo Amministratore e potere **Eliminare pianifi
 ## Ordine installazione
 
 Applicare `production_bulk_delete.sql` prima di `user_permissions.sql`. Quest'ultima migrazione aggiunge i controlli alle definizioni correnti delle funzioni, senza ripristinare vecchie copie di `laundry_core`. Non reinstallare vecchie migrazioni di autorizzazione sopra una versione più recente senza revisione.
+
+Dopo queste migrazioni applicare `flexible_user_permissions.sql`, che abilita la delega operativa. Nessun permesso individuale viene assegnato automaticamente durante l’aggiornamento.
