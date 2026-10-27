@@ -10,10 +10,14 @@ for(const [file,hash] of Object.entries(lock)){
  assert.match(file,/^\d{14}_[a-z0-9_]+\.sql$/);
  assert.equal(createHash('sha256').update(read('supabase/migrations/'+file)).digest('hex'),hash,`Migration changed: ${file}. Never edit applied migrations.`);
 }
-for(const file of readdirSync(new URL('sql/',root)).filter(x=>x.endsWith('.sql'))){
+// Only the five superseded migration scripts are tombstones; independent new modules may coexist.
+for(const file of Object.keys(JSON.parse(read('tests/database/fixtures/legacy-sql.json')))){
  const sql=read('sql/'+file).toString();
  assert.match(sql,/LEGACY_SQL_RETIRED/);
  assert.doesNotMatch(sql,/create\s+(or\s+replace\s+)?function/i);
+}
+for(const file of readdirSync(new URL('sql/',root)).filter(x=>x.endsWith('.sql'))){
+ assert.doesNotMatch(read('sql/'+file).toString(),/create\s+(or\s+replace\s+)?function\s+laundry_private\.(laundry_core|laundry_authenticated|validate_lot_flow|guard_product_barcode|product_save_core)\s*\(/i,'Core definitions belong only in ordered migrations');
 }
 const release=read('supabase/migrations/20261027090941_consolidate_laundry_core.sql').toString();
 assert.doesNotMatch(release,/execute\s+replace\(/i,'No runtime textual patching');
