@@ -1,0 +1,33 @@
+const fs=require('fs'),assert=require('assert'),{PGlite}=require(process.env.PGLITE_PATH||'@electric-sql/pglite');
+(async()=>{const pg=new PGlite();await pg.exec(`create role anon;create role authenticated;create schema laundry_private;create schema auth;
+create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean,banned_until timestamptz);
+create table auth.sessions(id uuid,user_id uuid);
+create function auth.uid() returns uuid language sql as $$select current_setting('test.uid')::uuid$$;
+create function auth.jwt() returns jsonb language sql as $$select jsonb_build_object('session_id',current_setting('test.uid'))$$;
+create table public.laundry_members(email text primary key,name text,role text,active boolean);
+create table public.laundry_meta(id boolean,revision bigint);insert into public.laundry_meta values(true,1);
+create table public.laundry_products(id text,data jsonb);
+create table public.laundry_audit(actor_email text,actor_id text,action text,details jsonb);
+create table laundry_private.laundry_super_admin(email text);
+insert into laundry_private.laundry_super_admin values('super@test');
+insert into laundry_members values('super@test','Super','admin',true),('admin@test','Admin','admin',true),('op@test','Operator','operator',true);
+insert into auth.users select ('00000000-0000-0000-0000-00000000000'||i)::uuid,email,now(),false,null from (values(1,'super@test'),(2,'admin@test'),(3,'op@test')) x(i,email);
+insert into auth.sessions select id,id from auth.users;
+create function laundry_private.laundry_core(p_actor jsonb,p_action text,p_payload jsonb) returns jsonb language sql set search_path=public as $$select jsonb_build_object('user',jsonb_build_object('email',email,'role',role)) from laundry_members where email=p_actor->>'email'$$;
+CREATE FUNCTION laundry_private.laundry_authenticated(p_action text,p_payload jsonb) returns jsonb language plpgsql security definer set search_path='' as $$
+declare u auth.users; sid text;
+begin
+ select * into u from auth.users where id=auth.uid();
+ return laundry_private.laundry_core(jsonb_build_object('id',u.id::text,'email',lower(u.email)),p_action,p_payload);
+end $$;
+`);
+for(let [name,args] of [['production','p_action text,p_payload jsonb'],['client_calendar','p_action text,p_payload jsonb'],['product_save_authenticated','p_payload jsonb'],['airtable_lot_create','p_payload jsonb'],['airtable_map_client','p_source_id text,p_client_id text,p_previous text'],['manual_access','write_access boolean'],['planning_delete_control','p_action text,p jsonb'],['production_bulk_delete','p jsonb'],['wash_batch_control','p_action text,p jsonb']])await pg.exec(`create function laundry_private.${name}(${args}) returns jsonb language plpgsql as $$begin\nreturn '{}';end $$;`);
+await pg.exec(fs.readFileSync(require('path').join(__dirname,'../sql/user_permissions.sql'),'utf8'));
+const as=async n=>pg.exec(`select set_config('test.uid','00000000-0000-0000-0000-00000000000${n}',false)`),call=(action,p={})=>pg.query('select public.laundry_user_permissions($1,$2)',[action,JSON.stringify(p)]);
+await as(1);let users=(await call('read')).rows[0].laundry_user_permissions;assert.equal(users.find(u=>u.email==='super@test').profile,'super');let caps=users.find(u=>u.email==='op@test').permissions;
+await as(2);await assert.rejects(()=>call('read'),/SUPER_ADMIN_ONLY/);await assert.rejects(()=>pg.query("select laundry_private.laundry_authenticated('user_save','{}')"),/SUPER_ADMIN_ONLY/);
+await as(1);caps.lots_create=false;caps.tickets_manage=false;await call('save',{email:'op@test',profile:'basic',permissions:caps,revision:0});await assert.rejects(()=>call('save',{email:'op@test',profile:'basic',permissions:caps,revision:0}),/REVISION_CONFLICT/);await assert.rejects(()=>call('save',{email:'super@test',profile:'basic',permissions:caps,revision:0}),/SUPER_ADMIN_PROTECTED/);
+await as(3);let own=(await pg.query("select laundry_private.laundry_authenticated('version','{}') d")).rows[0].d;assert.equal(own.user.profile,'basic');assert.equal(own.user.permissions.lots_create,false);await assert.rejects(()=>pg.query("select laundry_private.laundry_authenticated('lot_create','{}')"),/PERMISSION_DENIED/);await pg.query("select laundry_private.laundry_authenticated('lot_acquire','{}')");await assert.rejects(()=>pg.query("select laundry_private.production('plan','{}')"),/PERMISSION_DENIED/);await pg.query("select laundry_private.production('task','{\"command\":\"start\"}')");await assert.rejects(()=>pg.query("select laundry_private.wash_batch_control('link','{}')"),/PERMISSION_DENIED/);
+await as(1);await assert.rejects(()=>call('save',{email:'op@test',profile:'operator',permissions:{...caps,planning_delete:true},revision:1}),/ROLE_PERMISSION_LIMIT/);
+assert.equal((await pg.query("select has_function_privilege('anon','public.laundry_user_permissions(text,jsonb)','execute') ok")).rows[0].ok,false);
+console.log('PASS unique Super Admin control, protected self, per-user permissions, basic profile, role ceiling, stale edits, core/production/wash enforcement, anonymous denial');await pg.close()})().catch(e=>{console.error(e);process.exit(1)});
