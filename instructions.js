@@ -1,6 +1,6 @@
 /* Shared operating manuals; PDF bytes are loaded only when opened or downloaded. */
 (function(){
-const manuals=[{title:'Produzione e pianificazione',description:'Guida passo per passo: operatori, turni e pause, postazioni, macchine, tempi, clienti e reparti, collegamento dei lotti, assegnazione del lavoro e uscita. Include esempio pratico, checklist e soluzioni ai problemi comuni.',url:'docs/guida-produzione-pianificazione.pdf',version:'1.0',date:'27/10/2026',pages:11,size:'100 KB'}];
+const manuals=[{title:'Produzione e pianificazione',description:'Guida passo per passo: operatori, turni e pause, postazioni, macchine, tempi, clienti e reparti, collegamento dei lotti, assegnazione del lavoro e uscita. Include esempio pratico, checklist e soluzioni ai problemi comuni.',url:'docs/guida-produzione-pianificazione.pdf?v=1.1',version:'1.1',date:'27/10/2026',pages:11,size:'100 KB'}];
 function drawInstructions(){
  $('#app').innerHTML=heading('Istruzioni','Guide operative da consultare e condividere con i colleghi.')+`<section class="panel"><div class="tools"><label style="flex:1">Cerca una guida<input class="search" id="manualSearch" type="search" placeholder="Cerca produzione, turni, lotti…" style="display:block;width:100%;margin-top:8px"></label></div><div id="manualResults"></div></section>`;
  const input=$('#manualSearch'),results=$('#manualResults');
