@@ -29,6 +29,19 @@ Usare solo la cronologia Supabase, in ordine di timestamp:
 | 20261027072835 | Calendario per cliente/reparto |
 | 20261027090941 | Consolidamento core, cataloghi, barcode, uscite e Super Admin esplicito |
 
+La verifica read-only del 27 ottobre ha rilevato che le sette migrazioni hanno
+identificativi diversi in Supabase. `supabase/legacy-version-map.json` registra
+la corrispondenza verificata: il SQL registrato coincide con quello del repository,
+ignorando soltanto gli spazi esterni. Il preflight accetta entrambi gli identificativi
+solo con nome e contenuto SQL corrispondenti. Non modifica la cronologia e non
+riesegue migrazioni. Non usare un `db push` indiscriminato: la CLI può interpretare
+le versioni del repository come ancora pendenti. Prima del deploy occorre una
+procedura di riconciliazione revisionata, senza inventare migrazioni applicate.
+
+La creazione del branch Supabase di prova è stata rifiutata nella conferma dello
+strumento: il collaudo reale non è stato eseguito e il rilascio operativo rimane
+sospeso. Le verifiche di codice non sostituiscono quel collaudo.
+
 Le sette migrazioni già versionate sono immutate. La nuova migrazione richiede
 che queste versioni siano registrate e che esistano le tabelle necessarie.
 Se la cronologia non è stata mantenuta, **fermarsi e confrontare lo schema reale**:
@@ -117,7 +130,8 @@ applicative delle migrazioni vengono eseguite. Nessuna connessione esterna al DB
 
 Scenari: installazione storica completa; core sovrascritto dall'acquisizione;
 Super Admin non assegnato; acquisizione senza amministrazione/barcode;
-amministrazione eseguita dopo barcode. Si verificano ordine, rifiuto delle
+amministrazione eseguita dopo barcode; cronologia con gli identificativi effettivi
+di Supabase e rifiuto di SQL alterato a parità di versione. Si verificano ordine, rifiuto delle
 funzioni sconosciute, rollback, rifiuto del replay, script legacy bloccati e
 rilevamento del drift. I test passano attraverso le RPC con ruolo `authenticated`
 e verificano anche l'accesso negato alle funzioni interne e alle tabelle.

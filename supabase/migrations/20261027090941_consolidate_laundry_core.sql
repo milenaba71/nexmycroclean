@@ -13,9 +13,22 @@ begin
   if to_regclass(required) is null then raise exception 'BASELINE_OR_MIGRATIONS_MISSING: %',required;end if;
  end loop;
  if to_regclass('supabase_migrations.schema_migrations') is null then raise exception 'MIGRATION_HISTORY_RECONCILIATION_REQUIRED';end if;
- if exists(select version from (values
- ('20261026204528'),('20261026220115'),('20261026222534'),('20261027060819'),('20261027061557'),('20261027065752'),('20261027072835')
- ) required(version) except select version from supabase_migrations.schema_migrations) then raise exception 'MIGRATION_ORDER_INVALID';end if;
+ -- Both histories are accepted only when the recorded SQL is byte-equivalent
+ -- after trimming outer whitespace. Never insert fictitious history entries.
+ if exists(select 1 from (values
+ ('20261026204528','20261026204930','airtable_customer_orders','011057fffaa01e46c890c70e9a4b24bcd1778abc70e4d9f4f6a24ffc30c47146'),
+ ('20261026220115','20261026220326','airtable_lot_orders','29fa4af3b52057ffc61e1e7341509fbe5c3271febd01f57c76e0946b4976e76a'),
+ ('20261026222534','20261026224210','production_planning','4b892b07a00ba2d599d0eaa665e4e3f82131d2386f00d5fc4c30baf3902f06b0'),
+ ('20261027060819','20261027061157','production_stations','c7eaf51735c14d0952fcbe4af96fcd546bcd1afbe74d79a8c3830c9453730037'),
+ ('20261027061557','20261027061714','production_machine_programs','9478f47fce13887e04a191513882f585b857f2798843f46c55d3d121b29b8d90'),
+ ('20261027065752','20261027070414','recurring_client_calendar','c91321753d223ccadece47a88b9d0f964d3484bac488822d0bc8a6853c977876'),
+ ('20261027072835','20261027073308','client_department_schedules','28d6617c4e90e6528194b4e4365bd39fd8ba207118aafd21bc9ff6923955d2b7')
+ ) required(repo_version,db_version,migration_name,sql_hash)
+ where not exists(select 1 from supabase_migrations.schema_migrations h
+  where h.version in (required.repo_version,required.db_version)
+   and h.name=required.migration_name
+   and encode(sha256(convert_to(btrim(array_to_string(h.statements,E'\n'),E' \n\r\t'),'UTF8')),'hex')=required.sql_hash
+ )) then raise exception 'MIGRATION_ORDER_INVALID_OR_CONTENT_MISMATCH';end if;
  select encode(sha256(convert_to(prosrc,'UTF8')),'hex') into current_hash from pg_proc where oid=to_regprocedure('laundry_private.laundry_core(jsonb,text,jsonb)');
  if current_hash is null or current_hash not in ('0476b4050a0b37761a4a9981cf0848e418a91f7371132a8de2a9b1d1793c1821','0e8f3240c255c31d60ca93463f26f521425e1e2284d0a06b921e35a37d4dd60d','701d3e0ae6f2ad47169781e6d15a4cd0fd7131ce098b59937f8d1706be367700','f4f0f0371ecefd9ba6c5b5490cc3a75e67dc400cdc7ddf4a587a1514dab65549','bbb92a8cbdf2161468b0a15603f8ab424ac59b9e98771d876ac34729a50c1c47') then raise exception 'UNKNOWN_LAUNDRY_CORE_REVIEW_REQUIRED';end if;
 

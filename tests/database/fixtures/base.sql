@@ -6,7 +6,7 @@ create role service_role;
 create schema auth;
 create schema laundry_private;
 create schema supabase_migrations;
-create table supabase_migrations.schema_migrations(version text primary key);
+create table supabase_migrations.schema_migrations(version text primary key,name text,statements text[]);
 create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,banned_until timestamptz);
 create table auth.sessions(id uuid primary key,user_id uuid references auth.users);
 create function auth.uid() returns uuid language sql stable as $$ select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid $$;

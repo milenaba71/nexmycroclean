@@ -6,6 +6,7 @@ const legacy=JSON.parse(read('tests/database/fixtures/legacy-sql.json'));
 const paths=readdirSync(new URL('../../supabase/migrations/',import.meta.url)).filter(p=>p.endsWith('.sql')).sort();
 const release=paths.at(-1);
 const fixtures=read('tests/database/fixtures/base.sql');
+const versionMap=JSON.parse(read('supabase/legacy-version-map.json'));
 let passed=0;
 const check=(v,msg)=>{assert.ok(v,msg);passed++;};
 async function fails(fn,pattern){await assert.rejects(fn,pattern);passed++;}
@@ -29,7 +30,7 @@ async function setup(mode){
   let sql=read('supabase/migrations/'+file);
   if(file==='20261027065752_recurring_client_calendar.sql')sql=sql.replace('create extension if not exists pg_cron;','').replace("select cron.schedule('mycroclean-recurring-calendar','15 3 * * *',$job$select laundry_private.refresh_client_calendar();$job$);",'');
   await db.exec(sql);
-  await db.query('insert into supabase_migrations.schema_migrations(version) values($1)',[file.split('_')[0]]);
+  await db.query('insert into supabase_migrations.schema_migrations(version,name,statements) values($1,$2,$3)',[mode==='deployed-history'?versionMap.find(x=>x.name===file.slice(15,-4)).database_version:file.split('_')[0],file.slice(15,-4),[read('supabase/migrations/'+file)]]);
  }
  return db;
 }
@@ -45,7 +46,10 @@ async function suite(mode){
   await db.query("delete from supabase_migrations.schema_migrations where version='20261027072835'");
   await fails(()=>migrate(db),/MIGRATION_ORDER_INVALID/);
   check(await scalar("select to_regclass('laundry_private.core_release') is null"),'failed migration rolls back');
-  await db.exec("insert into supabase_migrations.schema_migrations values('20261027072835')");
+  await db.query('insert into supabase_migrations.schema_migrations values($1,$2,$3)',['20261027072835','client_department_schedules',[read('supabase/migrations/20261027072835_client_department_schedules.sql')]]);
+  await db.exec("update supabase_migrations.schema_migrations set statements=array['select 1'] where version='20261027072835'");
+  await fails(()=>migrate(db),/CONTENT_MISMATCH/);
+  await db.query('update supabase_migrations.schema_migrations set statements=$1 where version=$2',[[read('supabase/migrations/20261027072835_client_department_schedules.sql')],'20261027072835']);
   await db.exec("alter function laundry_private.laundry_core(jsonb,text,jsonb) rename to saved_core; create function laundry_private.laundry_core(jsonb,text,jsonb) returns jsonb language sql as $$select '{}'::jsonb$$");
   await fails(()=>migrate(db),/UNKNOWN_LAUNDRY_CORE/);
   await db.exec('drop function laundry_private.laundry_core(jsonb,text,jsonb);alter function laundry_private.saved_core(jsonb,text,jsonb) rename to laundry_core');
@@ -55,7 +59,7 @@ async function suite(mode){
   await db.exec(authDefinition);
  }
  await migrate(db);
- await db.query('insert into supabase_migrations.schema_migrations values($1)',[release.split('_')[0]]);
+ await db.query('insert into supabase_migrations.schema_migrations(version,name,statements) values($1,$2,$3)',[release.split('_')[0],'consolidate_laundry_core',[read('supabase/migrations/'+release)]]);
  if(mode==='current')check(await scalar("select last_value>=1000 from public.laundry_barcode_sequence"),'existing barcode sequence never moves backwards');
  const verificationSQL=read('sql/operations/verify_release.sql').replace(/^\\.*$/gm,'');
  async function verify(){try{await db.exec(verificationSQL);}catch(e){await db.exec('rollback');throw e;}}
@@ -181,5 +185,5 @@ async function suite(mode){
  console.log(`PASS database upgrade: ${mode}`);
  }finally{await db.close();}
 }
-try { for(const mode of ['current','reverted','unassigned','acquisition-only','admin-after-barcode'])await suite(mode); } catch(e) {console.error(e.message, e.where ?? '', e.stack?.split('\n').filter(l=>l.includes('regression.mjs')).join('\n'));process.exit(1);}
+try { for(const mode of ['current','reverted','unassigned','acquisition-only','admin-after-barcode','deployed-history'])await suite(mode); } catch(e) {console.error(e.message, e.where ?? '', e.stack?.split('\n').filter(l=>l.includes('regression.mjs')).join('\n'));process.exit(1);}
 console.log(`PASS ${passed} database assertions (isolated PostgreSQL/PGlite, mocked Supabase auth schema)`);
