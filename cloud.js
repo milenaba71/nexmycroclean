@@ -19,8 +19,42 @@ async function usersView(){if(cloudUser.role!=='admin')return notify('Accesso ri
 function editUser(index){let u=Number.isInteger(index)?window.laundryUsers[index]:{name:'',email:'',role:'operator',active:true};show(`<h2>${u.email?'Modifica utente':'Nuovo utente'}</h2><form onsubmit="saveUser(event)"><label>Nome e cognome<input name="name" required value="${esc(u.name)}"></label><label>Email di accesso<input name="email" type="email" required ${u.email?'readonly':''} value="${esc(u.email)}"></label><label>Ruolo<select name="role"><option value="admin" ${u.role==='admin'?'selected':''}>Amministratore</option><option value="operator" ${u.role==='operator'?'selected':''}>Operatore</option><option value="viewer" ${u.role==='viewer'?'selected':''}>Sola lettura</option></select></label><label>Stato<select name="active"><option value="yes" ${u.active?'selected':''}>Attivo</option><option value="no" ${!u.active?'selected':''}>Disattivato</option></select></label><p class="wide">Amministratore: anagrafiche, utenti e operazioni.<br>Operatore: lotti, entrata, lavorazione e uscita.<br>Sola lettura: consultazione ed esportazione.</p><div class="wide"><button class="btn">Salva utente</button><button type="button" class="btn secondary" onclick="document.querySelector('dialog').close()">Annulla</button></div></form>`)}
 async function saveUser(e){e.preventDefault();let b=e.submitter;b.disabled=true;try{let f=Object.fromEntries(new FormData(e.target));await cloudRequest('user_save',{...f,active:f.active==='yes'});$('#modal').close();await usersView();notify('Utente salvato su Supabase.')}catch(err){notify(err.message);b.disabled=false}}
 function resetDemo(){notify('Il database condiviso è attivo: il ripristino della demo è disabilitato.')}
-async function cloudBoot(){try{cloudLocalBackup=JSON.parse(localStorage.getItem('mycro-products-v2')||'null')}catch{}let {data:{session}}=await appSupabase.auth.getSession();if(!session)return standaloneLogin();$('#app').innerHTML='<div class="empty">Collegamento al database Supabase…</div>';try{cloudStopped=false;cloudAccept(await cloudRequest());if(cloudPoll)clearInterval(cloudPoll);cloudPoll=setInterval(async()=>{if(!cloudUser||cloudBusy||cloudStopped||cloudQueue.length||(typeof scanningBatch!=='undefined'&&scanningBatch)||(typeof lotActionBusy!=='undefined'&&lotActionBusy)||$('#modal').open||document.activeElement?.matches('input,textarea,select'))return;try{let r=await cloudRequest('version',{});if(r.revision!==cloudRevision||r.user.role!==cloudUser.role)cloudAccept(await cloudRequest())}catch{cloudStatus('Connessione o accesso da verificare',true)}},20000)}catch(e){standaloneLogin(e.message)}}
-cloudBoot();
+// Boot reads use the session already obtained, avoiding a second SDK auth-lock wait.
+// Only this read is retried by the user; mutations retain their existing queue.
+let cloudBootAttempt=0;
+function cloudBootDeadline(promise,signal){return new Promise((resolve,reject)=>{const abort=()=>reject(new Error('Il collegamento sta impiegando troppo tempo. Riprova oppure accedi di nuovo.'));if(signal.aborted)return abort();signal.addEventListener('abort',abort,{once:true});Promise.resolve(promise).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort))})}
+async function cloudBootSnapshot(session,signal){
+ const response=await fetch(window.MYCRO_CONFIG.url+'/rest/v1/rpc/laundry_app',{method:'POST',headers:{apikey:window.MYCRO_CONFIG.key,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({p_action:'snapshot',p_payload:{}}),signal});
+ const result=await response.json();
+ if(!response.ok){const message=String(result.message||'');throw Error(/UNAUTHORIZED|SESSION_REVOKED|JWT|expired/i.test(message)||response.status===401?'Sessione scaduta. Premi Accedi di nuovo.':/ACCESS_DENIED|FORBIDDEN/.test(message)?'Il tuo utente non è abilitato al gestionale.':'Caricamento non riuscito. Riprova tra qualche istante.')}
+ if(!result?.db||!result?.user)throw Error('Risposta del database incompleta. Riprova.');
+ return result;
+}
+function cloudBootError(message){cloudUser=null;$('#app').innerHTML=`<section class="panel" style="max-width:560px;margin:35px auto;padding:25px"><h1>Collegamento non completato</h1><p role="alert">${esc(message)}</p><div class="tools"><button class="btn" onclick="location.reload()">Riprova</button><button class="btn secondary" onclick="cloudRecoverAccess()">Accedi di nuovo</button></div><p>I dati del gestionale sono conservati su Supabase.</p></section>`}
+async function cloudRecoverAccess(){
+ ++cloudBootAttempt;if(cloudPoll)clearInterval(cloudPoll);
+ // Remove this app's local login only, even if the SDK's session lock is stuck.
+ const key='sb-'+new URL(window.MYCRO_CONFIG.url).hostname.split('.')[0]+'-auth-token';
+ try{for(const suffix of ['', '-code-verifier', '-user'])localStorage.removeItem(key+suffix)}catch{cloudBootError('Il browser non consente di ripristinare la sessione. Apri il gestionale in una nuova scheda.');return}
+ location.reload();
+}
+async function cloudBoot(){
+ const attempt=++cloudBootAttempt,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ if(cloudPoll){clearInterval(cloudPoll);cloudPoll=null}
+ $('#app').innerHTML='<div class="empty" role="status">Collegamento al database Supabase…</div>';
+ try{
+  try{cloudLocalBackup=JSON.parse(localStorage.getItem('mycro-products-v2')||'null')}catch{}
+  const {data,error}=await cloudBootDeadline(appSupabase.auth.getSession(),controller.signal);
+  if(error)throw error;if(attempt!==cloudBootAttempt)return;
+  if(!data?.session)return standaloneLogin();
+  const result=await cloudBootDeadline(cloudBootSnapshot(data.session,controller.signal),controller.signal);
+  if(attempt!==cloudBootAttempt)return;
+  cloudStopped=false;cloudAccept(result);
+  cloudPoll=setInterval(async()=>{if(!cloudUser||cloudBusy||cloudStopped||cloudQueue.length||(typeof scanningBatch!=='undefined'&&scanningBatch)||(typeof lotActionBusy!=='undefined'&&lotActionBusy)||$('#modal').open||document.activeElement?.matches('input,textarea,select'))return;try{let r=await cloudRequest('version',{});if(r.revision!==cloudRevision||r.user.role!==cloudUser.role)cloudAccept(await cloudRequest())}catch{cloudStatus('Connessione o accesso da verificare',true)}},20000);
+ }catch(e){if(attempt===cloudBootAttempt)cloudBootError(controller.signal.aborted?'Il collegamento sta impiegando troppo tempo. Riprova oppure accedi di nuovo.':e.message)}finally{clearTimeout(timer)}
+}
+// All page extensions must be installed before rendering the authenticated screen.
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>void cloudBoot(),{once:true});else void cloudBoot();
 
 const cloudRender=render;render=function(){cloudRender();if(cloudUser)cloudDecorate()};
 const editableProductCard=productCard;productCard=function(id){editableProductCard(id);if(!userCan('products_manage')){document.querySelectorAll('#productForm input,#productForm select,#productForm textarea,#productForm button[type="submit"]').forEach(el=>el.disabled=true);if(id){let b=document.createElement('button');b.className='btn secondary';b.textContent='Prepara etichetta';b.onclick=()=>prepareLabel(db.garments.find(g=>g.id===id));$('#productForm').appendChild(b)}}};

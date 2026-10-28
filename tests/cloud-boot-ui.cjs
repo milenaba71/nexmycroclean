@@ -1,0 +1,17 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const {chromium}=require(process.env.PLAYWRIGHT_PATH||'playwright');
+const snapshot={revision:1,user:{name:'Test Admin',email:'admin@example.invalid',role:'admin',isSuperAdmin:true},db:{garments:[],lots:[],repairs:[],clientRecords:[],processing:[],catalogs:{type:[],size:[],color:[],dept:[]},next:1}};
+(async()=>{const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox','--disable-dev-shm-usage']}:{} )});
+try{for(const scenario of ['no-session','saved-session','expired-session','network-failure','stalled-session','stalled-data','late-session']){
+ const page=await browser.newPage({viewport:{width:390,height:844}});page.setDefaultTimeout(5000);let errors=[],reads=0;page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(({scenario})=>{window.bootScenario=scenario;const timeout=window.setTimeout;window.setTimeout=(fn,ms,...args)=>timeout(fn,ms===20000?300:ms,...args)}, {scenario});
+ await page.route('**/*',async route=>{const u=new URL(route.request().url());if(u.hostname==='mycroclean.test'){const name=u.pathname==='/'?'index.html':u.pathname.slice(1),file=path.resolve(name);if(!file.startsWith(process.cwd()+path.sep)||!fs.existsSync(file))return route.fulfill({status:404,body:''});return route.fulfill({contentType:name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':name.endsWith('.png')?'image/png':'text/html',body:fs.readFileSync(file)})}
+ if(u.href.includes('supabase-js'))return route.fulfill({contentType:'application/javascript',body:`window.supabase={createClient:()=>({auth:{onAuthStateChange:()=>{},getSession:()=>{if(bootScenario==='stalled-session')return new Promise(()=>{});const data={session:bootScenario==='no-session'?null:{access_token:'test-token'}};if(bootScenario==='late-session')return new Promise(resolve=>setTimeout(()=>resolve({data}),600));return Promise.resolve({data})}},rpc:()=>new Promise(()=>{})})}`});
+ if(u.pathname==='/rest/v1/rpc/laundry_app'){reads++;assert.equal(route.request().headers().authorization,'Bearer test-token');assert.equal(route.request().postDataJSON().p_action,'snapshot');if(scenario==='network-failure')return route.abort();if(scenario==='stalled-data')return;return route.fulfill({status:scenario==='expired-session'?401:200,contentType:'application/json',body:JSON.stringify(scenario==='expired-session'?{message:'JWT expired'}:snapshot)})}
+ return route.fulfill({body:''})});
+ await page.goto('https://mycroclean.test/');
+ if(scenario==='no-session'){await page.getByRole('heading',{name:'Accedi al gestionale'}).waitFor();assert.equal(reads,0)}
+ else if(scenario==='saved-session'){await page.getByRole('heading',{name:'Dashboard · Analisi dati'}).waitFor();await page.getByRole('button',{name:'Altro',exact:true}).click();await page.getByRole('button',{name:/Capi e tag/}).waitFor();assert.equal(reads,1)}
+ else{await page.getByRole('heading',{name:'Collegamento non completato'}).waitFor();await page.getByRole('button',{name:'Riprova',exact:true}).waitFor();await page.getByRole('button',{name:'Accedi di nuovo',exact:true}).waitFor();if(scenario==='late-session'){await page.waitForTimeout(700);assert.equal(reads,0);await page.getByRole('heading',{name:'Collegamento non completato'}).waitFor()}}
+ assert.deepEqual(errors,[]);console.log('PASS boot:',scenario);await page.close();
+}}finally{await browser.close()}})().catch(e=>{console.error(e);process.exit(1)});
