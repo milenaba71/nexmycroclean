@@ -70,3 +70,7 @@ Dentro il lotto, aprire **Elenco capi del lotto**, cercare per codice, utilizzat
 Il reparto registra riparazione, etichettatura o verifica con i pulsanti esistenti e i controlli sul lavaggio. Le sostituzioni e gli scarti hanno l'azione **Valuta scarto / sostituzione** solo per chi è abilitato. L'elenco del lotto resta consultabile anche quando un capo è uscito o dismesso, con le modifiche bloccate.
 
 Test: ricerca capi, salvataggio dei sei tipi di segnalazione, completamento etichettatura, coda per lotto, permessi, esclusione usciti/dismessi e layout telefono. Nessuna prova modifica prodotti o lotti reali.
+
+## Nuovo lotto dall'entrata
+
+In **Entrata**, accanto alla scelta dei lotti esistenti, premere **Apri nuovo lotto**. Il modulo resta quello condiviso: cliente, colli e riconsegna, con eventuale reparto, appuntamento e ordine. Al termine il nuovo lotto si apre in Entrata nella Vista reparto, pronto per le scansioni. Il pulsante è disponibile anche dentro un lotto in Entrata. La creazione rispetta `lots_create`; se non autorizzata il pulsante nell'elenco è disabilitato. Il test copre errore senza creazione e creazione riuscita con apertura del nuovo lotto.

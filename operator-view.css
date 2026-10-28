@@ -24,3 +24,5 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 
 /* Display the supplied original logo, framing only its central symbol. */
 .floor-top .floor-brand{padding:0;flex:none;text-align:center}.floor-brand .floor-logo-crop{display:block;position:relative;overflow:hidden;width:72px;height:72px;border-radius:50%;margin:0;background:white}.floor-brand .floor-logo-crop img{position:absolute;width:335.065%;max-width:none;height:auto;left:-127.273%;top:-33.766%}.floor-brand>span:last-child{margin-top:7px}@media(max-width:760px){.floor-brand .floor-logo-crop{width:60px;height:60px}}
+
+.floor-new-lot{margin:0 0 22px}.floor-mode .floor-button.primary{background:#1d4ed8;color:white;border-color:#1d4ed8}.floor-mode .floor-button:disabled{opacity:.5;cursor:not-allowed}.floor-new-lot p{margin-top:12px;color:#53627b}
