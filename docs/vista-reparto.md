@@ -74,3 +74,7 @@ Test: ricerca capi, salvataggio dei sei tipi di segnalazione, completamento etic
 ## Nuovo lotto dall'entrata
 
 In **Entrata**, accanto alla scelta dei lotti esistenti, premere **Apri nuovo lotto**. Il modulo resta quello condiviso: cliente, colli e riconsegna, con eventuale reparto, appuntamento e ordine. Al termine il nuovo lotto si apre in Entrata nella Vista reparto, pronto per le scansioni. Il pulsante è disponibile anche dentro un lotto in Entrata. La creazione rispetta `lots_create`; se non autorizzata il pulsante nell'elenco è disabilitato. Il test copre errore senza creazione e creazione riuscita con apertura del nuovo lotto.
+
+## Ordine della schermata Entrata
+
+Prima **1. Scegli il percorso e il tipo di lavaggio**, con il programma e la macchina previsti (oppure una lavorazione senza macchina). Poi **2. Scansiona il codice del capo**. Il campo e il pulsante di registrazione restano disabilitati finché non è selezionato un percorso valido. Una scelta già salvata nel lotto viene mostrata e mantenuta. Contatore, elenco capi e carrelli rimangono nella stessa schermata.
