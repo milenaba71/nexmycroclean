@@ -161,3 +161,6 @@ In Produzione → Postazioni gli amministratori possono creare postazioni, rinom
 
 ### Programmi iniziali di lavaggio e asciugatura
 La tabella Produzione include lavaggio ad acqua, lavaggio e decontaminazione, lavaggio a secco e asciugatura in essiccatoio. Il backfill aggiunge soltanto le categorie macchina mancanti, senza duplicare programmi o modificare quelli configurati. Durata del ciclo e tempo personale rimangono nulli finché confermati. I menu del percorso mostrano le opzioni anche senza tempi, indicandole «Tempi da definire»; il pianificatore non le stima come zero. Per l'assegnazione automatica completare i tempi e la disponibilità/capacità delle macchine. Programmi o postazioni disattivati non compaiono nelle nuove scelte.
+
+### Asciugatura dopo il lavaggio ad acqua
+I carrelli ad acqua, al termine del lavaggio, diventano Da asciugare. Nella sezione Carrelli da asciugare (Produzione e lotto) l'operatore abilitato alla postazione del programma di asciugatura preme Avvia asciugatura, sceglie programma ed essiccatoio. La piegatura si sblocca alla fine prevista dell'asciugatura; il blocco è applicato anche dal database. Lavaggio e decontaminazione e lavaggio a secco passano direttamente alla piegatura. Dettagli in `docs/asciugatura-dopo-lavaggio-acqua.md`; migrazione `sql/dryer_phase.sql`.
