@@ -17,7 +17,7 @@ Gli operatori senza permesso di gestione della produzione arrivano alla home Rep
 
 ## Funzioni
 
-- Home: operatore, postazione abituale, quattro tasti con conteggi, problema, lavoro assegnato e istruzioni. Entrata conta i lotti aperti, lavaggio/asciugatura i carrelli in attesa, piegatura i capi lavati con asciugatura conclusa dove richiesta, uscita i capi pronti.
+- Home: operatore, postazione abituale, cinque tasti con conteggi, problema, lavoro assegnato e istruzioni. Entrata conta i lotti aperti, lavaggio/asciugatura i carrelli in attesa, piegatura i capi lavati con asciugatura conclusa dove richiesta, uscita i capi pronti.
 - Entrata: mantiene il campo di scansione originale e i suoi controlli. Mostra capi/capienza; il tasto di avvio appare per un carrello pronto (anche parziale dopo Termina controllo in entrata). Un ciclo bloccato ha il comando di riavvio.
 - Macchine: LIBERO, minuti previsti, INTERROTTO, GUASTO o OCCUPATO per attività macchina ancora avviate. Un guasto bloccante non viene proposto. Il programma mantiene la scelta compatibile quando libera, altrimenti propone una macchina libera con capienza sufficiente. L'operatore conferma l'avvio reale, il database verifica nuovamente disponibilità e autorizzazione.
 - Piegatura: i controlli cliente/lotto restano quelli originali. I capi già segnalati vengono indirizzati a un cesto senza registrare la piegatura. Il verde appare solo dopo il completamento della funzione di registrazione esistente. La lettura di un altro codice durante l'avviso è bloccata.
@@ -58,3 +58,15 @@ Avvia asciugatura apre una scelta esplicita del programma. I programmi senza dur
 Il mio lavoro e Istruzioni restano nella vista reparto. Il mio lavoro mantiene le azioni, le dipendenze e i controlli delle attività originali, con meno dettagli sullo schermo. Gli interventi del lotto mantengono la cornice reparto. Il passaggio all'ufficio avviene con il pulsante dedicato. Entrambe le guide PDF restano disponibili.
 
 La prova include conferma avvio, timer dopo aggiornamento, errore macchina occupata, interruzione, riavvio sullo stesso essiccatoio, annullamento e avvio dall'attività assegnata. Il test SQL verifica anche il rifiuto di una durata mancante.
+
+## Riparazioni ed elenco capi nel reparto
+
+La tab Riparazioni è sempre disponibile nella cornice reparto, anche durante le scansioni. La home ha un quinto accesso con il numero di capi da controllare. La coda comprende riparazioni, etichette, verifiche, sostituzioni, scarti da verificare e rilavaggi, raggruppati per lotto. Un capo con più segnalazioni conta una sola volta nel totale. Sono esclusi i capi usciti o dismessi e i lotti archiviati.
+
+Dentro il lotto, aprire **Elenco capi del lotto**, cercare per codice, utilizzatore, tipo o reparto e premere **Segnalazioni e note**. Ogni spunta è salvata sul lotto attraverso il salvataggio condiviso esistente, con evento e operatore. I permessi restano `lots_work` per segnalazioni e riparazioni, `products_manage` per dismissione e sostituzione.
+
+**Scarto da verificare** è un motivo di verifica: conserva `discardReview` nella riga e apre `verify`, già controllato dal flusso esistente. Non cambia lo stato del capo, non trasferisce tag e non genera addebiti. La richiesta è aperta finché è aperta la verifica; dopo la verifica il motivo resta nella riga e negli eventi. Gli scarti già imposti dalla scheda prodotto o dal limite lavaggi restano da valutare e non vengono rimossi con una spunta. La decisione definitiva usa il flusso esistente Scarto e sostituzione.
+
+Il reparto registra riparazione, etichettatura o verifica con i pulsanti esistenti e i controlli sul lavaggio. Le sostituzioni e gli scarti hanno l'azione **Valuta scarto / sostituzione** solo per chi è abilitato. L'elenco del lotto resta consultabile anche quando un capo è uscito o dismesso, con le modifiche bloccate.
+
+Test: ricerca capi, salvataggio dei sei tipi di segnalazione, completamento etichettatura, coda per lotto, permessi, esclusione usciti/dismessi e layout telefono. Nessuna prova modifica prodotti o lotti reali.
