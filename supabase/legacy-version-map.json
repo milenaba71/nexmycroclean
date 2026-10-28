@@ -1,0 +1,44 @@
+[
+  {
+    "repository_version": "20261026204528",
+    "database_version": "20261026204930",
+    "name": "airtable_customer_orders",
+    "sql_sha256": "011057fffaa01e46c890c70e9a4b24bcd1778abc70e4d9f4f6a24ffc30c47146"
+  },
+  {
+    "repository_version": "20261026220115",
+    "database_version": "20261026220326",
+    "name": "airtable_lot_orders",
+    "sql_sha256": "29fa4af3b52057ffc61e1e7341509fbe5c3271febd01f57c76e0946b4976e76a"
+  },
+  {
+    "repository_version": "20261026222534",
+    "database_version": "20261026224210",
+    "name": "production_planning",
+    "sql_sha256": "4b892b07a00ba2d599d0eaa665e4e3f82131d2386f00d5fc4c30baf3902f06b0"
+  },
+  {
+    "repository_version": "20261027060819",
+    "database_version": "20261027061157",
+    "name": "production_stations",
+    "sql_sha256": "c7eaf51735c14d0952fcbe4af96fcd546bcd1afbe74d79a8c3830c9453730037"
+  },
+  {
+    "repository_version": "20261027061557",
+    "database_version": "20261027061714",
+    "name": "production_machine_programs",
+    "sql_sha256": "9478f47fce13887e04a191513882f585b857f2798843f46c55d3d121b29b8d90"
+  },
+  {
+    "repository_version": "20261027065752",
+    "database_version": "20261027070414",
+    "name": "recurring_client_calendar",
+    "sql_sha256": "c91321753d223ccadece47a88b9d0f964d3484bac488822d0bc8a6853c977876"
+  },
+  {
+    "repository_version": "20261027072835",
+    "database_version": "20261027073308",
+    "name": "client_department_schedules",
+    "sql_sha256": "28d6617c4e90e6528194b4e4365bd39fd8ba207118aafd21bc9ff6923955d2b7"
+  }
+]

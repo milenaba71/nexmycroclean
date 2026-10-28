@@ -1,0 +1,10 @@
+{
+  "name": "mycroclean-next-database-tests",
+  "private": true,
+  "scripts": {
+    "test": "npm run test:migrations && npm run test:database && node tests/production-core.cjs",
+    "test:migrations": "node scripts/check-migrations.mjs",
+    "test:database": "node tests/database/regression.mjs"
+  },
+  "devDependencies": { "@electric-sql/pglite": "0.5.12" }
+}

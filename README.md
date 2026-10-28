@@ -2,6 +2,10 @@
 
 Gestionale statico per GitHub Pages con database e autenticazione Supabase. Il sito pubblico contiene solo codice; i dati operativi vengono caricati dopo l'accesso con email e password e la verifica dei permessi sul database.
 
+## Migrazioni SQL e verifica
+
+Per ordine, prerequisiti, test automatici e designazione esplicita del Super Admin, vedere [la procedura delle migrazioni](docs/database-migrations.md). Gli script `sql/*.sql` sono ritirati e bloccano l’esecuzione. Usare solo le migrazioni versionate. Il repository da solo non certifica quali migrazioni siano applicate sul database operativo.
+
 ## Funzioni
 
 Prodotti, clienti in elenco, lavorazioni, lotti con numerazione server, scansione barcode da tastiera, riparazioni automatiche, riepilogo quantità per tipologia, ruoli amministratore/operatore/sola lettura, CSV/Excel, avvisi temporizzati ed editor etichette integrato con selezione multipla.
@@ -15,7 +19,7 @@ Prodotti, clienti in elenco, lavorazioni, lotti con numerazione server, scansion
 - Clienti disattivabili e comando per riunire anagrafiche nel cliente principale, con reparto facoltativo. Nessuna fusione automatica dei nomi esistenti.
 - Conteggi per riparazione, etichettatura e verifica nella lista lotti; accesso diretto agli interventi del lotto.
 
-Le nuove tabelle Supabase hanno RLS e accesso diretto negato. Le operazioni passano dal gateway con controllo del ruolo, revisione e registro audit. Il file `sql/catalogs.sql` documenta l’estensione al database esistente; non è uno script per inizializzare un progetto vuoto.
+Le nuove tabelle Supabase hanno RLS e accesso diretto negato. Le operazioni passano dal gateway con controllo del ruolo, revisione e registro audit. L’estensione è ora inclusa nella migrazione consolidata; il vecchio `sql/catalogs.sql` è ritirato. Non è una baseline per un progetto vuoto.
 
 Integrazione CO/Airtable e ordini di produzione: fase successiva, non implementata in questo aggiornamento.
 
@@ -30,7 +34,7 @@ Integrazione CO/Airtable e ordini di produzione: fase successiva, non implementa
 - Le etichette totali nel riepilogo includono le richieste completate; le etichette ancora da fare sono indicate separatamente. I conteggi riguardano l’intero lotto anche quando la tabella è filtrata.
 - Ogni apertura della scheda prodotto ricarica da Supabase le anagrafiche aggiornate prima di mostrare i menu. I file JavaScript hanno un identificativo di versione per evitare di usare menu precedenti rimasti in cache.
 
-Il trigger documentato in `sql/lot_workflow.sql` controlla anche sul server le uscite, il cliente dei nuovi prodotti e la conservazione delle righe precedenti.
+Il trigger incluso nella migrazione consolidata controlla anche sul server le uscite, il cliente dei nuovi prodotti e la conservazione delle righe precedenti.
 
 ## Stato e storico dei lotti
 
@@ -46,7 +50,7 @@ In Uscita un prodotto senza riparazioni, etichettature o verifiche aperte può e
 
 ## Barcode progressivi e modificabili
 
-La migrazione sql/product_barcodes.sql è applicata e il modulo product-barcodes.js è attivo. Gli amministratori possono scegliere un progressivo numerico assegnato dal database oppure inserire/modificare il barcode manualmente. L’identificativo interno resta stabile e le etichette, la ricerca e l’esportazione mostrano il barcode corrente. I precedenti codici rimangono riservati e riconducono allo stesso prodotto durante la lettura. Lotti, riparazioni e storico conservano i collegamenti. La nuova API richiede una sessione confermata e un amministratore attivo; non è accessibile agli utenti anonimi.
+La logica del precedente `sql/product_barcodes.sql` è inclusa nella migrazione consolidata; `product-barcodes.js` la utilizza. Lo stato di applicazione va verificato sul database con la procedura indicata sopra. Gli amministratori possono scegliere un progressivo numerico assegnato dal database oppure inserire/modificare il barcode manualmente. L’identificativo interno resta stabile e le etichette, la ricerca e l’esportazione mostrano il barcode corrente. I precedenti codici rimangono riservati e riconducono allo stesso prodotto durante la lettura. Lotti, riparazioni e storico conservano i collegamenti. La nuova API richiede una sessione confermata e un amministratore attivo; non è accessibile agli utenti anonimi.
 
 ## Pubblicazione
 
@@ -74,7 +78,7 @@ Supabase JS 2.57.4 e SheetJS CE 0.20.3 sono caricate da CDN con versioni fissate
 
 I menu permettono di scrivere per trovare una voce esistente, mantenendo valori e permessi del controllo originale. I risultati compaiono in un elenco visibile nella pagina, anche su iPhone e nei moduli a comparsa: scrivendo una parte del nome (es. toppa) si può toccare la voce completa (es. Toppa · Minuti). La scelta aggiorna i valori collegati, inclusi minuti e prezzo degli interventi. Sono supportati anche frecce, Invio, Escape e ricerca senza distinzione di accenti o maiuscole. I valori non presenti non vengono aggiunti tramite digitazione. Un prodotto di un cliente diverso apre un avviso e l’acquisizione rimane bloccata.
 
-Il Super Admin è unico e coincide con l’account amministratore iniziale. Può creare ulteriori amministratori; gli amministratori ordinari gestiscono gli utenti operatore/lettore e le anagrafiche. Il ruolo e l’accesso del Super Admin sono protetti sul database. Cancella rimuove solo voci anagrafiche non collegate a prodotti, lotti o interventi; una voce utilizzata può essere disattivata.
+Il Super Admin è unico e viene confermato esplicitamente tramite UUID dell’account autorizzato. La data di creazione non attribuisce questo privilegio. Può creare ulteriori amministratori; gli amministratori ordinari gestiscono gli utenti operatore/lettore e le anagrafiche. Il ruolo e l’accesso del Super Admin sono protetti sul database. Cancella rimuove solo voci anagrafiche non collegate a prodotti, lotti o interventi; una voce utilizzata può essere disattivata.
 
 ## Tipi di riparazione e consuntivi
 
@@ -96,7 +100,7 @@ Leggi numero attiva la fotocamera posteriore e l’OCR del solo codice stampato 
 
 Su smartphone il gestionale presenta una testata compatta e navigazione in basso, con menu completo Altro. Lotti, prodotti e righe lotto sono schede leggibili; i filtri sono richiudibili e i moduli si dispongono in una colonna. I dettagli aggiuntivi del prodotto si espandono nell’elenco. La vista desktop conserva le tabelle.
 
-La migrazione barcode predisposta è stata rivista per riservare anche i precedenti codici e risolverli durante l’acquisizione server. È stata verificata in PostgreSQL isolato con creazione progressiva, modifica manuale, scansione di vecchie etichette, protezione dai duplicati e controllo dei ruoli. Dopo l’autorizzazione esplicita è stata applicata e verificata anche sul database condiviso, usando una transazione di prova annullata senza lasciare prodotti o lotti fittizi.
+La migrazione barcode predisposta è stata rivista per riservare anche i precedenti codici e risolverli durante l’acquisizione server. È stata verificata in PostgreSQL isolato con creazione progressiva, modifica manuale, scansione di vecchie etichette, protezione dai duplicati e controllo dei ruoli. Le precedenti note descrivevano un’applicazione al database condiviso, ma non costituiscono una verifica attuale della cronologia o delle funzioni installate. Questo rilascio richiede la verifica documentata prima di qualsiasi applicazione operativa.
 
 La sezione Accessori e riparazioni della scheda prodotto è un menu richiudibile con ricerca e selezione multipla. Il riepilogo indica il numero di voci selezionate. Le selezioni restano attive durante la ricerca e i valori storici già presenti vengono conservati al salvataggio.
 
@@ -161,3 +165,4 @@ In Produzione → Postazioni gli amministratori possono creare postazioni, rinom
 
 ### Programmi iniziali di lavaggio e asciugatura
 La tabella Produzione include lavaggio ad acqua, lavaggio e decontaminazione, lavaggio a secco e asciugatura in essiccatoio. Il backfill aggiunge soltanto le categorie macchina mancanti, senza duplicare programmi o modificare quelli configurati. Durata del ciclo e tempo personale rimangono nulli finché confermati. I menu del percorso mostrano le opzioni anche senza tempi, indicandole «Tempi da definire»; il pianificatore non le stima come zero. Per l'assegnazione automatica completare i tempi e la disponibilità/capacità delle macchine. Programmi o postazioni disattivati non compaiono nelle nuove scelte.
+
