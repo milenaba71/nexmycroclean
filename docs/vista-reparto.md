@@ -4,7 +4,7 @@ La vista operatore usa gli stessi prodotti, lotti, carrelli, cicli e API Supabas
 
 ## Accesso
 
-Gli operatori senza permesso di gestione della produzione arrivano alla home Reparto. Gli altri utenti possono aprire **Vista reparto** dal menu; per tornare usano **Gestionale ufficio**. I pulsanti **Il mio lavoro** e **Istruzioni** aprono le sezioni esistenti; il menu **Vista reparto** permette di rientrare. La postazione mostrata è quella abituale configurata in Operatori e turni; non si inventa una postazione quando manca.
+Gli operatori senza permesso di gestione della produzione arrivano alla home Reparto. Gli altri utenti possono aprire **Vista reparto** dal menu; per tornare usano **Gestionale ufficio**. I pulsanti **Il mio lavoro** e **Istruzioni** mantengono la vista reparto, con un pulsante Indietro. La postazione mostrata è quella abituale configurata in Operatori e turni; non si inventa una postazione quando manca.
 
 ## Sei regole
 
@@ -50,3 +50,11 @@ Restano entrambe le guide in Istruzioni: **Produzione e pianificazione (2.0, 11 
 ## Verifica
 
 `tests/operator-view-ui.cjs` prova l'interfaccia con dati fittizi e risposte API simulate: home, contatore, avvio solo dopo carrello pronto, guasti e proposta essiccatoio, instradamento al cesto senza scritture, blocco rosso con conferma esplicita, piegatura riuscita, nomi in uscita, permessi, telefono e ritorno ufficio. I test non modificano i dati reali.
+
+## Avvio asciugatura e continuità della vista
+
+Avvia asciugatura apre una scelta esplicita del programma. I programmi senza durata restano visibili ma non selezionabili. Il pulsante finale si abilita soltanto dopo la scelta di un programma con minuti validi e di una macchina disponibile. La durata viene mostrata prima della conferma; gli errori restano nella finestra. Non vengono assegnate durate automaticamente.
+
+Il mio lavoro e Istruzioni restano nella vista reparto. Il mio lavoro mantiene le azioni, le dipendenze e i controlli delle attività originali, con meno dettagli sullo schermo. Gli interventi del lotto mantengono la cornice reparto. Il passaggio all'ufficio avviene con il pulsante dedicato. Entrambe le guide PDF restano disponibili.
+
+La prova include conferma avvio, timer dopo aggiornamento, errore macchina occupata, interruzione, riavvio sullo stesso essiccatoio, annullamento e avvio dall'attività assegnata. Il test SQL verifica anche il rifiuto di una durata mancante.
