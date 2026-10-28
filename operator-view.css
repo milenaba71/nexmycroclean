@@ -21,3 +21,6 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-tabs{display:flex;gap:12px;margin:0 0 22px}.floor-tabs .selected{background:#233c74;color:white;border-color:#233c74}.floor-tabs .floor-button{min-width:150px}@media(max-width:760px){.floor-tabs .floor-button{flex:1;min-width:0}.floor-products{padding:16px}.floor-product-card{padding:18px}}
 
 #modal .floor-flag-options label{display:flex;flex-direction:row;align-items:center;text-align:left;gap:14px;min-height:60px}#modal .floor-flag-options input{margin:0;width:26px;height:26px}
+
+/* Display the supplied original logo, framing only its central symbol. */
+.floor-top .floor-brand{padding:0;flex:none;text-align:center}.floor-brand .floor-logo-crop{display:block;position:relative;overflow:hidden;width:72px;height:72px;border-radius:50%;margin:0;background:white}.floor-brand .floor-logo-crop img{position:absolute;width:335.065%;max-width:none;height:auto;left:-127.273%;top:-33.766%}.floor-brand>span:last-child{margin-top:7px}@media(max-width:760px){.floor-brand .floor-logo-crop{width:60px;height:60px}}
