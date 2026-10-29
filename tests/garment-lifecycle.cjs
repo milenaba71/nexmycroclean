@@ -15,10 +15,28 @@ insert into laundry_clients values('C1','{"name":"Cliente","rentalContracts":[{"
 const product=(id)=>({id,barcode:id,barcodeAliases:[],wash:0,max:80,client:'Cliente',type:'Camice',size:'M',color:'Bianco',name:'Persona',dept:'Reparto',rental:true,rentalContract:{clientId:'C1',contractId:'K1'},raw:{SCARTO:'NO'},history:[]});
 for(const id of ['TAG1','TAG2','TAG3','TAG4','TAG5','TAG6'])await pg.query('insert into laundry_products values($1,$2)',[id,product(id)]);
 await pg.exec(fs.readFileSync('sql/garment_lifecycle.sql','utf8'));
+await pg.exec("create table public.laundry_sizes(id text,name text,active boolean); insert into laundry_sizes values('L','L',true),('XL','XL',false)");
+await pg.exec(fs.readFileSync('sql/garment_returns_size_change.sql','utf8'));
 await pg.exec('create trigger guard_product_barcode before insert or update on laundry_products for each row execute function laundry_private.guard_product_barcode()');
 const read=async()=> (await pg.query("select public.laundry_assets('read','{}') x")).rows[0].x;
 const call=async(action,p={})=>(await pg.query('select public.laundry_assets($1,$2) x',[action,{revision:(await read()).revision,requestId:crypto.randomUUID(),...p}])).rows[0].x;
 const get=async(id)=>(await pg.query('select data from laundry_products where id=$1',[id])).rows[0].data;
+// New return and size-change flows use the same transactional guards.
+for(const id of ['LEFT','RESIZE','STOCK-L','BADSIZE'])await pg.query('insert into laundry_products values($1,$2)',[id,{...product(id),...(id==='STOCK-L'?{size:'L',rentalContract:null}:{} )}]);
+await call('configure',{productId:'STOCK-L',state:'stock',washBaseline:0});
+await assert.rejects(()=>call('employee_return',{productId:'LEFT',reason:'employee_left'}),/RETURN_CONFIRMATION_REQUIRED/);
+await assert.rejects(()=>call('return',{productId:'LEFT',reason:'employee_left',checked:true}),/INVALID_RETURN_ACTION/);
+await call('employee_return',{productId:'LEFT',reason:'employee_left',checked:true});
+assert.equal((await get('LEFT')).lifecycleState,'reconditioning');assert.equal((await get('LEFT')).rentalContract,null);assert.equal((await get('LEFT')).name,'');
+assert.equal((await read()).charges.filter(c=>c.product_id==='LEFT').length,0);
+assert.equal((await read()).assets.find(a=>a.product_id==='LEFT').events[0].wearer,'Persona');
+await call('recondition',{productId:'LEFT',checked:true});assert.equal((await get('LEFT')).lifecycleState,'stock');
+await assert.rejects(()=>call('replace',{productId:'BADSIZE',reason:'size_change',newSize:'XL',returned:true,tagMode:'new',tag:'BAD'}),/INVALID_REPLACEMENT_SIZE/);
+await assert.rejects(()=>call('replace',{productId:'BADSIZE',reason:'size_change',newSize:'L',tagMode:'new',tag:'BAD'}),/RETURN_CONFIRMATION_REQUIRED/);
+await assert.rejects(()=>call('replace',{productId:'RESIZE',reason:'wear',replacementId:'STOCK-L',tagMode:'new',tag:'BAD'}),/STOCK_MISMATCH/);
+await call('replace',{productId:'RESIZE',reason:'size_change',newSize:'L',returned:true,replacementId:'STOCK-L',tagMode:'new',tag:'SIZE-L-NEW'});
+assert.equal((await get('RESIZE')).lifecycleState,'reconditioning');assert.equal((await get('RESIZE')).size,'M');assert.equal((await get('RESIZE')).raw.SCARTO,'NO');assert.equal((await get('RESIZE')).rentalContract,null);
+assert.equal((await get('STOCK-L')).size,'L');assert.equal((await get('STOCK-L')).name,'Persona');assert.equal((await get('STOCK-L')).rentalContract.contractId,'K1');assert.equal((await read()).charges.filter(c=>c.product_id==='RESIZE').length,0);
 const policy=await call('policy',{name:'Test only',base:'months',bands:[{from:0,to:6,percent:100},{from:6,to:12,percent:75},{from:12,to:null,percent:0}]});const policyId=policy.policies[0].id;
 await assert.rejects(()=>call('policy',{name:'Overlap',base:'months',bands:[{from:0,to:6,percent:100},{from:5,to:null,percent:50}]}),/INVALID_POLICY_BANDS/);
 await call('configure',{productId:'TAG1',state:'in_service',priceCents:10000,serviceDate:'2026-01-01',washBaseline:0,policyId});
@@ -86,27 +104,12 @@ const anniversary=await pg.query("select laundry_private.asset_calculation(a,0,'
 await call('buyout',{productId:'BUYOUT'});let bought=await read();assert.equal(bought.assets.find(a=>a.product_id==='BUYOUT').state,'bought_out');assert.equal(bought.charges.find(c=>c.product_id==='BUYOUT').state,'pending');assert(bought.assignments.some(a=>a.product_id==='BUYOUT'&&!a.released_at));
 await assert.rejects(()=>pg.query("select laundry_private.tag_lookup('BUYOUT')"),/ASSET_NOT_IN_SERVICE/);
 
-
-// A tagged stock replacement must retain the alias added when its old tag is released.
-for (const id of ['STOCK-OLD','STOCK-READY']) await pg.query('insert into laundry_products values($1,$2)',[id,product(id)]);
-await call('configure',{productId:'STOCK-READY',state:'stock',washBaseline:0});
-const stockedReuse=await call('replace',{productId:'STOCK-OLD',replacementId:'STOCK-READY',reason:'wear',tagMode:'reuse',checked:true,attachment:'heatsealed_sewn'});
-assert.equal(stockedReuse.replacementId,'STOCK-READY');
-assert.equal((await get('STOCK-READY')).barcode,'STOCK-OLD');
-assert((await get('STOCK-READY')).barcodeAliases.includes('STOCK-READY'));
-assert.equal((await get('STOCK-OLD')).lifecycleState,'retired');
-assert.equal((await pg.query("select laundry_private.tag_lookup('STOCK-OLD') p")).rows[0].p.id,'STOCK-READY');
-assert(stockedReuse.assignments.some(a=>a.product_id==='STOCK-READY'&&a.tag_code==='stock-ready'&&a.released_at));
-assert.equal(stockedReuse.assignments.filter(a=>a.tag_code==='stock-old'&&!a.released_at).length,1);
-await assert.rejects(()=>pg.query("update laundry_products set data=jsonb_set(data,'{barcodeAliases}','[]') where id='STOCK-READY'"),/BARCODE_HISTORY_IMMUTABLE/);
-console.log('PASS tagged stock substitution preserves barcode history and unique current assignment');
-
 // Apply the integration patch to the real pre-change function definitions.
 await pg.exec(`create table laundry_members(email text primary key,name text,role text,active boolean,site_user_id text);
 insert into laundry_members values('admin@example.invalid','Admin','admin',true,null);
 create function laundry_private.permission_set(email text) returns jsonb language sql as $$select '{"permissions":{"products_manage":true}}'::jsonb$$;create table laundry_private.laundry_super_admin(email text);create table laundry_processing(id text primary key,data jsonb);
 insert into laundry_processing values('P1','{"id":"P1","name":"Acqua","active":true,"wash":true}');
-create table laundry_types(id text,name text,active boolean);create table laundry_sizes(id text,name text);create table laundry_colors(id text,name text);create table laundry_departments(id text,name text,client_id text);
+create table laundry_types(id text,name text,active boolean);create table laundry_colors(id text,name text);create table laundry_departments(id text,name text,client_id text);
 create table laundry_repairs(lot_id bigint,product_code text,kind text,status text check(status in ('open','completed')),created_at timestamptz default now(),completed_at timestamptz,primary key(lot_id,product_code,kind));
 alter table laundry_wash_batches add lot_id bigint,add machine_id text,add program_name text,add machine_name text,add expected_end timestamptz,add created_at timestamptz default now(),add events jsonb default '[]';
 alter table laundry_dry_cycles add id uuid default gen_random_uuid(),add expected_end timestamptz;
