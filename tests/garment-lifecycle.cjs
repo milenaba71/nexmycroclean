@@ -86,6 +86,21 @@ const anniversary=await pg.query("select laundry_private.asset_calculation(a,0,'
 await call('buyout',{productId:'BUYOUT'});let bought=await read();assert.equal(bought.assets.find(a=>a.product_id==='BUYOUT').state,'bought_out');assert.equal(bought.charges.find(c=>c.product_id==='BUYOUT').state,'pending');assert(bought.assignments.some(a=>a.product_id==='BUYOUT'&&!a.released_at));
 await assert.rejects(()=>pg.query("select laundry_private.tag_lookup('BUYOUT')"),/ASSET_NOT_IN_SERVICE/);
 
+
+// A tagged stock replacement must retain the alias added when its old tag is released.
+for (const id of ['STOCK-OLD','STOCK-READY']) await pg.query('insert into laundry_products values($1,$2)',[id,product(id)]);
+await call('configure',{productId:'STOCK-READY',state:'stock',washBaseline:0});
+const stockedReuse=await call('replace',{productId:'STOCK-OLD',replacementId:'STOCK-READY',reason:'wear',tagMode:'reuse',checked:true,attachment:'heatsealed_sewn'});
+assert.equal(stockedReuse.replacementId,'STOCK-READY');
+assert.equal((await get('STOCK-READY')).barcode,'STOCK-OLD');
+assert((await get('STOCK-READY')).barcodeAliases.includes('STOCK-READY'));
+assert.equal((await get('STOCK-OLD')).lifecycleState,'retired');
+assert.equal((await pg.query("select laundry_private.tag_lookup('STOCK-OLD') p")).rows[0].p.id,'STOCK-READY');
+assert(stockedReuse.assignments.some(a=>a.product_id==='STOCK-READY'&&a.tag_code==='stock-ready'&&a.released_at));
+assert.equal(stockedReuse.assignments.filter(a=>a.tag_code==='stock-old'&&!a.released_at).length,1);
+await assert.rejects(()=>pg.query("update laundry_products set data=jsonb_set(data,'{barcodeAliases}','[]') where id='STOCK-READY'"),/BARCODE_HISTORY_IMMUTABLE/);
+console.log('PASS tagged stock substitution preserves barcode history and unique current assignment');
+
 // Apply the integration patch to the real pre-change function definitions.
 await pg.exec(`create table laundry_members(email text primary key,name text,role text,active boolean,site_user_id text);
 insert into laundry_members values('admin@example.invalid','Admin','admin',true,null);

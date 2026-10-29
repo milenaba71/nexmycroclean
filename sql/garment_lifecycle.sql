@@ -261,6 +261,8 @@ begin
       perform laundry_private.asset_idle(next_id);
       if exists(select 1 from public.laundry_lots l cross join lateral jsonb_array_elements(l.data->'rows') r where r->>'code'=next_id and r->>'state' not in ('Uscito','Dismesso')) then raise exception 'STOCK_IN_OPEN_LOT';end if;
       perform laundry_private.tag_release(next_id);
+      -- Reload aliases added by tag release before projecting the replacement.
+      select data into replacement from public.laundry_products where id=next_id;
      end if;
      if nullif(p->>'policyId','') is not null then select to_jsonb(x) into policy_value from laundry_private.asset_policies x where id=(p->>'policyId')::uuid;if policy_value is null then raise exception 'POLICY_NOT_FOUND';end if;end if;
      if (p->>'priceCents')::bigint<0 then raise exception 'INVALID_PRICE';end if;
