@@ -37,10 +37,10 @@ async function duplicateProduct(id,button){
   form.elements.namedItem('ALLERGICO').checked=yes(raw.ALLERGICO);
   for(const name of ['SCARTO','SMARRITO','AL LIMITE ACCETTABILITA'])form.elements.namedItem(name).checked=false;
   set('wash',0);set('creation',new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Rome'}));set('personalization','');
-  const mode=form.elements.namedItem('barcodeMode');mode.innerHTML='<option value="auto">Nuovo progressivo numerico automatico</option>';set('barcodeMode','auto');
-  form.elements.namedItem('id').readOnly=true;
+  set('barcodeMode','manual');set('id','');
+  form.elements.namedItem('id').readOnly=false;form.elements.namedItem('id').required=true;
   $('#modal h2').textContent='Duplica prodotto · '+productBarcode(g);
-  const note=document.createElement('p');note.className='wide notice';note.textContent='Copia dei dati salvati del prodotto '+productBarcode(g)+'. Controlla i dati e premi Salva prodotto: verrà assegnato un nuovo barcode automatico. Lavaggi, scarto, smarrimento e storico ripartono da zero; il prodotto originale rimane invariato.';form.prepend(note);
+  const note=document.createElement('p');note.className='wide notice';note.textContent='Copia dei dati salvati del prodotto '+productBarcode(g)+'. Scansiona o inserisci il numero del nuovo tag, controlla i dati e premi Salva prodotto. Nessun numero viene generato automaticamente. Lavaggi, scarto, smarrimento e storico ripartono da zero; il prodotto originale rimane invariato.';form.prepend(note);
   rentalProductPreview(form);
  }catch(error){notify('Duplicazione non completata. '+error.message);if(button)button.disabled=false;}
 }

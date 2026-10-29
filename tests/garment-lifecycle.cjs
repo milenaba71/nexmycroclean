@@ -124,6 +124,8 @@ const actor={id:'00000000-0000-0000-0000-000000000001',email:'admin@example.inva
 const acquired=(await pg.query('select laundry_private.laundry_core($1,$2,$3) x',[actor,'lot_acquire',{lot_id:2,code:'TAG1',processing_id:'P1',revision:(await read()).revision}])).rows[0].x;
 assert.equal(acquired.db.lots.find(l=>l.id===2).rows[0].code,next);
 assert.equal((await pg.query("select data#>>'{rows,0,code}' x from laundry_lots where id=1")).rows[0].x,'TAG1');
+await pg.exec(fs.readFileSync('sql/manual_tags_only.sql','utf8'));
+await assert.rejects(async()=>pg.query('select laundry_private.product_save_core($1,$2)',[actor,{revision:(await read()).revision,mode:'auto',product:product('AUTO')}]),/MANUAL_TAG_REQUIRED/);
 let changed={...(await get(next)),id:'TAG1',name:'Updated wearer'};
 await pg.query('select laundry_private.product_save_core($1,$2)',[actor,{revision:(await read()).revision,mode:'manual',original_id:next,product:changed}]);
 assert.equal((await get(next)).name,'Updated wearer');assert.equal((await get(next)).id,next);
