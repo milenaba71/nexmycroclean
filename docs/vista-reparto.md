@@ -84,3 +84,7 @@ Prima **1. Scegli il percorso e il tipo di lavaggio**, con il programma e la mac
 Nell'elenco capi del lotto, la tendina **Capi per pagina** permette di scegliere **10, 50, 100 o 1.000**. Precedente e Successiva cambiano pagina; il contatore indica la pagina corrente e il totale. La prima visualizzazione usa 10 capi. La scelta viene ricordata nello stesso browser, anche cambiando lotto. Una nuova ricerca riparte dalla prima pagina, mantenendo la quantità scelta.
 
 La scelta 10 / 50 / 100 / 1.000 è disponibile anche nel gestionale ufficio: Prodotti, Lotti, Storico lotti, capi del lotto, Riparazioni, Clienti, Anagrafiche, Utenti, Ordini clienti, Mancati resi, Programmi fissi, Noleggi e Tipi di riparazione. Ogni elenco ricorda la propria quantità nello stesso browser. Nei Prodotti anche la selezione della pagina e dell'intervallo di pagine usa la quantità scelta; esportazione e selezione di tutti i risultati restano complete. Gli altri elenchi mantengono tutti i dati e mostrano soltanto le righe della pagina corrente; la stampa mostra tutte le righe.
+
+## Colori dei lotti in Entrata
+
+Le schede dei lotti sono rosse con **Aperto**, gialle con **In lavorazione**, verdi con **Finito**. Verde significa che tutti i capi sono usciti o sono stati dismessi tramite il flusso autorizzato; la sola fine del lavaggio o della piegatura non chiude il lotto. Un lotto vuoto resta rosso. I lotti finiti restano visibili nell'elenco Entrata fino all'archiviazione. Ogni scheda riporta anche il testo dello stato e il numero totale di capi.
