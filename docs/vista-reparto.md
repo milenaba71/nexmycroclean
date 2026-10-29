@@ -78,3 +78,9 @@ In **Entrata**, accanto alla scelta dei lotti esistenti, premere **Apri nuovo lo
 ## Ordine della schermata Entrata
 
 Prima **1. Scegli il percorso e il tipo di lavaggio**, con il programma e la macchina previsti (oppure una lavorazione senza macchina). Poi **2. Scansiona il codice del capo**. Il campo e il pulsante di registrazione restano disabilitati finché non è selezionato un percorso valido. Una scelta già salvata nel lotto viene mostrata e mantenuta. Contatore, elenco capi e carrelli rimangono nella stessa schermata.
+
+## Capi per pagina
+
+Nell'elenco capi del lotto, la tendina **Capi per pagina** permette di scegliere **10, 50, 100 o 1.000**. Precedente e Successiva cambiano pagina; il contatore indica la pagina corrente e il totale. La prima visualizzazione usa 10 capi. La scelta viene ricordata nello stesso browser, anche cambiando lotto. Una nuova ricerca riparte dalla prima pagina, mantenendo la quantità scelta.
+
+La scelta 10 / 50 / 100 / 1.000 è disponibile anche nel gestionale ufficio: Prodotti, Lotti, Storico lotti, capi del lotto, Riparazioni, Clienti, Anagrafiche, Utenti, Ordini clienti, Mancati resi, Programmi fissi, Noleggi e Tipi di riparazione. Ogni elenco ricorda la propria quantità nello stesso browser. Nei Prodotti anche la selezione della pagina e dell'intervallo di pagine usa la quantità scelta; esportazione e selezione di tutti i risultati restano complete. Gli altri elenchi mantengono tutti i dati e mostrano soltanto le righe della pagina corrente; la stampa mostra tutte le righe.
