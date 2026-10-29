@@ -34,3 +34,30 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-lot-legend{display:flex;flex-wrap:wrap;gap:18px;margin:16px 0 24px;font-size:17px}.floor-mode .floor-lot-choice.floor-lot-open{--phase:#b42318;background:#fff1f0;border-color:#e8aaa5;border-left-color:#b42318}.floor-mode .floor-lot-choice.floor-lot-working{--phase:#896000;background:#fff8d6;border-color:#e4cb6e;border-left-color:#c38d08}.floor-mode .floor-lot-choice.floor-lot-finished{--phase:#15803d;background:#eaf8ee;border-color:#9dcead;border-left-color:#15803d}.floor-lot-choice .floor-lot-state{color:var(--phase);font-size:18px;font-weight:800}
 
 .floor-lot-legend span{display:inline-flex;align-items:center;gap:7px}.floor-lot-legend span:before{content:'';width:13px;height:13px;border-radius:50%;flex:none;background:#b42318}.floor-lot-legend .legend-working:before{background:#d6a000}.floor-lot-legend .legend-finished:before{background:#15803d}
+
+/* Compact lot product list; keep other repair cards unchanged. */
+#floorProductCards.floor-product-list{display:block;min-width:0}
+#floorProducts .floor-products-table{width:100%;border-collapse:collapse;table-layout:fixed}
+#floorProducts .floor-list-caption{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
+#floorProducts .floor-products-table th{background:#f3f5fa;color:#52627d;text-align:left;font-size:13px;padding:12px 10px;white-space:normal}
+#floorProducts .floor-products-table td{padding:12px 10px;border-bottom:1px solid #e2e7ef;font-size:16px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}
+#floorProducts .floor-products-table th:nth-child(1){width:13%}
+#floorProducts .floor-products-table th:nth-child(2){width:17%}
+#floorProducts .floor-products-table th:nth-child(3){width:15%}
+#floorProducts .floor-products-table th:nth-child(4){width:13%}
+#floorProducts .floor-products-table th:nth-child(5){width:25%}
+#floorProducts .floor-products-table th:nth-child(6){width:17%}
+#floorProducts .floor-products-table small{display:block;color:#66748b;margin-top:4px;font-size:14px}
+#floorProducts .floor-products-table .floor-button{padding:10px 12px;min-height:44px;font-size:14px;white-space:normal;max-width:100%;margin:0}
+#floorProducts .floor-list-note{margin:5px 0 0;font-size:14px;color:#5b6680}
+#floorProducts .floor-products-table .floor-flag{font-size:12px;padding:4px 7px;margin:4px 4px 0 0}
+@media(max-width:760px){
+ #floorProducts .floor-products-table,#floorProducts .floor-products-table tbody{display:block;width:100%}
+ #floorProducts .floor-products-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ #floorProducts .floor-products-table tr{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;border-bottom:1px solid #d8e0ec;padding:14px 0}
+ #floorProducts .floor-products-table td{display:block;border:0;padding:0;font-size:15px;min-width:0}
+ #floorProducts .floor-products-table td:before{content:attr(data-label);display:block;font-size:11px;font-weight:700;color:#73809a;margin-bottom:4px}
+ #floorProducts .floor-products-table td:nth-child(5),#floorProducts .floor-products-table .floor-list-actions{grid-column:1/-1}
+ #floorProducts .floor-products-table .floor-list-actions:before{display:none}
+ #floorProducts .floor-products-table .floor-list-actions .floor-button{width:100%}
+}
