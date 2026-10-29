@@ -45,7 +45,9 @@ async function cloudBoot(){
  try{
   try{cloudLocalBackup=JSON.parse(localStorage.getItem('mycro-products-v2')||'null')}catch{}
   const {data,error}=await cloudBootDeadline(appSupabase.auth.getSession(),controller.signal);
-  if(error)throw error;if(attempt!==cloudBootAttempt)return;
+  if(attempt!==cloudBootAttempt)return;
+  if(typeof authRecoveryScreen==='function'&&authRecoveryScreen(data?.session,error))return;
+  if(error)throw error;
   if(!data?.session)return standaloneLogin();
   const result=await cloudBootDeadline(cloudBootSnapshot(data.session,controller.signal),controller.signal);
   if(attempt!==cloudBootAttempt)return;
