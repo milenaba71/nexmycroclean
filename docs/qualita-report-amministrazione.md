@@ -28,3 +28,6 @@ I programmi di lavaggio ad acqua e asciugatura sono associati alla medesima post
 Apri il lotto e premi **Report reparto cucito / PDF** (ufficio o vista reparto). Premi **Stampa / Salva come PDF**. Il report riporta cliente e lotto, tag, indumento, taglia, utilizzatore, reparto, interventi registrati, quantità, minuti, importi a pezzi, operatore, data e note. Le segnalazioni ancora aperte sono separate. Gli interventi a minuti restano da valorizzare; il documento non è una fattura.
 
 Il reparto cucito comprende riparazioni, etichettature, verifiche, sostituzioni e scarti da verificare. Il report separa gli interventi registrati con tempi/importi, le sostituzioni e dismissioni del lotto, le richieste ancora aperte e il registro delle attività (incluse quelle senza consuntivo).
+
+## Avvio diretto dal lotto
+Dopo le scansioni, premi **Avvia macchinata** (oppure **Avvia macchinata parziale**) sul carrello: il timer parte sulla macchina indicata, senza premere Termina controllo e senza una seconda conferma. Premi quando avvii realmente la macchina. Per cambiare macchina usa **Scegli un’altra macchina**. Permessi, abilità Reparto Acqua, capienza, durata, guasti e macchina occupata restano controllati. Un errore lascia il carrello disponibile per riprovare.
