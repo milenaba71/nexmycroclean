@@ -34,3 +34,6 @@ Dopo le scansioni, premi **Avvia macchinata** (oppure **Avvia macchinata parzial
 
 ## Stampa del riepilogo lotto
 Apri il lotto, espandi **Riepilogo del lotto** e premi **Stampa riepilogo lotto**. Nella nuova finestra premi **Stampa / Salva come PDF**. Il documento contiene lo stesso riepilogo per tipologia e gli interventi del reparto cucito, con tutti i prodotti del lotto, indipendentemente da filtri e pagine. La stampa è in A4 orizzontale.
+
+## Interventi per singolo prodotto
+Nel reparto cucito e nel riepilogo del lotto trovi **Interventi eseguiti per prodotto**. Ogni riga riporta codice/tag (con gli zeri iniziali), capo, utilizzatore, intervento, quantità, minuti, importo, operatore, data e note. La stessa tabella compare nella stampa del riepilogo. Completamenti senza consuntivo e sostituzioni sono in sezioni separate.
