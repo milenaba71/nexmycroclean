@@ -31,3 +31,6 @@ Il reparto cucito comprende riparazioni, etichettature, verifiche, sostituzioni 
 
 ## Avvio diretto dal lotto
 Dopo le scansioni, premi **Avvia macchinata** (oppure **Avvia macchinata parziale**) sul carrello: il timer parte sulla macchina indicata, senza premere Termina controllo e senza una seconda conferma. Premi quando avvii realmente la macchina. Per cambiare macchina usa **Scegli un’altra macchina**. Permessi, abilità Reparto Acqua, capienza, durata, guasti e macchina occupata restano controllati. Un errore lascia il carrello disponibile per riprovare.
+
+## Stampa del riepilogo lotto
+Apri il lotto, espandi **Riepilogo del lotto** e premi **Stampa riepilogo lotto**. Nella nuova finestra premi **Stampa / Salva come PDF**. Il documento contiene lo stesso riepilogo per tipologia e gli interventi del reparto cucito, con tutti i prodotti del lotto, indipendentemente da filtri e pagine. La stampa è in A4 orizzontale.
