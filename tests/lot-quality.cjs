@@ -4,7 +4,7 @@ create function auth.uid() returns uuid language sql as $$select '00000000-0000-
 create table laundry_lots(id bigint primary key,data jsonb);create table laundry_products(id text primary key,data jsonb);create table laundry_meta(id boolean primary key,revision bigint);insert into laundry_meta values(true,1);
 create function laundry_private.laundry_authenticated(a text,p jsonb) returns jsonb language plpgsql as $$begin if current_setting('test.denied',true)='yes' then raise exception 'UNAUTHORIZED';end if;return '{"user":{"name":"Operatore","email":"test@example.invalid"}}';end $$;
 create function laundry_private.require_permission(cap text) returns void language plpgsql as $$begin if current_setting('test.viewer',true)='yes' then raise exception 'PERMISSION_DENIED';end if;end $$;
-insert into laundry_lots values(9,'{"id":9,"rows":[]}');`);await pg.exec(fs.readFileSync('sql/lot_quality.sql','utf8'));
+insert into laundry_lots values(9,'{"id":9,"rows":[]}');`);await pg.exec(fs.readFileSync('sql/lot_quality.sql','utf8'));await pg.exec(fs.readFileSync('sql/quality_product_identity.sql','utf8'));await pg.exec(`insert into laundry_products values('00001','{"barcode":"00001","size":"M"}')`);
 const r={code:'00001',state:'In lavorazione',processingId:'water',washed:true,completed:true,foldedAt:'2026-10-30T10:00:00Z',requiresDrying:true,dryState:'done'};
 await pg.query('insert into laundry_lots values(1,$1)',[JSON.stringify({id:1,rows:[r],events:[]})]);
 const call=async(a,p={})=>(await pg.query('select public.laundry_quality($1,$2) q',[a,JSON.stringify({lot_id:1,...p})])).rows[0].q;
@@ -18,6 +18,7 @@ await assert.rejects(()=>call('record',{...check,revision:2}),/REVISION_CONFLICT
 await assert.rejects(()=>call('record',{...check,sample_count:2}),/INVALID_SAMPLE_COUNT/);
 q=await call('record',check);assert.deepEqual(q.released,['00001']);
 await update([{...r,state:'Uscito'}]);await update([r]);
+await pg.exec(`update laundry_products set data=jsonb_set(data,'{size}','"L"') where id='00001'`);await assert.rejects(()=>update([{...r,state:'Uscito'}]),/QUALITY_RECHECK_REQUIRED/);await pg.exec(`update laundry_products set data=jsonb_set(data,'{size}','"M"') where id='00001'`);
 await update([{...r,repair:true}]);await assert.rejects(()=>update([{...r,repair:true,state:'Uscito'}]),/QUALITY_RECHECK_REQUIRED/);await update([r]);
 await assert.rejects(()=>call('record',{...check,revision:1,outcome:'fail',notes:''}),/QUALITY_REASON_REQUIRED/);
 q=await call('record',{...check,revision:1,outcome:'fail',notes:'Macchia residua',checks:{...check.checks,clean:'ko'}});assert.equal(q.checks.length,2);await assert.rejects(()=>update([{...r,state:'Uscito'}]),/QUALITY_RELEASE_REQUIRED/);
