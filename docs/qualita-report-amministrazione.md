@@ -23,3 +23,6 @@ Il report rilegge i dati salvati su Supabase. Un lotto non completamente riconse
 ## Responsabile: abilitare Reparto Acqua
 In **Produzione → Operatori e turni**, abilita la persona alla postazione **Reparto Acqua**. In **Utenti → Ruolo e permessi**, il Super amministratore verifica anche **Eseguire attività assegnate e avviare macchinate**.
 I programmi di lavaggio ad acqua e asciugatura sono associati alla medesima postazione. L'operatore abilitato può avviare entrambi, rispettando disponibilità, capienza e durata configurata. Il comando registra l'avvio nel gestionale: la macchina fisica va avviata dall'operatore.
+
+## Report riparazioni per lotto
+Apri il lotto e premi **Report riparazioni / PDF** (ufficio o vista reparto). Premi **Stampa / Salva come PDF**. Il report riporta cliente e lotto, tag, indumento, taglia, utilizzatore, reparto, interventi registrati, quantità, minuti, importi a pezzi, operatore, data e note. Le segnalazioni ancora aperte sono separate. Gli interventi a minuti restano da valorizzare; il documento non è una fattura.
