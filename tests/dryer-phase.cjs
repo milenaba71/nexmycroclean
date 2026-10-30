@@ -26,6 +26,8 @@ await pg.exec(`do $p$declare definition text;begin definition:=pg_get_functionde
 definition:=regexp_replace(definition,E'begin\\n',E'begin\\n -- user_permission_guard\\n if p_action=''link'' then perform laundry_private.require_permission(''production_manage'');elsif p_action in (''acquire'',''switch'',''finish'') then perform laundry_private.require_permission(''lots_work'');elsif p_action in (''start'',''interrupt'') then perform laundry_private.require_permission(''production_execute'');end if;\\n');execute definition;end $p$;`);
 await pg.exec(sql('wash_product_phases.sql'));await pg.exec(sql('wash_batch_corrections.sql'));
 await pg.exec(sql('dryer_phase.sql'));
+await pg.exec(`update laundry_production set data=jsonb_set(data,'{stations,1,name}','"Reparto Acqua"')`);
+await pg.exec(sql('water_station_start.sql'));
 const as=(role,email)=>pg.exec(`select set_config('test.role','${role}',false);select set_config('test.email','${email}',false)`);
 const wash=async(a,p={})=>(await pg.query('select public.laundry_wash_batches($1,$2) x',[a,JSON.stringify(p)])).rows[0].x;
 const dry=async(a,p={})=>(await pg.query('select public.laundry_dry_cycles($1,$2) x',[a,JSON.stringify(p)])).rows[0].x;
@@ -34,7 +36,9 @@ const elapse=(table,id)=>pg.query(`update ${table} set expected_end=now()-interv
 for(const code of ['A','B'])await wash('acquire',{lotId:1,code,programId:'w',machineId:'m1',revision:1});
 await wash('acquire',{lotId:1,code:'C',programId:'x',machineId:'d1',revision:1});
 let batches=(await wash('read',{lotId:1})).batches,water=batches.find(b=>b.machine_kind==='water'),decon=batches.find(b=>b.machine_kind==='decon');
-await wash('start',{batchId:water.id});await wash('start',{batchId:decon.id});
+await as('operator','entry@example.invalid');await assert.rejects(()=>wash('start',{batchId:water.id}),/STATION_SKILL_REQUIRED/);
+await as('operator','dryer@example.invalid');assert.deepEqual((await wash('read')).myStations,['water']);await wash('start',{batchId:water.id});
+await as('admin','admin@example.invalid');await wash('start',{batchId:decon.id});
 assert.equal((await pg.query('select requires_drying r from laundry_wash_batches where id=$1',[water.id])).rows[0].r,true);
 assert.equal((await pg.query('select requires_drying r from laundry_wash_batches where id=$1',[decon.id])).rows[0].r,false);
 await assert.rejects(()=>dry('start',{batchId:water.id,programId:'dr',machineId:'e1'}),/WASH_BATCH_IN_PROGRESS/);
