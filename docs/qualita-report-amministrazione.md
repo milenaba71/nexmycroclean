@@ -24,5 +24,7 @@ Il report rilegge i dati salvati su Supabase. Un lotto non completamente riconse
 In **Produzione → Operatori e turni**, abilita la persona alla postazione **Reparto Acqua**. In **Utenti → Ruolo e permessi**, il Super amministratore verifica anche **Eseguire attività assegnate e avviare macchinate**.
 I programmi di lavaggio ad acqua e asciugatura sono associati alla medesima postazione. L'operatore abilitato può avviare entrambi, rispettando disponibilità, capienza e durata configurata. Il comando registra l'avvio nel gestionale: la macchina fisica va avviata dall'operatore.
 
-## Report riparazioni per lotto
-Apri il lotto e premi **Report riparazioni / PDF** (ufficio o vista reparto). Premi **Stampa / Salva come PDF**. Il report riporta cliente e lotto, tag, indumento, taglia, utilizzatore, reparto, interventi registrati, quantità, minuti, importi a pezzi, operatore, data e note. Le segnalazioni ancora aperte sono separate. Gli interventi a minuti restano da valorizzare; il documento non è una fattura.
+## Report reparto cucito per lotto
+Apri il lotto e premi **Report reparto cucito / PDF** (ufficio o vista reparto). Premi **Stampa / Salva come PDF**. Il report riporta cliente e lotto, tag, indumento, taglia, utilizzatore, reparto, interventi registrati, quantità, minuti, importi a pezzi, operatore, data e note. Le segnalazioni ancora aperte sono separate. Gli interventi a minuti restano da valorizzare; il documento non è una fattura.
+
+Il reparto cucito comprende riparazioni, etichettature, verifiche, sostituzioni e scarti da verificare. Il report separa gli interventi registrati con tempi/importi, le sostituzioni e dismissioni del lotto, le richieste ancora aperte e il registro delle attività (incluse quelle senza consuntivo).
