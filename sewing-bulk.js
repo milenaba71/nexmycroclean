@@ -10,14 +10,16 @@
   if(lotId!==l.id){selected.clear();lotId=l.id}
   selected=new Set([...selected].filter(c=>l.rows.some(r=>r.code===c&&eligible(l,r))));
   document.querySelectorAll('[data-sewing-bulk]').forEach(e=>e.remove());
+  const summary=document.querySelector('#app .sewing-products');
+  if(summary&&userCan('lots_work')){const head=document.createElement('th');head.dataset.sewingBulk='';head.textContent='Seleziona';summary.querySelector('thead tr').prepend(head);for(const row of summary.querySelectorAll('tbody tr')){const b=row.querySelector('.sewing-open'),m=b?.getAttribute('onclick').match(/decodeURIComponent\('([^']*)'\)/);if(!m)continue;const code=decodeURIComponent(m[1]),r=l.rows.find(r=>r.code===code),cell=document.createElement('td');cell.dataset.sewingBulk='';if(r&&eligible(l,r)){const box=document.createElement('input');box.type='checkbox';box.setAttribute('aria-label','Seleziona capo '+repairCode(code));box.checked=selected.has(code);box.style='width:24px;height:24px';box.onchange=()=>{box.checked?selected.add(code):selected.delete(code);decorate()};cell.append(box)}else cell.textContent='—';row.prepend(cell)}}
   const cards=[...document.querySelectorAll('#app .repair-card,#app .floor-product-card')];
   for(const card of cards){const b=card.querySelector('button[onclick*="repairProductDetail("]');if(!b)continue;const m=b.getAttribute('onclick').match(/decodeURIComponent\('([^']*)'\)/);if(!m)continue;const code=decodeURIComponent(m[1]),r=l.rows.find(r=>r.code===code);if(!r)continue;
    const el=document.createElement('div');el.dataset.sewingBulk='';const n=names(r);if(n){const p=document.createElement('p');p.textContent='Riparato da: '+n;el.append(p)}
-   if(userCan('lots_work')&&eligible(l,r)){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.checked=selected.has(code);box.style='width:24px;height:24px;margin-right:10px';box.onchange=()=>{box.checked?selected.add(code):selected.delete(code);updateCount()};label.append(box,document.createTextNode('Seleziona capo'));el.prepend(label)}card.prepend(el);
+   if(userCan('lots_work')&&eligible(l,r)){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.checked=selected.has(code);box.style='width:24px;height:24px;margin-right:10px';box.onchange=()=>{box.checked?selected.add(code):selected.delete(code);decorate()};label.append(box,document.createTextNode('Seleziona capo'));el.prepend(label)}card.prepend(el);
   }
   if(!userCan('lots_work'))return;
   const bar=document.createElement('div');bar.dataset.sewingBulk='';bar.className='tools';bar.innerHTML='<button class="btn secondary" id="sewingSelectAll">Seleziona tutti i capi disponibili</button><button class="btn secondary" id="sewingClear">Deseleziona</button><button class="btn" id="sewingBulkOpen">Ripara selezionati</button><span id="sewingBulkCount" role="status"></span>';
-  const container=document.querySelector('#app .repair-cards,#app .floor-product-cards');if(!container)return;container.before(bar);
+  const container=summary?.querySelector('.sewing-detail-scroll')||document.querySelector('#app .repair-cards,#app .floor-product-cards');if(!container)return;container.before(bar);
   $('#sewingSelectAll').onclick=()=>{selected=new Set(l.rows.filter(r=>eligible(l,r)).map(r=>r.code));decorate()};$('#sewingClear').onclick=()=>{selected.clear();decorate()};$('#sewingBulkOpen').onclick=open;updateCount();
  }
  function updateCount(){const count=$('#sewingBulkCount'),b=$('#sewingBulkOpen');if(count)count.textContent=selected.size+' capi selezionati';if(b)b.disabled=!selected.size||lotActionBusy}
