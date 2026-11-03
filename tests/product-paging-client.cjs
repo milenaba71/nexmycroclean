@@ -1,0 +1,12 @@
+const vm=require('vm'),fs=require('fs'),assert=require('assert/strict');
+const source=fs.readFileSync(__dirname+'/../product-paging.js','utf8');
+const noop=()=>{};const ctx={appSupabase:{rpc:noop},db:{garments:[]},cloudBase:{garments:[]},cloudQueue:[],cloudRevision:1,clone:x=>JSON.parse(JSON.stringify(x)),cloudAccept:noop,productFields:()=>[],garments:noop,productCard:noop,openLabelEditor:noop,exportData:noop,previewImport:noop,checkedProcess:noop,render:noop,clientTable:noop,Set,Map,JSON,console,setTimeout,clearTimeout};
+vm.createContext(ctx);vm.runInContext(source,ctx);
+vm.runInContext(`productsHydrate([{id:'1',history:[{action:'entry'}]}]);`,ctx);
+assert.deepEqual(ctx.db.garments,ctx.cloudBase.garments,'read hydration must not become write');
+ctx.db.garments[0].notes='unsaved';
+vm.runInContext(`productsHydrate([{id:'1',notes:'older'},{id:'2',history:[]}]);`,ctx);
+assert.equal(ctx.db.garments[0].notes,'unsaved');assert.equal(ctx.cloudBase.garments[0].notes,undefined);assert.equal(ctx.db.garments.length,2);
+ctx.cloudQueue.push({garments:[{id:'1',notes:'unsaved'}]});vm.runInContext(`productsHydrate([{id:'3',history:[]}]);`,ctx);
+assert.equal(ctx.cloudQueue[0].garments.find(g=>g.id==='1').notes,'unsaved');assert(ctx.cloudQueue[0].garments.some(g=>g.id==='3'));
+console.log('PASS: hydration creates no write delta; preserves dirty edits and queued saves');

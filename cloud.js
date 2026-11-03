@@ -25,7 +25,7 @@ function resetDemo(){notify('Il database condiviso è attivo: il ripristino dell
 let cloudBootAttempt=0;
 function cloudBootDeadline(promise,signal){return new Promise((resolve,reject)=>{const abort=()=>reject(new Error('Il collegamento sta impiegando troppo tempo. Riprova oppure accedi di nuovo.'));if(signal.aborted)return abort();signal.addEventListener('abort',abort,{once:true});Promise.resolve(promise).then(resolve,reject).finally(()=>signal.removeEventListener('abort',abort))})}
 async function cloudBootSnapshot(session,signal){
- const response=await fetch(window.MYCRO_CONFIG.url+'/rest/v1/rpc/laundry_app',{method:'POST',headers:{apikey:window.MYCRO_CONFIG.key,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({p_action:'snapshot',p_payload:{}}),signal});
+ const response=await fetch(window.MYCRO_CONFIG.url+'/rest/v1/rpc/laundry_screen',{method:'POST',headers:{apikey:window.MYCRO_CONFIG.key,Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({p_rpc:'laundry_app',p_args:{p_action:'snapshot',p_payload:{}},p_ids:[]}),signal});
  const result=await response.json();
  if(!response.ok){const message=String(result.message||'');throw Error(/UNAUTHORIZED|SESSION_REVOKED|JWT|expired/i.test(message)||response.status===401?'Sessione scaduta. Premi Accedi di nuovo.':/ACCESS_DENIED|FORBIDDEN/.test(message)?'Il tuo utente non è abilitato al gestionale.':'Caricamento non riuscito. Riprova tra qualche istante.')}
  if(!result?.db||!result?.user)throw Error('Risposta del database incompleta. Riprova.');
@@ -62,4 +62,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 const cloudRender=render;render=function(){cloudRender();if(cloudUser)cloudDecorate()};
 const editableProductCard=productCard;productCard=function(id){editableProductCard(id);if(!userCan('products_manage')){document.querySelectorAll('#productForm input,#productForm select,#productForm textarea,#productForm button[type="submit"]').forEach(el=>el.disabled=true);if(id){let b=document.createElement('button');b.className='btn secondary';b.textContent='Prepara etichetta';b.onclick=()=>prepareLabel(db.garments.find(g=>g.id===id));$('#productForm').appendChild(b)}}};
 const decoratePermissions=cloudDecorate;cloudDecorate=function(){decoratePermissions();if(cloudUser?.role==='viewer')document.querySelectorAll('#app input[type="checkbox"]:not([data-label-select])').forEach(el=>el.disabled=true)};
+
 
