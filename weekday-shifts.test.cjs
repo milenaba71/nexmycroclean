@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict'),PC=require('./production-core.js');
+const op={id:'test',email:'test',station:'out',skills:['out'],active:true,days:[1,2,3,4,5],start:'08:00',end:'17:00',breaks:[{start:'12:00',minutes:60}],dayHours:{5:{end:'16:00'}}};
+const s={...PC.initial(),operators:[op]};
+const end=date=>PC.daySlots(s,op,date).slots.at(-1)?.end;
+assert.equal(end('2026-11-05'),1020);assert.equal(end('2026-11-06'),960);assert.equal(end('2026-11-07'),undefined);
+assert.equal(PC.loadRows(s,'2026-11-06',1)[0].available,420);
+s.overrides=[{email:'test',date:'2026-11-06',station:'out',start:'09:00',end:'15:00'}];
+assert.equal(end('2026-11-06'),900);
+s.overrides=[{email:'test',date:'2026-11-06',absent:true}];assert.equal(end('2026-11-06'),undefined);s.overrides=[];
+s.tasks=[{id:'work',typeId:'exit',quantity:900,releaseDate:'2026-11-06',due:'2026-11-09T17:00',status:'pending',items:[],dependsOn:[]}];
+const plan=PC.plan(s,'2026-11-06',4);
+assert.equal(plan.allocations.length,1);
+assert(plan.allocations[0].segments.filter(x=>x.date==='2026-11-06').every(x=>x.end<=960));
+assert(plan.allocations[0].segments.some(x=>x.date==='2026-11-09'));
+assert(PC.intervals(PC.shiftForDay({...op,dayHours:{5:{end:'11:00'}}},5)).error);
+console.log('PASS: Friday 16, other days 17, weekends, breaks, absence, dated override, planning spillover and load totals');
