@@ -86,7 +86,7 @@ F.decorateInstructions=function(){if(!F.active||F.screen!=='instructions')return
 
 // Every intervention keeps its original lot, garment identity and server controls.
 const flagLabels={repair:'Da riparare',relabel:'Da etichettare',verify:'Da verificare',replacement:'Sostituzione richiesta',discardReview:'Scarto da verificare',rewash:'Rilavaggio'};
-function pendingFlags(r){if(['Uscito','Dismesso'].includes(r.state))return [];const g=db.garments.find(g=>g.id===r.code);return Object.keys(flagLabels).filter(k=>k==='discardReview'?(r.verify&&r.discardReview||r.discard||productIsDiscard(g)):k==='rewash'?!!r.rewashPending:!!r[k]);}
+function pendingFlags(r){if(['Uscito','Dismesso'].includes(r.state))return [];const g=db.garments.find(g=>g.id===r.code);return Object.keys(flagLabels).filter(k=>k==='discardReview'?repairDiscardPending(r):k==='rewash'?!!r.rewashPending:!!r[k]);}
 function pendingRows(l){return (l?.rows||[]).filter(r=>pendingFlags(r).length)}
 function flagBadges(r){return pendingFlags(r).map(k=>`<span class="floor-flag">${flagLabels[k]}</span>`).join('')}
 function garmentLine(r){const g=db.garments.find(g=>g.id===r.code);return `<strong>${esc(productBarcode(g)||r.code)}</strong><p>${esc(g?.name||'Utilizzatore non indicato')}</p><p>${esc(g?.type||'Tipo non indicato')} · ${esc(g?.size||'—')} · ${esc(g?.dept||'Reparto non indicato')}</p>`}

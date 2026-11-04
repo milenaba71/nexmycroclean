@@ -1,0 +1,18 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),nodes={};
+const ctx={render(){},document:{createElement:()=>({}),head:{insertAdjacentHTML(){},appendChild(){}}},db:{garments:[{id:'A',type:'TUTA'},{id:'B',discard:true}],lots:[]},productIsDiscard:g=>!!g?.discard,esc:x=>String(x??''),lotno:l=>'L.'+l.id,$:s=>nodes[s]??=( {} ),heading:()=>'',badge:x=>x,cloudDecorate(){},repairTotalsPanel:()=>'',sewingDetailsPanel:()=>'',sewingHasHistory:()=>false,repairMinutes:x=>x,cloudUser:{role:'admin'},userCan:()=>true};vm.createContext(ctx);
+for(const f of ['repairs.js','repair-products.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
+const r={code:'A',state:'Entrato',discard:true},lot={id:1,client:'Cliente',date:'2026-11-04',rows:[r]};ctx.db.lots=[lot];
+assert.equal(ctx.repairTasks(lot)[0].kind,'discardReview');
+ctx.repairTable();assert(nodes['#repairTable'].innerHTML.includes('Scarti da verificare'));assert(nodes['#repairTable'].innerHTML.includes('L.1'));
+ctx.repairDetail(1);assert(nodes['#app'].innerHTML.includes('Scarto da verificare'));
+ctx.repairProductDetail(1,'A');assert(nodes['#app'].innerHTML.includes('Valuta scarto / sostituzione'));assert(!nodes['#app'].innerHTML.includes('registerRepairWork('));
+ctx.userCan=()=>false;ctx.repairProductDetail(1,'A');assert(!nodes['#app'].innerHTML.includes('onclick="assetReplace'));assert(nodes['#app'].innerHTML.includes('riservata'));
+for(const state of ['Uscito','Dismesso'])assert.deepEqual(Array.from(ctx.repairPendingKinds({...r,state})),[]);
+assert.equal(ctx.repairDiscardPending({...r,lifecycleClosed:true}),false);
+assert.equal(ctx.repairDiscardPending({code:'B',state:'Entrato'}),true);
+assert.equal(ctx.repairDiscardPending({code:'A',state:'Entrato',discardReview:true,verify:true}),true);
+assert.equal(ctx.repairDiscardPending({code:'A',state:'Entrato',discardReview:true,verify:false}),false);
+assert.equal(ctx.repairPendingKinds({...r,repair:true}).length,2);
+assert.equal(r.discard,true);assert.equal(r.verify,undefined);
+console.log('PASS: discard-only lots visible, product discard visible, completed records excluded, review action respects permissions, no synthetic repair or data mutation');
