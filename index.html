@@ -36,7 +36,21 @@ function clientView(){$('#app').innerHTML=heading('Clienti','Dotazioni assegnate
  render=function(...args){const result=previousRender.apply(this,args);moveUsersLast();return result};
  moveUsersLast();
 })();
-</script><script src="product-paging.js?v=20261103-1"></script><script src="ddt-returns.js?v=20261105-ddt-layout"></script></html>
+</script><script src="product-paging.js?v=20261103-1"></script><script src="ddt-returns.js?v=20261105-ddt-layout"></script><script>
+// Keep the help entry immediately before user administration.
+(function(){
+ const previousRender=render;
+ function orderOfficeMenu(){
+  const nav=document.querySelector('#nav');if(!nav)return;
+  const label=b=>b.textContent.replace(/^[^A-Za-zÀ-ÿ]+/,'').trim();
+  const entries=[...nav.children],help=entries.find(b=>label(b)==='Istruzioni'),users=entries.find(b=>label(b)==='Utenti');
+  if(help)nav.appendChild(help);
+  if(users)nav.appendChild(users);
+ }
+ render=function(...args){const result=previousRender.apply(this,args);orderOfficeMenu();return result};
+ orderOfficeMenu();
+})();
+</script></html>
 
 
 
