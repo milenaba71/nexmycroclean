@@ -36,7 +36,7 @@ function clientView(){$('#app').innerHTML=heading('Clienti','Dotazioni assegnate
  render=function(...args){const result=previousRender.apply(this,args);moveUsersLast();return result};
  moveUsersLast();
 })();
-</script><script src="product-paging.js?v=20261103-1"></script><script src="ddt-returns.js?v=20261105-ddt-layout"></script><script>
+</script><script src="product-paging.js?v=20261103-1"></script><script src="ddt-returns.js?v=20261105-cancel"></script><script>
 // Keep the help entry immediately before user administration.
 (function(){
  const previousRender=render;
@@ -50,7 +50,8 @@ function clientView(){$('#app').innerHTML=heading('Clienti','Dotazioni assegnate
  render=function(...args){const result=previousRender.apply(this,args);orderOfficeMenu();return result};
  orderOfficeMenu();
 })();
-</script></html>
+</script><script src="mask-stock.js?v=20261105-1"></script></html>
+
 
 
 
