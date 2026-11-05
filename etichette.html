@@ -53,7 +53,7 @@
   #busy { display:none; text-align:center; padding:20px; color:#2563eb; font-weight:600; }
 
   #out { padding:10px 0 60px; }
-  .foglio { background:#fff; width:210mm; min-height:297mm; margin:0 auto 16px; padding:8mm 6mm;
+  .foglio { background:#fff; width:210mm; min-height:297mm; margin:0 auto 16px; padding:10mm;
             display:grid; gap:3mm; align-content:start; box-shadow:0 3px 14px rgba(0,0,0,.12); }
   .et { position:relative; border:1px solid #cbd5e1; border-radius:2mm; overflow:hidden; page-break-inside:avoid; break-inside:avoid; }
   .el { position:absolute; }
@@ -86,7 +86,7 @@
     #toolbar, #editbar, #drop, #busy { display:none !important; }
     body { background:#fff; }
     #out { padding:0; }
-    .foglio { box-shadow:none; margin:0; width:auto; min-height:auto; padding:8mm 6mm; }
+    .foglio { box-shadow:none; margin:0; width:auto; min-height:auto; padding:0; }
     .foglio + .foglio { page-break-before:always; }
     .rotolo { box-shadow:none; margin:0; page-break-after:always; break-after:page; }
     .rotolo .et { border:none; }
@@ -96,7 +96,7 @@
     .ftdel { display:none !important; }
   }
 </style>
-<style id="pageStyle">@page { size:A4; margin:0; }</style>
+<style id="pageStyle">@page { size:A4; margin:10mm; }</style>
 </head>
 <body>
 
@@ -146,7 +146,7 @@
     <button class="ghost" id="btnImportLayout" title="Carica i layout da un file">⬆️ Carica</button>
     <input type="file" id="layoutInput" accept=".json,application/json" style="display:none">
   </div>
-  <button id="btnPrint">🖨️ Stampa</button>
+  <span class="a4only" style="font-size:12px">Margine A4: 1 cm · Stampa al 100%</span><button id="btnPrint">🖨️ Stampa</button>
   <button class="ghost" id="btnNew">📂 Altro file</button>
   <span id="count"></span>
   <input type="file" id="imgInput" accept="image/*" style="display:none">
@@ -534,9 +534,9 @@ function imgLabel(src, hmm, largMm){
 function renderImagesA4(out, imgs){
   var perRiga=parseInt(document.getElementById('perRiga').value,10)||3;
   var hmm=parseInt(document.getElementById('hmm').value,10)||40;
-  document.getElementById('pageStyle').textContent='@page { size:A4; margin:0; }';
-  var largMm=((210-12)/perRiga)-3;
-  var perColonna=Math.max(1,Math.floor((297-16)/(hmm+3)));
+  document.getElementById('pageStyle').textContent='@page { size:A4; margin:10mm; }';
+  var largMm=(190-3*(perRiga-1))/perRiga;
+  var perColonna=Math.max(1,Math.floor((277+3)/(hmm+3)));
   var perFoglio=perRiga*perColonna, foglio=null;
   for(var idx=0;idx<imgs.length;idx++){
     if(idx%perFoglio===0){ foglio=document.createElement('div'); foglio.className='foglio';
@@ -564,9 +564,9 @@ function renderImagesRotolo(out, imgs){
 function renderA4(out, items){
   var perRiga=parseInt(document.getElementById('perRiga').value,10)||3;
   var hmm=parseInt(document.getElementById('hmm').value,10)||40;
-  document.getElementById('pageStyle').textContent='@page { size:A4; margin:0; }';
-  var largMm=((210-12)/perRiga)-3;
-  var perColonna=Math.max(1,Math.floor((297-16)/(hmm+3)));
+  document.getElementById('pageStyle').textContent='@page { size:A4; margin:10mm; }';
+  var largMm=(190-3*(perRiga-1))/perRiga;
+  var perColonna=Math.max(1,Math.floor((277+3)/(hmm+3)));
   var perFoglio=perRiga*perColonna, foglio=null;
   for(var idx=0;idx<items.length;idx++){
     if(idx%perFoglio===0){ foglio=document.createElement('div'); foglio.className='foglio';
