@@ -1,18 +1,16 @@
-# Mascherine · Confezionamento
+# Mascherine: confezionamento e scarico
 
-La sezione è disponibile nel menu ufficio, dopo DDT fornitori, e nella schermata iniziale della vista operatori. Le righe sono quelle dei DDT sincronizzati la cui descrizione contiene mascherina o mascherine. Non è richiesto il barcode.
+Aggiornamento 5 novembre 2026.
 
-1. Cercare fornitore, numero DDT o articolo.
-2. Controllare **Rientrati** e **Da imbustare**. I rientri devono essere prima registrati nel modulo DDT e sincronizzati.
-3. Dopo aver contato i pezzi effettivamente imbustati, premere **Carica imbustati** e inserire solo i nuovi pezzi confezionati. Unità di misura: singola mascherina, non confezione multipla.
-4. Il totale **Imbustati** aumenta e la **Giacenza confezionata** viene aggiornata subito nel gestionale.
-5. Quando il materiale confezionato lascia il magazzino, premere **Scarica confezionati**, inserire i pezzi e indicare nelle note la destinazione. Lo scarico riduce la giacenza.
-6. **Storico** mostra operatore, data, quantità e note. Gli utenti con permesso di eliminazione possono annullare un movimento indicando il motivo. Se un confezionamento è già stato scaricato, occorre correggere prima lo scarico.
-
-Giacenza = pezzi imbustati − pezzi scaricati, inclusi gli storni. Queste registrazioni sono conservate nel gestionale e non modificano QTY RIENTRATA in Airtable. Il magazzino parte da zero: eventuali pezzi già imbustati devono essere contati e caricati.
-
-# Correggere un rientro DDT errato
-
-In **DDT fornitori → Storico rientri → Annulla carico**, indicare il motivo e confermare. È richiesto il permesso di eliminazione. I carichi non ancora presi in invio vengono annullati subito. Se l'invio è già iniziato, attendere la sincronizzazione e ripetere l'annullamento. Per i carichi sincronizzati viene creato uno storno, inviato ad Airtable al ciclo successivo (circa cinque minuti).
-
-Lo storico resta consultabile. I rientri già usati per confezionare mascherine richiedono prima la correzione del confezionamento. È possibile annullare solo i carichi registrati da questo modulo: i conteggi pregressi inseriti direttamente in Airtable non hanno una singola registrazione annullabile nel gestionale.
+- Ufficio: aprire **Mascherine · Confezionamento**. Reparto: premere la scheda **Mascherine**, disponibile anche nella navigazione in alto.
+- Cercare fornitore, DDT o articolo. Il numero DDT apre **Carica imbustati**: inserire solo i pezzi confezionati adesso. Il carico non ha un vincolo di 250 pezzi e conserva il collegamento al DDT.
+- I pezzi caricati non possono superare i rientri DDT sincronizzati. Per nuovi rientri usare DDT fornitori e attendere la sincronizzazione Airtable (circa 5 minuti).
+- La giacenza in alto è **globale**, non cambia ambito con i filtri. Include tutti i carichi meno tutti gli scarichi e i relativi storni.
+- Per una consegna usare **Scarica 250 mascherine imbustate** e confermare. Non scegliere un DDT. Per 500 pezzi registrare due scarichi da 250. Se la giacenza è inferiore a 250 lo scarico viene bloccato anche dal database.
+- Esempio: 150 pezzi caricati dal DDT A e 100 dal DDT B permettono uno scarico unico di 250 pezzi. Giacenza finale: zero.
+- Correggere i carichi con **Modifica / Annulla** nella riga DDT. Inserire la nuova quantità del singolo movimento e il motivo, oppure annullare il movimento.
+- Per gli scarichi usare **Scarichi · Storico / Correzioni**. Le note sono modificabili; la quantità dei nuovi scarichi è fissa a 250. Un annullamento ripristina la giacenza. Le correzioni richiedono il permesso `planning_delete` e conservano autore, data, motivo e originale.
+- I vecchi scarichi collegati a un DDT e con altre quantità restano nello storico e nel totale: nessun movimento preesistente viene rimosso o convertito. Sono ancora correggibili.
+- La riduzione di un carico non può rendere negativa la giacenza globale né contraddire i vecchi scarichi di quel DDT. Correggere prima gli eventuali scarichi sbagliati.
+- I movimenti del magazzino mascherine **non modificano Airtable**. Solo i rientri e storni in DDT fornitori vengono sincronizzati.
+- CSV ed Excel esportano i carichi dei DDT filtrati. I totali globali rimangono visibili nella schermata; lo storico scarichi è separato.
