@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../lot-quality.js'),'utf8');
+const start=source.indexOf('Q.adminReportHtml='),end=source.indexOf('Q.report=async');
+const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+const ctx={Q:{},esc:escape,lotno:l=>l.id,lotDate:x=>x,lotDeliveryDate:x=>x,date:x=>x};vm.createContext(ctx);vm.runInContext(source.slice(start,end),ctx);
+const data={lot:{id:'L1',client:'<script>bad</script>',rows:[{code:'1',state:'Uscito',processingName:'Acqua',rewashCycles:2},{code:'2',state:'Entrato',repair:true,replacement:true,rewashPending:true,repairWork:[{kind:'repair',name:'Toppa',quantity:1,minutesHundredths:2000,unit:'minute',notes:'<img src=x>'},{kind:'relabel',name:'Etichetta',quantity:2,minutesHundredths:100,unit:'piece'}]},{code:'3',state:'Dismesso',disposition:'replace',lifecycleClosed:true,replacedBy:'4'}]},products:[{id:'1',type:'Tuta'},{id:'2',type:'Camice'}],checks:[],generated_at:'oggi'};
+let h=ctx.Q.reportHtml(data);assert.match(h,/green">1<\/span> <b>Prodotti usciti da fatturare/);assert.match(h,/Toppa/);assert.match(h,/green">20<\/span>/);assert.match(h,/Sostituzioni eseguite \(capi\)<\/td><td><span class="qty green">1/);assert.match(h,/Rilavaggi registrati sui prodotti usciti<\/td><td><span class="qty green">2/);assert(!h.includes('<script>bad'));assert(!h.includes('<img src=x>'));assert(!h.includes('Capi assegnati'));assert.match(h,/Stampa senza note/);
+data.lot.rows=[{code:'2',state:'Entrato',repair:true,replacement:true,rewashPending:true}];h=ctx.Q.reportHtml(data);assert.match(h,/zero">0<\/span> <b>Prodotti usciti/);assert(!h.includes('qty green'));assert(!h.includes('Toppa'));
+assert.match(ctx.Q.reportHtml(data,'repairs'),/Report reparto cucito del lotto/);
+console.log('PASS: exited-only quantities, recorded interventions, executed replacements, rewashes, pending exclusions, escaping, sewing report preserved');

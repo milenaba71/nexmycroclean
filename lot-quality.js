@@ -34,7 +34,47 @@ checkedProcess=async function(code){
 const beforeRequest=cloudRequest;cloudRequest=async function(...args){try{return await beforeRequest.apply(this,args)}catch(e){e.message=err(e);throw e}};
 const css=document.createElement('style');css.textContent='.quality-history{padding:14px 0;border-top:1px solid #dce3ef}.quality-history p{white-space:pre-wrap}#qualityForm{margin:16px 0}#qualityForm textarea{width:100%;padding:12px;border:1px solid #dce3ef;border-radius:6px}';document.head.append(css);
 
+// Compact administration view: movement quantities and executed work, never requests.
+Q.adminReportHtml=function(data){
+ const l=data.lot, rows=l.rows||[], products=new Map((data.products||[]).map(g=>[String(g.id),g]));
+ const text=v=>esc(String(v??'—')), num=v=>Number(v||0).toLocaleString('it-IT'), positive=v=>Math.max(0,Number(v)||0);
+ const badge=v=>`<span class="qty ${v>0?'green':'zero'}">${text(num(v))}</span>`;
+ const table=(heads,items)=>`<table><thead><tr>${heads.map(h=>`<th>${text(h)}</th>`).join('')}</tr></thead><tbody>${items.length?items.map(c=>`<tr>${c.map(v=>`<td>${v}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${heads.length}">Nessuna quantità registrata</td></tr>`}</tbody></table>`;
+ const groups=new Map(), services=new Map(), notes=[];
+ let out=0,replacements=0,rewashes=0;
+ for(const r of rows){
+  const g=products.get(String(r.code))||{};
+  if(r.state==='Uscito'){
+   out++;const parts=[g.type||'Non indicato',g.size||'—',g.dept||'—',r.processingName||'Non indicato'],key=JSON.stringify(parts);
+   if(!groups.has(key))groups.set(key,{parts,qty:0});groups.get(key).qty++;
+   rewashes+=positive(r.rewashCycles);
+  }
+  if(r.replacedBy||(r.disposition==='replace'&&r.lifecycleClosed))replacements++;
+  for(const w of r.repairWork||[]){
+   const kind={repair:'Riparazione',relabel:'Etichettatura',verify:'Verifica',replacement:'Sostituzione'}[w.kind]||'Intervento';
+   const parts=[kind,w.name||'Non indicato',w.unit==='piece'?'Pezzi':'Minuti'],key=JSON.stringify(parts);
+   if(!services.has(key))services.set(key,{parts,qty:0,minutes:0});
+   const s=services.get(key);s.qty+=positive(w.quantity);s.minutes+=positive(w.minutesHundredths)/100;
+   if(w.notes)notes.push([g.barcode||r.code,`${kind} · ${w.name||''}`,w.notes]);
+  }
+  if(r.notes)notes.push([g.barcode||r.code,'Prodotto',r.notes]);
+ }
+ const remaining=rows.filter(r=>!['Uscito','Dismesso'].includes(r.state)).length;
+ const replacementLabel='Sostituzioni eseguite (capi)', rewashLabel='Rilavaggi registrati sui prodotti usciti';
+ return `<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Report amministrazione ${text(lotno(l))}</title><style>
+ @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#243655;max-width:1000px;margin:24px auto;padding:0 18px}h1{font-size:25px;color:#243d79}h2{font-size:18px;margin:0 0 14px}p{line-height:1.5}.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}button{padding:12px;border:0;border-radius:8px;background:#243d79;color:white;cursor:pointer}.brand{color:#cf2180;font-weight:bold;letter-spacing:2px}.meta{color:#637089;font-size:12px}.card{padding:18px;margin:18px 0;border-radius:12px;border:1px solid #dce3ed;background:#f2f7ff}.card.sewing{background:#fff9e5}.card.other{background:#f5effb}.summary{display:flex;align-items:center;gap:14px;padding:16px;background:#edf7f0;border-radius:12px}.qty{display:inline-flex;align-items:center;justify-content:center;min-width:34px;min-height:34px;padding:7px;border-radius:50%;font-weight:bold}.green{background:#168347;color:#fff;border:1px solid #116936}.zero{background:#e9edf2;color:#5b6574}.hint{font-size:12px;color:#526078}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{text-align:left;vertical-align:middle;padding:10px 7px;border-bottom:1px solid #d9dfE8;overflow-wrap:anywhere}th{font-size:12px}thead{display:table-header-group}tr{break-inside:avoid}.notes td{white-space:pre-wrap}footer{font-size:11px;margin-top:22px;color:#637089}@media(max-width:600px){body{font-size:12px;padding:0 10px}.card{padding:10px}th,td{padding:8px 3px}.qty{min-width:28px;min-height:28px;padding:5px}}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.tools{display:none}body{margin:0;padding:0;font-size:11px}h1{font-size:21px}.card{padding:12px}th,td{padding:7px}body.without-notes .notes{display:none}}
+ </style><div class="tools"><button onclick="document.body.classList.remove('without-notes');window.print()">Stampa con note</button><button onclick="document.body.classList.add('without-notes');window.print()">Stampa senza note</button></div>
+ <div class="brand">MYCROCLEAN</div><h1>Riepilogo per la fatturazione</h1><p><b>${text(l.client)} · ${text(lotno(l))}</b><br>Ingresso: ${text(l.date?lotDate(l.date):'—')} · Consegna: ${text(l.due?lotDeliveryDate(l.due):'—')}</p>
+ <div class="summary">${badge(out)} <b>Prodotti usciti da fatturare</b></div><p class="hint">${remaining?`${remaining} prodotti ancora da riconsegnare: esclusi dalle quantità dei prodotti da fatturare.`:'Nessun prodotto ancora da riconsegnare.'} Entrati: ${rows.length}. Il bollino verde indica quantità registrate, non richieste da eseguire.</p>
+ <section class="card"><h2>1. Prodotti usciti</h2>${table(['Tipo prodotto','Taglia / reparto','Lavaggio / lavorazione','Quantità da fatturare'],[...groups.values()].map(g=>[text(g.parts[0]),text(g.parts[1]+' / '+g.parts[2]),text(g.parts[3]),badge(g.qty)]))}</section>
+ <section class="card sewing"><h2>2. Interventi eseguiti · Reparto cucito</h2>${table(['Intervento','Tipo conteggio','Pezzi eseguiti','Minuti eseguiti'],[...services.values()].map(s=>[text(s.parts[0]+' · '+s.parts[1]),text(s.parts[2]),badge(s.qty),badge(s.minutes)]))}<p class="hint">Solo interventi consuntivati. Per gli interventi a minuti usare i minuti; per quelli a pezzi usare i pezzi. Le due colonne non si sommano. Gli interventi sono mostrati anche se il capo deve ancora uscire.</p></section>
+ <section class="card other"><h2>3. Sostituzioni e rilavaggi</h2>${table(['Operazione','Quantità'],[[text(replacementLabel),badge(replacements)],[text(rewashLabel),badge(rewashes)]])}<p class="hint">Le sostituzioni richieste e i flag di rilavaggio non sono conteggiati. Le sostituzioni indicano i capi sostituiti: non sommarle a un eventuale intervento di sostituzione già riportato sopra.</p></section>
+ <section class="notes"><h2>Note</h2>${table(['Codice / tag','Riferimento','Nota'],notes.map(n=>n.map(text)))}</section>
+ <footer>Quantità per l’amministrazione: applicare prezzi e condizioni del contratto. Questo riepilogo non è una fattura.<br>Generato il ${text(date(data.generated_at))} · ${text(data.generated_by)} · Revisione ${text(data.data_revision)}</footer></html>`;
+};
+
 Q.reportHtml=function(data,mode){
+ if(mode!=='repairs')return Q.adminReportHtml(data);
  const repairsOnly=mode==='repairs';
  const sewingKinds={repair:'Riparazione',relabel:'Etichettatura',verify:'Verifica',replacement:'Sostituzione richiesta',discardReview:'Scarto da verificare',rewashPending:'Rilavaggio richiesto'};
  const openKinds=r=>['Uscito','Dismesso'].includes(r.state)?[]:Object.keys(sewingKinds).filter(k=>r[k]);
@@ -66,3 +106,4 @@ Q.reportHtml=function(data,mode){
 Q.report=async function(id,mode){const popup=window.open('about:blank','_blank');if(!popup)return notify('Consenti l’apertura della finestra per visualizzare il report.');popup.opener=null;popup.document.body.textContent='Preparazione del report…';try{await cloudFlush();const data=await Q.rpc('report',{lot_id:id});if(popup.closed)return;popup.document.open();popup.document.write(Q.reportHtml(data,mode));popup.document.close()}catch(e){if(!popup.closed)popup.document.body.textContent='Report non disponibile: '+err(e);notify(err(e))}};
 Q.decorate();
 })();
+
