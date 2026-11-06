@@ -14,5 +14,13 @@ const fs=require('fs'),assert=require('assert');
  }
  for(const opt of [{superAdmin:false},{auth:false},{active:false}]){const {res,calls}=await run(opt);assert(res.status>=400);assert(!calls.some(([u])=>u.includes('/admin/users')))}
  for(const existing of [false,true]){const {res,calls}=await run({existing});assert.equal(res.status,200);assert.equal(calls.at(-1)[1].method,existing?'PUT':'POST')}
+ for(const origin of ['https://gestionale.mycroclean.com','https://milenaba71.github.io']){
+  const preflight=await handle(new Request('https://function',{method:'OPTIONS',headers:{Origin:origin}}),env);
+  assert.equal(preflight.status,204);assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),origin);assert.equal(preflight.headers.get('Vary'),'Origin');
+  const unauthorized=await handle(new Request('https://function',{method:'POST',headers:{Origin:origin}}),env);
+  assert.equal(unauthorized.status,401);assert.equal(unauthorized.headers.get('Access-Control-Allow-Origin'),origin);
+ }
+ const denied=await handle(new Request('https://function',{method:'OPTIONS',headers:{Origin:'https://untrusted.example'}}),env);
+ assert.equal(denied.status,403);assert.equal(denied.headers.get('Access-Control-Allow-Origin'),null);
  console.log('PASS manual passwords: authentication, Super Admin authorization, active-member restriction, create/update Auth, password excluded from app RPCs');
 })().catch(e=>{console.error(e);process.exit(1)});
