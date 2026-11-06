@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 let can=true,modal='',calls=[],closed=false,notices=[];
-const el=Object.fromEntries(['#app','#maskTotals','#maskRows','#maskMove','#maskCancel','#maskCorrect','#maskError','#maskShip','#modal'].map(x=>[x,{classList:{remove(){},toggle(){}}}]));el['#modal'].close=()=>closed=true;
+const el=Object.fromEntries(['#app','#maskTotals','#maskRows','#maskMove','#maskCancel','#maskCorrect','#maskError','#maskShip','#maskShipCustom','#modal'].map(x=>[x,{classList:{remove(){},toggle(){}}}]));el['#modal'].close=()=>closed=true;
 const c={window:{},document:{createElement:()=>({}),head:{append(){}}},render(){},$:(x)=>el[x],esc:x=>String(x??''),userCan:()=>can,page:'Mascherine · Confezionamento',current:null,crypto:{randomUUID:()=> 'new-id'},show:x=>modal=x,notify:x=>notices.push(x),heading:()=>'',FormData:class{constructor(f){this.f=f}get(k){return this.f.values[k]}}};vm.createContext(c);vm.runInContext(fs.readFileSync(path.join(__dirname,'../mask-stock.js'),'utf8'),c);const M=c.window.MaskStock;
 const row={id:'rec12345678901234',data:{number:'109',supplierName:'Fornitore',description:'MASCHERINA'},returned:1000,packed:300};
 let available=300;M.rpc=async(action,p)=>{calls.push([action,p]);return action==='read'?{rows:[row],total:1,packed:500,shipped:200,stock:available}:action==='history'?{rows:[],total:0}:{};};
@@ -9,6 +9,14 @@ await M.load();assert(el['#maskRows'].innerHTML.includes('MaskStock.openLoad'));
 M.openLoad(row.id);assert(modal.includes('max="700"'));assert(modal.includes('inputmode="numeric"'));
 M.ship();assert(modal.includes('value="250"'));assert(!modal.includes('name="lineId"'));let button={disabled:false};await el['#maskMove'].onsubmit({preventDefault(){},target:{querySelector:()=>button,values:{quantity:'250',notes:'Cliente A'}}});const sent=calls.find(x=>x[0]==='move')[1];assert.equal(sent.kind,'ship');assert.equal(sent.lineId,null);assert.equal(sent.quantity,250);assert(closed);
 available=249;await M.load();assert.equal(el['#maskShip'].disabled,true);modal='';M.ship();assert.equal(modal,'');
+assert.equal(el['#maskShipCustom'].disabled,false);
+M.ship(true);assert(modal.includes('max="249"'));assert(modal.includes('Mascherine da scaricare'));
+calls=[];closed=false;button={disabled:false};
+await el['#maskMove'].onsubmit({preventDefault(){},target:{querySelector:()=>button,values:{quantity:'37',notes:'Manuale'}}});
+assert.equal(calls.find(x=>x[0]==='move')[1].quantity,37);assert(closed);assert(notices.at(-1).includes('37'));
+for(const quantity of ['0','1.5','250']){M.ship(true);calls=[];closed=false;button={disabled:false};await el['#maskMove'].onsubmit({preventDefault(){},target:{querySelector:()=>button,values:{quantity,notes:''}}});assert(!calls.some(x=>x[0]==='move'));assert(!closed);assert.equal(button.disabled,false);}
+available=0;await M.load();assert.equal(el['#maskShipCustom'].disabled,true);modal='';M.ship(true);assert.equal(modal,'');
+M.historyRows=[{id:'custom',line_id:null,kind:'ship',quantity:37}];M.correct('custom');assert(modal.includes('value="37"'));assert(!modal.includes('value="250"'));
 c.window.floor={active:true};await M.load();assert(el['#maskRows'].innerHTML.includes('mask-floor-card'));assert(!el['#maskRows'].innerHTML.includes('<table'));can=false;await M.load();assert(!el['#maskRows'].innerHTML.includes('Carica imbustati'));assert(!el['#maskRows'].innerHTML.includes('Modifica / Annulla'));
 await M.history(null);assert(calls.some(([a,p])=>a==='history'&&p.scope==='shipments'));
 const source=fs.readFileSync(path.join(__dirname,'../operator-view.js'),'utf8');let opened=0,blocked=false;const route={F:{},window:{MaskStock:{}},MaskStock:{view:()=>opened++},busy:()=>blocked,notify(){},setMode:on=>route.F.active=on,current:{},page:''};vm.createContext(route);vm.runInContext(source.match(/F.mask=function\(\)\{[^\n]+/)[0],route);route.F.mask();assert.equal(route.F.screen,'mask');assert.equal(route.page,'Mascherine · Confezionamento');assert.equal(opened,1);blocked=true;route.F.mask();assert.equal(opened,1);assert(source.includes("if(F.screen==='mask')return window.MaskStock?.view()"));assert(source.includes('onclick="floor.mask()"'));assert(source.includes("if(destination==='Mascherine · Confezionamento')return F.mask()"));
