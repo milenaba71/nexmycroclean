@@ -1,7 +1,10 @@
 // Passwords go only to Supabase Auth; never to application tables or logs.
 export async function handle(req, env, send = fetch) {
- const headers = {'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'https://milenaba71.github.io','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS'};
+ const origin=req.headers.get('Origin');
+ const allowedOrigins=['https://gestionale.mycroclean.com','https://milenaba71.github.io'];
+ const headers = {'Content-Type':'application/json','Cache-Control':'no-store',...(allowedOrigins.includes(origin)?{'Access-Control-Allow-Origin':origin}:{}),'Vary':'Origin','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS'};
  const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers});
+ if(origin&&!allowedOrigins.includes(origin))return reply({error:'Origine non consentita.'},403);
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
  if(req.method!=='POST')return reply({error:'Metodo non consentito.'},405);
  const token=req.headers.get('Authorization')||'';
