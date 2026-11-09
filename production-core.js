@@ -26,7 +26,41 @@ function plan(state,first,days=7,nowDay='',nowMinute=0){
  for(let r of state.machineReservations||[]){if(dates.includes(r.date)&&r.end>r.start)(macBusy[key(r.machineId,r.date)]??=[]).push({start:r.start,end:r.end})}
  // Started/paused assignments are frozen, never silently reassigned.
  for(let t of state.tasks){if(t.status==='completed'){finished.set(t.id,-1);let old=state.plan?.allocations?.find(a=>a.taskId===t.id);if(old)allocations.push({...old,completed:true});}if(['running','paused'].includes(t.status)){let old=state.plan?.allocations?.find(a=>a.taskId===t.id);pending.delete(t.id);if(old){allocations.push({...old,frozen:true});for(let s of old.segments){(opBusy[key(old.email,s.date)]??=[]).push(s)}if(old.machineId)for(let span of old.machineSpans||[{date:old.date,start:old.machineStart,end:old.machineEnd}])(macBusy[key(old.machineId,span.date)]??=[]).push(span);issues.push({taskId:t.id,reason:'Attività avviata: assegnazione conservata; completare prima di pianificare le successive'})}else issues.push({taskId:t.id,reason:'Attività avviata senza piano valido'});}}
- function candidate(t,op,m,ready){let type=types.get(t.typeId),est=estimate(type,t.quantity,m);if(est.error)return null;if(m)return machineCandidate(t,op,m,ready,est,type);if(t.remainingMinutes!==undefined&&t.remainingMinutes!==null)est.labor=Math.ceil(Number(t.remainingMinutes));let segments=[],remaining=est.labor,mac=null;for(let date of dates){if(date<(t.releaseDate||first)||date<nowDay)continue;let av=daySlots(state,op,date);let free=subtract(av.slots.filter(s=>s.station===type.station),opBusy[key(op.email,date)]||[]);let floor=Math.max(date===nowDay?nowMinute:0,ready>=0?ready-dates.indexOf(date)*1440:0);for(let s of free){let start=Math.max(s.start,floor),end=s.end;if(start>=end)continue;if(m){let ma=minute(m.start),mb=minute(m.end);if(ma===null||mb===null||mb<=ma)continue;start=Math.max(start,ma);for(let x=start;x+est.labor<=end&&x+est.labor+est.machine<=mb;x++){let span={start:x+est.labor,end:x+est.labor+est.machine};if(!(macBusy[key(m.id,date)]||[]).some(b=>overlaps(span,b))){segments=est.labor?[{date,start:x,end:x+est.labor}]:[];mac={date,start:span.start,end:span.end};remaining=0;break}}}else{let n=Math.min(remaining,end-start);segments.push({date,start,end:start+n});remaining-=n}if(remaining===0&&(mac||!m)){let last=segments.at(-1),finish=mac?absolute(mac.date,mac.end):absolute(last.date,last.end);return {taskId:t.id,email:op.email,segments,date:mac?.date||last.date,machineId:m?.id||null,machineStart:mac?.start??null,machineEnd:mac?.end??null,cycles:est.cycles,labor:est.labor,finish,late:!!t.due&&(dates[Math.floor(finish/1440)]+'T'+clock(finish%1440)>t.due)}}}}return null}
+ function compatibleMachines(type){
+  if(type?.mode==='machine')return state.machines.filter(m=>m.kind===type.machineKind&&machineAvailable(state,m));
+  if(type?.machineId)return state.machines.filter(m=>m.id===type.machineId&&machineAvailable(state,m));
+  return [null];
+ }
+ function candidate(t,op,m,ready){
+  const type=types.get(t.typeId),est=estimate(type,t.quantity,m);
+  if(est.error)return null;
+  if(type.mode==='machine')return machineCandidate(t,op,m,ready,est,type);
+  let remaining=t.remainingMinutes==null?est.labor:Math.ceil(Number(t.remainingMinutes));
+  const segments=[];
+  const machineStart=m?minute(m.start):0,machineEnd=m?minute(m.end):1440;
+  if(machineStart===null||machineEnd===null||machineEnd<=machineStart)return null;
+  for(const date of dates){
+   if(date<(t.releaseDate||first)||date<nowDay)continue;
+   const floor=Math.max(machineStart,date===nowDay?nowMinute:0,ready>=0?ready-dates.indexOf(date)*1440:0);
+   const available=daySlots(state,op,date).slots.filter(s=>s.station===type.station);
+   const busy=[...(opBusy[key(op.email,date)]||[]),...(m?macBusy[key(m.id,date)]||[]:[])];
+   for(const slot of subtract(available,busy)){
+    const start=Math.max(slot.start,floor),end=Math.min(slot.end,machineEnd);
+    if(start>=end)continue;
+    const used=Math.min(remaining,end-start);
+    segments.push({date,start,end:start+used});
+    remaining-=used;
+    if(remaining===0){
+     const finish=absolute(date,start+used);
+     return {taskId:t.id,email:op.email,segments,date,machineId:m?.id||null,
+      machineStart:m?start:null,machineEnd:m?start+used:null,
+      ...(m?{machineSpans:segments}:{}),cycles:0,labor:est.labor,finish,
+      late:!!t.due&&(date+'T'+clock(finish%1440)>t.due)};
+    }
+   }
+  }
+  return null;
+ }
 
  function machineCandidate(t,op,m,ready,est,type){
   let machineSpans=[],segments=[],floor=ready,ma=minute(m.start),mb=minute(m.end);if(ma===null||mb===null||mb<=ma)return null;
@@ -49,12 +83,12 @@ function plan(state,first,days=7,nowDay='',nowMinute=0){
  const durationMemo=new Map();
  function remainingChain(t,visiting=new Set()){
   if(durationMemo.has(t.id))return durationMemo.get(t.id);if(visiting.has(t.id))return 0;let nextSeen=new Set(visiting);nextSeen.add(t.id);
-  let type=types.get(t.typeId),estimates=(type?.mode==='machine'?state.machines.filter(m=>m.kind===type.machineKind&&machineAvailable(state,m)):[null]).map(m=>estimate(type,t.quantity,m)).filter(e=>!e.error),own=estimates.length?Math.min(...estimates.map(e=>(t.remainingMinutes??e.labor)+e.machine)):0;
+  let type=types.get(t.typeId),estimates=compatibleMachines(type).map(m=>estimate(type,t.quantity,m)).filter(e=>!e.error),own=estimates.length?Math.min(...estimates.map(e=>(t.remainingMinutes??e.labor)+e.machine)):0;
   let after=state.tasks.filter(x=>!['completed','cancelled'].includes(x.status)&&(x.dependsOn||[]).includes(t.id));let result=own+Math.max(0,...after.map(x=>remainingChain(x,nextSeen)));durationMemo.set(t.id,result);return result;
  }
  function slack(t){if(!t.due)return Infinity;let day=Math.round((Date.parse(t.due.slice(0,10)+'T12:00:00Z')-Date.parse(first+'T12:00:00Z'))/86400000);return day*1440+(minute(t.due.slice(11,16))??1439)-remainingChain(t)-(t.priority?480:0)}
  let ordered=[...pending.values()].sort((a,b)=>slack(a)-slack(b)||(a.due||'9999').localeCompare(b.due||'9999')||a.id.localeCompare(b.id));
- while(ordered.length){let progressed=false;for(let t of [...ordered]){let deps=t.dependsOn||[];if(deps.some(id=>!finished.has(id)))continue;let type=types.get(t.typeId);if(!stationList(state).some(s=>s.id===type?.station&&s.active!==false)){issues.push({taskId:t.id,reason:'Postazione disattivata o non disponibile'});ordered=ordered.filter(x=>x.id!==t.id);progressed=true;continue}let ready=Math.max(-1,...deps.map(id=>finished.get(id))),eligible=users.filter(o=>(o.skills||[]).includes(type?.station)&&(!t.assignee||t.assignee===o.email));let machines=type?.mode==='machine'?state.machines.filter(m=>m.kind===type.machineKind&&machineAvailable(state,m)): [null];let best=null;for(let op of eligible)for(let m of machines){let c=candidate(t,op,m,ready);if(c&&(!best||c.finish<best.finish||c.finish===best.finish&&c.email<best.email))best=c}if(best){allocations.push(best);for(let s of best.segments)(opBusy[key(best.email,s.date)]??=[]).push(s);if(best.machineId)for(let span of best.machineSpans||[{date:best.date,start:best.machineStart,end:best.machineEnd}])(macBusy[key(best.machineId,span.date)]??=[]).push(span);finished.set(t.id,best.finish)}else{issues.push({taskId:t.id,reason:!type?'Lavorazione mancante':!eligible.length?'Nessun operatore abilitato/assegnato':!machines.length?'Nessuna macchina disponibile':type.mode!=='machine'&&estimate(type,t.quantity).error||'Capacità, turni, pause o tempi insufficienti / da completare'})}ordered=ordered.filter(x=>x.id!==t.id);progressed=true}if(!progressed)break}
+ while(ordered.length){let progressed=false;for(let t of [...ordered]){let deps=t.dependsOn||[];if(deps.some(id=>!finished.has(id)))continue;let type=types.get(t.typeId);if(!stationList(state).some(s=>s.id===type?.station&&s.active!==false)){issues.push({taskId:t.id,reason:'Postazione disattivata o non disponibile'});ordered=ordered.filter(x=>x.id!==t.id);progressed=true;continue}let ready=Math.max(-1,...deps.map(id=>finished.get(id))),eligible=users.filter(o=>(o.skills||[]).includes(type?.station)&&(!t.assignee||t.assignee===o.email));let machines=compatibleMachines(type);let best=null;for(let op of eligible)for(let m of machines){let c=candidate(t,op,m,ready);if(c&&(!best||c.finish<best.finish||c.finish===best.finish&&c.email<best.email))best=c}if(best){allocations.push(best);for(let s of best.segments)(opBusy[key(best.email,s.date)]??=[]).push(s);if(best.machineId)for(let span of best.machineSpans||[{date:best.date,start:best.machineStart,end:best.machineEnd}])(macBusy[key(best.machineId,span.date)]??=[]).push(span);finished.set(t.id,best.finish)}else{issues.push({taskId:t.id,reason:!type?'Lavorazione mancante':!eligible.length?'Nessun operatore abilitato/assegnato':!machines.length?'Nessuna macchina disponibile':type.mode!=='machine'&&estimate(type,t.quantity).error||'Capacità, turni, pause o tempi insufficienti / da completare'})}ordered=ordered.filter(x=>x.id!==t.id);progressed=true}if(!progressed)break}
  for(let t of ordered)issues.push({taskId:t.id,reason:'In attesa di attività precedenti non pianificabili o non completate'});
  return {first,days,createdAt:new Date().toISOString(),allocations,issues};
 }
