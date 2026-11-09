@@ -79,6 +79,6 @@ async function createBulkProductCopies(e){
  }finally{bulkCopiesBusy=false;lotActionBusy=false;form.querySelectorAll('button').forEach(b=>b.disabled=false)}
  if(!result)return;
  $('#modal').close();labelSelection.clear();result.created_ids.forEach(id=>labelSelection.add(id));garmentPage=0;
- try{await openLabelEditor(result.created_ids);notify(`${result.created_count} prodotti disponibili in Prodotti. Etichette pronte, una per ciascun barcode.`)}
+ try{const rows=result.created_ids.map(id=>db.garments.find(g=>g.id===id));if(rows.some(g=>!g))throw Error('Aggiorna i prodotti prima di aprire le etichette.');sessionStorage.setItem('mycro-label-transfer',JSON.stringify(rows.map(labelRow)));go('Etichette');notify(`${result.created_count} prodotti disponibili in Prodotti. Etichette pronte, una per ciascun barcode.`)}
  catch(error){render();notify(`${result.created_count} prodotti creati. Apri Etichette selezionate per stampare. ${error.message}`)}
 }
