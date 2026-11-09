@@ -60,7 +60,7 @@
   .el .qrbox svg, .el .bcbox svg { display:block; }
   .el.txt { font-size:2.8mm; line-height:1.15; color:#1e293b; white-space:normal; word-break:break-word; overflow:hidden; }
   .el.txt.strong { font-weight:700; color:#0f172a; }
-  .el.txt .k { color:#64748b; font-weight:600; }
+  .el.txt .k { color:#64748b; font-weight:inherit; }
   .el[contenteditable="true"]{ outline:1px dashed #2563eb; cursor:text; }
   .rzh { position:absolute; right:-4px; bottom:-4px; width:10px; height:10px; background:#16a34a; border:1px solid #fff; border-radius:2px; cursor:nwse-resize; z-index:40; }
   .et.editable .el.fsactive { outline:2px solid #2563eb !important; background:rgba(37,99,235,.08); }
@@ -159,6 +159,7 @@
       <button id="fsMinus" title="Carattere più piccolo" disabled>A−</button>
       <span id="fsVal">–</span>
       <button id="fsPlus" title="Carattere più grande" disabled>A+</button>
+      <label for="textWeight">Stile</label><select id="textWeight" disabled><option value="400">Normale</option><option value="700">Grassetto</option></select>
     </span>
   &nbsp; <button class="ghost" id="btnReset" style="padding:4px 12px">↺ Ripristina layout</button>
   </div>
@@ -201,7 +202,7 @@ var FIELDS = [
   { key:'lotto',    lab:'Lotto',     kind:'text',   on:false, x:62, y:78, prefix:'Lotto', cols:['lotto','LOTTO'] },
   { key:'dataCr',   lab:'Data',      kind:'text',   on:false, x:62, y:86, prefix:'Data', cols:['created_at','DATA DI CREAZIONE','data di creazione','DATA','data'] },
   { key:'dataPe',   lab:'Data pers.',kind:'text',   on:false, x:62, y:92, prefix:'Pers.', cols:['data_personalizzazione','DATA DI PERSONALIZZAZIONE','data di personalizzazione'] },
-  { key:'esterna',  lab:'Esterna',   kind:'text',   on:false, x:62, y:70, prefix:'Est.', cols:['esterna','ESTERNA'] },
+  { key:'esterna',  lab:'Esterna',   kind:'text',   on:false, x:62, y:70, prefix:'', cols:['esterna','ESTERNA'] },
   { key:'note',     lab:'Note',      kind:'text',   on:false, x:38, y:94, prefix:'Note', cols:['note','NOTE'] }
 ];
 
@@ -455,6 +456,7 @@ function buildLabel(row, hmm, largMm){
     else { // text
       var val=fieldValue(f,row); if(!val) return;
       var d=document.createElement('div'); d.className='txt'+(f.strong?' strong':'');
+      d.style.fontWeight=labelTextWeight(f.key);
       var wPct = (LAYOUT[f.key] && LAYOUT[f.key].w) || 55;
       d.style.width = wPct+'%';   // il testo va a capo dentro questa larghezza (niente taglio)
       if(LAYOUT[f.key] && LAYOUT[f.key].fs) d.style.fontSize = LAYOUT[f.key].fs+'pt';
@@ -468,6 +470,7 @@ function buildLabel(row, hmm, largMm){
     var key='ft_'+ft.id;
     if(!LAYOUT[key]) LAYOUT[key]={x:35,y:50,w:40};
     var d=document.createElement('div'); d.className='txt strong';
+    d.style.fontWeight=labelTextWeight(key);
     d.style.width=((LAYOUT[key] && LAYOUT[key].w)||40)+'%';
     if(LAYOUT[key].fs) d.style.fontSize=LAYOUT[key].fs+'pt';
     d.innerHTML=esc(ft.text).replace(/\n/g,'<br>');
@@ -696,12 +699,23 @@ function selectText(key){
   document.querySelectorAll('#out .et.editable .el').forEach(function(o){ o.classList.toggle('fsactive', o.dataset.key===key); });
   updateFsCtl();
 }
+function labelTextWeight(key){
+  if(LAYOUT[key] && (LAYOUT[key].weight===400 || LAYOUT[key].weight===700)) return LAYOUT[key].weight;
+  var field=FIELDS.find(function(f){return f.key===key;});
+  return key.indexOf('ft_')===0 || (field && field.strong) ? 700 : 400;
+}
+function setLabelTextWeight(value){
+  if(!SELKEY || !LAYOUT[SELKEY] || !document.querySelector('#out .et.editable .el.txt[data-key="'+SELKEY+'"]')) return;
+  var weight=Number(value);if(weight!==400 && weight!==700)return;
+  LAYOUT[SELKEY].weight=weight;saveLayout();applyLayoutToAll();updateFsCtl();
+}
 function updateFsCtl(){
   var ok = SELKEY && LAYOUT[SELKEY] && document.querySelector('#out .et.editable .el[data-key="'+SELKEY+'"]');
   document.getElementById('fsName').textContent = ok ? keyLabel(SELKEY) : '— clicca un testo —';
   document.getElementById('fsVal').textContent = ok ? (LAYOUT[SELKEY].fs || DEFAULT_FS)+'pt' : '–';
   document.getElementById('fsMinus').disabled = !ok;
   document.getElementById('fsPlus').disabled = !ok;
+  var weight=document.getElementById('textWeight');weight.disabled=!(ok && ok.classList.contains('txt'));weight.value=ok?String(labelTextWeight(SELKEY)):'400';
 }
 function stepFs(d){
   if(!SELKEY || !LAYOUT[SELKEY]) return;
@@ -715,6 +729,7 @@ function applyLayoutToAll(){
       var k=el.dataset.key; if(!LAYOUT[k]) return;
       el.style.left=LAYOUT[k].x+'%'; el.style.top=LAYOUT[k].y+'%';
       if(el.classList.contains('txt') && LAYOUT[k].w) el.style.width=LAYOUT[k].w+'%';
+      if(el.classList.contains('txt')) el.style.fontWeight=labelTextWeight(k);
       if(el.classList.contains('txt') && LAYOUT[k].fs) el.style.fontSize=LAYOUT[k].fs+'pt';
       if(LAYOUT[k].s && LAYOUT[k].s!==1){ el.style.transform='scale('+LAYOUT[k].s+')'; el.style.transformOrigin='top left'; }
     });
@@ -1122,6 +1137,7 @@ document.getElementById('btnData').addEventListener('click', function(){
 });
 document.getElementById('fsMinus').addEventListener('click', function(){ stepFs(-0.5); });
 document.getElementById('fsPlus').addEventListener('click', function(){ stepFs(0.5); });
+document.getElementById('textWeight').addEventListener('change',function(){setLabelTextWeight(this.value);});
 document.getElementById('btnReset').addEventListener('click', function(){
   LAYOUT=JSON.parse(JSON.stringify(DEFAULT_LAYOUT)); saveLayout(); render();
 });
