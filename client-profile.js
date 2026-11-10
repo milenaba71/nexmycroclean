@@ -11,7 +11,7 @@ function requestClientDeletion(ids){
  const wanted=new Set(ids),rows=ensureClients().filter(c=>wanted.has(c.id));
  if(!rows.length)return notify('Seleziona almeno un cliente.');
  clientDeletionPending=rows.map(c=>({id:c.id,name:c.name}));
- show(`<h2>Cancella ${rows.length===1?'cliente':rows.length+' clienti'}</h2><p>Confermi la cancellazione definitiva dei clienti elencati? I clienti collegati a prodotti, lotti o reparti saranno mantenuti. I clienti con contratti saranno mantenuti.</p><ul style="max-height:240px;overflow:auto">${rows.map(c=>`<li>${esc(c.id)} · ${esc(c.name)}</li>`).join('')}</ul><p id="clientDeleteProgress" role="status"></p><form onsubmit="confirmClientDeletion(event)"><div class="wide"><button class="btn" type="submit">Conferma cancellazione</button> <button class="btn secondary" type="button" onclick="$('#modal').close()">Annulla</button></div></form>`);
+ show(`<h2>Cancella ${rows.length===1?'cliente':rows.length+' clienti'}</h2><p>Confermi la cancellazione definitiva dei clienti elencati? I reparti inutilizzati saranno eliminati insieme al cliente. I clienti con prodotti, lotti, contratti, pianificazioni o collegamenti Airtable saranno mantenuti.</p><ul style="max-height:240px;overflow:auto">${rows.map(c=>`<li>${esc(c.id)} · ${esc(c.name)}</li>`).join('')}</ul><p id="clientDeleteProgress" role="status"></p><form onsubmit="confirmClientDeletion(event)"><div class="wide"><button class="btn" type="submit">Conferma cancellazione</button> <button class="btn secondary" type="button" onclick="$('#modal').close()">Annulla</button></div></form>`);
 }
 async function confirmClientDeletion(e){
  e.preventDefault();if(clientDeletionBusy||!canDeleteClients())return;
@@ -30,6 +30,7 @@ async function confirmClientDeletion(e){
     const result=await cloudRequest('catalog_delete',{revision:cloudRevision,kind:'client',id:item.id});
     cloudAccept(result,false);selectedClientIds.delete(item.id);deleted++;
    }catch(error){
+    const reasons={DELETE_CLIENT_PRODUCTS:'Sono ancora presenti prodotti associati.',DELETE_CLIENT_LOTS:'Sono presenti lotti o storico del cliente.',DELETE_CLIENT_CONTRACTS:'Sono presenti contratti di servizio o noleggio.',DELETE_CLIENT_AIRTABLE:'Sono presenti ordini o abbinamenti Airtable.',DELETE_CLIENT_PLANNING:'Il cliente o un reparto è usato nella pianificazione.',DELETE_CLIENT_DEPARTMENT_IN_USE:'Un reparto è ancora collegato a prodotti o lotti.'};const code=Object.keys(reasons).find(key=>error.message.includes(key));if(code){failed.push({...item,reason:reasons[code]});continue}
     if(/DELETE_IN_USE|già utilizzata|già collegata/i.test(error.message)){failed.push({...item,reason:'Collegato a prodotti, lotti o reparti.'});continue}
     stopped=error.message;break;
    }
