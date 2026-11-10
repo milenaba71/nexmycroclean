@@ -1,0 +1,13 @@
+/* Shared action colors for office, department and label editor. */
+:root{--action-blue:#163b65;--action-blue-hover:#0e2948;--action-red:#c62828;--action-red-hover:#a51e1e}
+button,input[type="button"],input[type="submit"],input[type="reset"],a.btn,a[role="button"]{
+ background:var(--action-blue)!important;color:#fff!important;border-color:var(--action-blue)!important;
+}
+button *,a.btn *,a[role="button"] *{color:inherit!important}
+button:hover:not(:disabled),input[type="button"]:hover:not(:disabled),input[type="submit"]:hover:not(:disabled),a.btn:hover,a[role="button"]:hover{background:var(--action-blue-hover)!important;border-color:var(--action-blue-hover)!important;color:#fff!important}
+button.action-destructive,input.action-destructive,a.action-destructive{background:var(--action-red)!important;color:#fff!important;border-color:var(--action-red)!important}
+button.action-destructive:hover:not(:disabled),input.action-destructive:hover:not(:disabled),a.action-destructive:hover{background:var(--action-red-hover)!important;border-color:var(--action-red-hover)!important}
+button:focus-visible,input[type="button"]:focus-visible,input[type="submit"]:focus-visible,a.btn:focus-visible,a[role="button"]:focus-visible{outline:3px solid #74baff!important;outline-offset:2px}
+button.active,button.on,button[aria-current="page"],button[aria-selected="true"],button[aria-pressed="true"]{box-shadow:inset 0 -3px 0 #92c7ff!important}
+button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled{opacity:.5!important;cursor:not-allowed}
+button.link{border-radius:5px;padding:5px 9px}
