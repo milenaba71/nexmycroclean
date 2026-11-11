@@ -1,0 +1,28 @@
+const fs=require('fs'),path=require('path'),assert=require('node:assert/strict'),{PGlite}=require(process.env.PGLITE_PATH||'@electric-sql/pglite');
+// Current production definitions are supplied read-only by the test runner; no real records are used.
+(async()=>{const pg=new PGlite();await pg.exec(`create role anon;create role authenticated;create schema laundry_private;create schema auth;
+create function auth.uid() returns uuid language sql as $$select '00000000-0000-0000-0000-000000000001'::uuid$$;
+create table public.laundry_production(id boolean primary key,data jsonb,revision bigint);
+create table public.laundry_lots(id bigint,data jsonb);create table public.laundry_clients(id text,data jsonb);
+create table public.laundry_members(email text,name text,role text,active boolean);
+create table laundry_private.laundry_super_admin(email text);
+create table public.laundry_audit(actor_email text,actor_id text,action text,details jsonb);
+create function laundry_private.require_permission(cap text) returns void language plpgsql as $$begin if current_setting('test.role')='viewer' then raise exception 'FORBIDDEN';end if;end$$;
+create function laundry_private.laundry_authenticated(a text,p jsonb) returns jsonb language sql as $$select jsonb_build_object('user',jsonb_build_object('role',current_setting('test.role'),'email','op@test','permissions',jsonb_build_object('production_manage',true)))$$;
+select set_config('test.role','operator',false);`);
+for(const f of ['production','validator'])await pg.exec(fs.readFileSync(path.join(process.env.ANALYTICS_SQL_FIXTURES||path.join(__dirname,'fixtures/production-analytics'),f+'.sql'),'utf8'));
+const migration=fs.readFileSync(path.join(__dirname,'../sql/production-analytics.sql'),'utf8');await pg.exec(migration);await pg.exec(migration);
+const data={stations:[{id:'custom',kind:'other',active:true,name:'Etichette'}],types:[{id:'labels',mode:'piece',value:1.5,setup:0,station:'custom',name:'Etichette'}],machines:[{id:'m',name:'M1',kind:'water',capacity:30}],tasks:[{id:'t',typeId:'labels',quantity:20,status:'pending',sessions:[],items:[],dependsOn:[]}],tickets:[],operators:[],overrides:[],calendars:[],planHistory:[],plan:{allocations:[{taskId:'t',email:'op@test'}]}};
+await pg.query('insert into laundry_production values(true,$1,1)',[JSON.stringify(data)]);
+const rpc=async(action,p={})=>{const rev=(await pg.query('select revision from laundry_production')).rows[0].revision;return (await pg.query('select laundry_private.production($1,$2) result',[action,JSON.stringify({...p,revision:Number(rev)})])).rows[0].result};
+let r=await rpc('task',{id:'t',command:'start'});assert.equal(r.data.tasks[0].standardSnapshot.type.value,1.5);
+r=await rpc('task',{id:'t',command:'pause'});await pg.exec(`update laundry_production set data=jsonb_set(data,'{types,0,value}','3')`);r=await rpc('task',{id:'t',command:'start'});assert.equal(r.data.tasks[0].standardSnapshot.type.value,1.5);r=await rpc('task',{id:'t',command:'complete'});assert.equal(r.data.tasks[0].status,'completed');
+r=await rpc('ticket',{machineId:'m',status:'open',blocking:false,note:'Non bloccante'});const id=r.data.tickets[0].id;assert.equal(r.data.tickets[0].history.at(-1).blocking,false);
+r=await rpc('ticket',{id,status:'working',blocking:true,note:'Macchina ferma'});assert.equal(r.data.tickets[0].history.at(-1).blocking,true);
+r=await rpc('ticket',{id,status:'resolved',blocking:false,note:'Ripresa macchina'});assert.equal(r.data.tickets[0].history.at(-1).blocking,false);
+r=await rpc('ticket',{id,status:'closed',blocking:true,note:'Verificato funzionamento'});assert.equal(r.data.tickets[0].history.at(-1).blocking,false);
+r=await rpc('ticket',{id,status:'open',blocking:true,note:'Ricorrenza guasto'});assert.equal(r.data.tickets[0].history.at(-1).blocking,true);
+await pg.exec(`select set_config('test.role','viewer',false)`);await assert.rejects(()=>rpc('ticket',{id,status:'working',blocking:true,note:'Non autorizzato'}),/FORBIDDEN/);
+await pg.exec(`select set_config('test.role','admin',false)`);r=await rpc('read');const altered=structuredClone(r.data);altered.tasks[0].standardSnapshot.type.value=90;await assert.rejects(()=>rpc('save',{data:altered}),/PRESERVE_STANDARD_SNAPSHOT/);
+await assert.rejects(()=>pg.query('select laundry_private.production($1,$2)',['ticket',JSON.stringify({revision:0,id,status:'working',blocking:true,note:'Obsoleto'})]),/PRODUCTION_REVISION_CONFLICT/);
+console.log('PASS: migration idempotency, first-start snapshot, resume preservation, recorded blocking transitions, reopen, permission and revision guards, immutable standard');await pg.close()})().catch(e=>{console.error(e);process.exit(1)});
