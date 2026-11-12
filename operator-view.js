@@ -29,7 +29,33 @@ F.draw=function(){if(!F.active||!cloudUser)return;if(F.screen==='ddt')return win
 };
 F.list=function(phase){if(busy())return notify('Attendi la registrazione in corso.');F.phase=phase;F.screen='lots';F.feedback=null;current=null;page='Reparto';setMode(true);drawLots()};
 function lotSignal(l){const rows=l.rows||[];if(rows.length&&rows.every(r=>['Uscito','Dismesso'].includes(r.state)))return {key:'finished',label:'Finito'};if(lotStatus(l)==='In lavorazione'||rows.some(r=>r.washed||r.foldedAt||['running','blocked','done'].includes(r.dryState)||r.state==='Dismesso'))return {key:'working',label:'In lavorazione'};return {key:'open',label:'Aperto'}}
-function drawLots(){const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!r.foldedAt):openRows(l).length));shell(`${F.phase==='entry'?`<div class="floor-new-lot">${button('Apri nuovo lotto','floor.newLot()','primary',userCan('lots_create')?'':'disabled')}${!userCan('lots_create')?'<p>Creazione lotti riservata agli operatori abilitati.</p>':''}</div>`:''}<p class="floor-lead">Scegli il lotto. Controlla il cliente prima di scansionare.</p>${F.phase==='entry'?'<p class="floor-lot-legend"><span class="legend-open">Aperto</span><span class="legend-working">In lavorazione</span><span class="legend-finished">Finito</span></p>':''}<div class="floor-lots">${lots.map(l=>`<button data-floor-lot-id="${Number(l.id)}" class="floor-lot-choice phase-${F.phase} ${F.phase==='entry'?'floor-lot-'+lotSignal(l).key:''}" onclick="floor.openLot(${Number(l.id)},'${F.phase}')"><span>${esc(lotno(l))}</span>${F.phase==='entry'?`<span class="floor-lot-state">${lotSignal(l).label}</span>`:''}<strong>${esc(l.client)}</strong><span>${F.phase==='fold'?foldRows(l).length+' capi da controllare':l.rows.length+(l.rows.length===1?' capo nel lotto':' capi nel lotto')} · ${esc(l.due||'Consegna da definire')}</span><b>Apri →</b></button>`).join('')||'<div class="floor-empty">Nessun lotto in attesa per questa fase.</div>'}</div>`,phaseNames[F.phase],F.phase)}
+const lotSearchText=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('it-IT');
+function lotSearchIndex(l,products){
+ const dates=[l.date,l.due].map(v=>v&&!Number.isNaN(new Date(v).getTime())?new Date(v).toLocaleDateString('it-IT'):'');
+ return lotSearchText([lotno(l),l.id,l.client,l.departmentName,l.departmentId,l.date,l.due,...dates,l.notes,l.colli,lotSignal(l).label,lotStatus(l),...(l.rows||[]).flatMap(r=>{const g=products.get(r.code)||{};return [r.code,g.barcode,...(g.barcodeAliases||[]),g.name,g.type,g.dept,g.size,g.color,r.notes,r.processingName,lotRowStatus(r)]})].join(' '));
+}
+function drawLots(){
+ const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!r.foldedAt):openRows(l).length));
+ const products=new Map(db.garments.map(g=>[g.id,g]));
+ F.lotSearchRows=lots.map(l=>({lot:l,text:lotSearchIndex(l,products)}));
+ shell(`${F.phase==='entry'?`<div class="floor-new-lot">${button('Apri nuovo lotto','floor.newLot()','primary',userCan('lots_create')?'':'disabled')}${!userCan('lots_create')?'<p>Creazione lotti riservata agli operatori abilitati.</p>':''}</div>`:''}<p class="floor-lead">Scegli il lotto. Controlla reparto e cliente prima di scansionare.</p>
+ <div class="floor-lot-search"><label for="floorLotSearch">Cerca lotti</label><div><input id="floorLotSearch" type="search" value="${esc(F.lotQuery||'')}" placeholder="Numero lotto, reparto, azienda, codice capo, utilizzatore…" oninput="floor.searchLots(this.value)"><button type="button" class="floor-button" onclick="floor.clearLotSearch()">Azzera ricerca</button></div><p id="floorLotSearchCount" role="status" aria-live="polite"></p></div>
+ ${F.phase==='entry'?'<p class="floor-lot-legend"><span class="legend-open">Aperto</span><span class="legend-working">In lavorazione</span><span class="legend-finished">Finito</span></p>':''}<div class="floor-lots" id="floorLotResults"></div>`,phaseNames[F.phase],F.phase);
+ F.drawLotResults();
+}
+F.searchLots=function(value){F.lotQuery=value;F.drawLotResults()};
+F.clearLotSearch=function(){F.lotQuery='';const input=$('#floorLotSearch');if(input)input.value='';F.drawLotResults();input?.focus()};
+F.drawLotResults=function(){
+ const host=$('#floorLotResults');if(!host)return;
+ const words=lotSearchText(F.lotQuery||'').trim().split(/\s+/).filter(Boolean);
+ const all=F.lotSearchRows||[],lots=all.filter(x=>words.every(w=>x.text.includes(w))).map(x=>x.lot);
+ $('#floorLotSearchCount').textContent=lots.length+' lotti trovati su '+all.length;
+ host.innerHTML=lots.map(l=>`<button data-floor-lot-id="${Number(l.id)}" class="floor-lot-choice phase-${F.phase} ${F.phase==='entry'?'floor-lot-'+lotSignal(l).key:''}" onclick="floor.openLot(${Number(l.id)},'${F.phase}')">
+ <span class="floor-lot-identity"><small>REPARTO</small><strong>${esc(l.departmentName||'Reparto non indicato')}</strong></span>
+ <span class="floor-lot-identity floor-lot-client"><small>CLIENTE</small><strong>${esc(l.client||'Cliente non indicato')}</strong></span>
+ <span>${esc(lotno(l))}</span>${F.phase==='entry'?`<span class="floor-lot-state">${lotSignal(l).label}</span>`:''}
+ <span>${F.phase==='fold'?foldRows(l).length+' capi da controllare':l.rows.length+(l.rows.length===1?' capo nel lotto':' capi nel lotto')} · ${esc(l.due||'Consegna da definire')}</span><b>Apri →</b></button>`).join('')||'<div class="floor-empty">'+(words.length?'Nessun lotto corrisponde alla ricerca.':'Nessun lotto in attesa per questa fase.')+'</div>';
+};
 F.openLot=async function(id,phase){if(!db.lots.some(l=>l.id===Number(id)))return notify('Lotto non disponibile. Aggiorna i dati.');if(busy())return notify('Attendi la registrazione in corso.');if(F.productsLot!==Number(id)){F.productsLot=Number(id);F.productQuery='';F.productPage=1}F.phase=phase;F.screen='lot';F.feedback=null;setMode(true);openLot(Number(id));if(!current)return;lotSetStage({entry:'Entrata',fold:'Lavorazione',out:'Uscita',repair:'Riparazioni'}[phase]);await F.refresh();F.focus()};
 F.newLot=async function(){if(busy()||F.creatingLot)return notify('Attendi la registrazione in corso.');if(!userCan('lots_create'))return notify('Non hai il permesso di creare lotti.');try{await newLot()}catch(e){notify(e.message)}};
 const floorCreateLot=createLot;createLot=async function(e){if(!F.active)return floorCreateLot(e);if(!userCan('lots_create')){e.preventDefault();return notify('Non hai il permesso di creare lotti.')}if(F.creatingLot){e.preventDefault();return}F.creatingLot=true;try{return await floorCreateLot(e)}finally{F.creatingLot=false;if(F.active&&F.screen==='lot')F.decorate()}};

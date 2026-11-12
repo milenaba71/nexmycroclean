@@ -63,3 +63,5 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 }
 
 .floor-start-actions{margin-top:20px}.floor-start-actions .floor-button.primary{background:#163b65;color:#fff;min-height:56px;padding:14px 28px}.floor-start-actions .floor-button:disabled{opacity:.5;cursor:not-allowed}.floor-start-actions p{font-size:15px;line-height:1.5;margin:12px 0 0}
+
+.floor-lot-search{margin:20px 0;padding:20px;background:#fff;border:1px solid #d5dfed;border-radius:14px}.floor-lot-search>label{display:block;font-weight:700;margin-bottom:10px}.floor-lot-search>div{display:flex;gap:12px;flex-wrap:wrap}.floor-lot-search input{flex:1 1 280px;min-width:0;min-height:54px;padding:12px;font-size:18px;border:1px solid #b8c7df;border-radius:8px}.floor-lot-choice .floor-lot-identity{display:grid;gap:5px;color:#163b65;overflow-wrap:anywhere}.floor-lot-identity small{font-size:12px;letter-spacing:.08em}.floor-lot-choice .floor-lot-identity strong{font-size:26px;line-height:1.25}.floor-lot-choice .floor-lot-client strong{font-size:23px}
