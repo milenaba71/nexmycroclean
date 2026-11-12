@@ -61,3 +61,5 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
  #floorProducts .floor-products-table .floor-list-actions:before{display:none}
  #floorProducts .floor-products-table .floor-list-actions .floor-button{width:100%}
 }
+
+.floor-start-actions{margin-top:20px}.floor-start-actions .floor-button.primary{background:#163b65;color:#fff;min-height:56px;padding:14px 28px}.floor-start-actions .floor-button:disabled{opacity:.5;cursor:not-allowed}.floor-start-actions p{font-size:15px;line-height:1.5;margin:12px 0 0}

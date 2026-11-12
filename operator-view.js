@@ -35,7 +35,24 @@ F.newLot=async function(){if(busy()||F.creatingLot)return notify('Attendi la reg
 const floorCreateLot=createLot;createLot=async function(e){if(!F.active)return floorCreateLot(e);if(!userCan('lots_create')){e.preventDefault();return notify('Non hai il permesso di creare lotti.')}if(F.creatingLot){e.preventDefault();return}F.creatingLot=true;try{return await floorCreateLot(e)}finally{F.creatingLot=false;if(F.active&&F.screen==='lot')F.decorate()}};
 const floorOpenCreatedLot=openLot;openLot=function(id){if(F.active&&F.creatingLot){F.screen='lot';F.phase='entry';F.feedback=null;F.productQuery='';F.productPage=1;F.productsLot=Number(id);F.productsOpen=false;}return floorOpenCreatedLot(id)};
 F.focus=function(){if(!F.active||F.screen!=='lot'||F.stopped||$('#modal').open)return;const focused=document.activeElement;if(focused&&focused!==document.body&&focused.id!=='scan'&&focused.matches('input,select,textarea,button,a'))return;$('#scan')?.focus({preventScroll:true})};
-function progress(){const batches=(washState?.batches||[]).filter(b=>b.lot_id===current.id&&b.program_id===washChoiceParts()?.[0]&&['gathering','ready'].includes(b.state));const b=batches.find(b=>b.state==='gathering')||batches.at(-1);const o=washOptions().find(o=>o.key===washChoice);const q=b?.quantity||0,cap=b?.capacity||o?.m.capacity;return `<div class="floor-counter phase-entry"><span>CARRELLO IN PREPARAZIONE</span><strong>${q} <small>/ ${cap||'—'} capi</small></strong><span>${esc(o?.t.name||'Scegli il programma e la macchina qui sotto')}</span><progress value="${q}" max="${cap||1}" aria-label="Riempimento carrello"></progress></div>`}
+function entryCart(){
+ const choice=washChoiceParts();
+ const batches=(washState?.batches||[]).filter(b=>b.lot_id===current?.id&&b.program_id===choice?.[0]&&b.machine_id===choice?.[1]&&['gathering','ready','blocked'].includes(b.state));
+ return batches.find(b=>b.state==='gathering')||batches.at(-1);
+}
+function progress(){
+ const b=entryCart(),o=washOptions().find(o=>o.key===washChoice),q=b?.quantity||0,cap=b?.capacity||o?.m.capacity;
+ const allowed=!!b&&q>0&&washCanOperate(b),waiting=b&&washQueueWaiting(b);
+ return `<div class="floor-counter phase-entry"><span>CARRELLO IN PREPARAZIONE</span><strong>${q} <small>/ ${cap||'—'} capi</small></strong><span>${esc(b?.program_name||o?.t.name||'Scegli il programma e la macchina qui sopra')}</span><progress value="${q}" max="${cap||1}" aria-label="Riempimento carrello"></progress><div class="floor-start-actions">${button('Avvia macchina','floor.startEntryMachine()','primary',allowed?'':'disabled')}<p>${!b||!q?'Scansiona almeno un capo per avviare la macchina.':!allowed?'Avvio riservato agli operatori abilitati.':waiting?'La macchina scelta è occupata. Puoi scegliere un’altra macchina libera compatibile oppure attendere.':'Puoi avviare anche un carrello parziale. Scegli macchina e programma, poi conferma la partenza.'}</p></div></div>`;
+}
+F.startEntryMachine=function(){
+ if(!F.active||F.screen!=='lot'||F.phase!=='entry'||!current)return;
+ if(busy())return notify('Attendi la registrazione in corso.');
+ const b=entryCart();
+ if(!b||!(b.quantity>0))return notify('Scansiona almeno un capo nel carrello selezionato.');
+ if(!washCanOperate(b))return notify(washSkillMessage());
+ washStartDialog(b.id);
+};
 function exitSummary(){const rows=current.rows.filter(r=>r.state!=='Dismesso'),loaded=rows.filter(r=>r.state==='Uscito').length,missing=rows.filter(r=>r.state!=='Uscito'),working=missing.filter(r=>!lotReady(r)).length;return `<div class="floor-exit-numbers"><div><strong>${loaded}</strong><span>CARICATI</span></div><div><strong>${working}</strong><span>IN LAVORAZIONE</span></div><div><strong>${missing.length}</strong><span>MANCANTI</span></div></div><p class="floor-explain">Mancanti alla spedizione: capi del lotto non ancora usciti, compresi quelli in lavorazione. Non indica uno smarrimento.</p><details class="floor-missing" open><summary>Chi manca alla spedizione</summary>${missing.map(r=>{const g=db.garments.find(g=>g.id===r.code);return `<div><b>${esc(g?.name||'Utilizzatore non indicato')}</b><span>${esc(g?.type||'')} · ${esc(g?.size||'')} · ${esc(productBarcode(g)||r.code)}</span><small>${esc(lotRowStatus(r))}</small></div>`}).join('')||'<p>Tutti i capi del lotto sono stati caricati.</p>'}</details>`}
 F.decorate=function(){if(!F.active||F.screen!=='lot'||!current)return;const app=$('#app');app.classList.add('floor-lot');app.dataset.floorPhase=F.phase;app.querySelector('#floorLotHeader')?.remove();const header=document.createElement('div');header.id='floorLotHeader';header.innerHTML=top(phaseNames[F.phase],F.phase);app.prepend(header);
  const scan=$('#scan'),scanRow=scan?.closest('.scan');if(scan){scan.placeholder='Scansiona qui il codice';scan.setAttribute('aria-label','Scansiona il codice del capo');scan.autocomplete='off';scan.disabled=F.stopped||!userCan('lots_work')||(F.phase==='entry'&&!F.entryReady());scanRow?.classList.add('floor-scan-row');const section=scanRow?.closest('.lot-work-section'),panel=section?.closest('.lot-workspace');if(section&&panel&&panel.firstElementChild!==section)panel.prepend(section);}
