@@ -16,7 +16,7 @@
   if(!d.dirty&&!N.saving){d.base=current.notes||'';d.text=d.base}
   const area=$id('entryLotNotes');if(area.value!==d.text)area.value=d.text;
   grid.dataset.lotId=key;
-  const identity=grid.querySelector('.entry-identity'),identityHtml='<span>Entrata · Lotto</span><strong>'+esc(lotno(current))+'</strong><span>Cliente</span><b>'+esc(current.client)+'</b><span>Reparto</span><b>'+esc(current.departmentName||'Reparto non indicato')+'</b>';
+  const identity=grid.querySelector('.entry-identity'),identityHtml='<span>Entrata · Lotto</span><strong>'+esc(lotno(current))+(window.LotActors?LotActors.creatorMarkup(current):'')+'</strong><span>Cliente</span><b>'+esc(current.client)+'</b><span>Reparto</span><b>'+esc(current.departmentName||'Reparto non indicato')+'</b>';
   if(identity.innerHTML!==identityHtml)identity.innerHTML=identityHtml;
   N.arrange(row,grid);
   const allowed=userCan('lots_work')&&!current.archived;
