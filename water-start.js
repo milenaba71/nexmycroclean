@@ -3,7 +3,7 @@
  const W=window.WaterStart={};
  W.rows=()=>washDistinctLoads((washState?.batches||[]).filter(b=>b.machine_kind==='water'&&['gathering','ready','blocked'].includes(b.state)&&Number(b.quantity)>0&&washCanOperate(b)));
  W.label=b=>washLoadMembers(b).map(washLotLabel).join(' / ')+' · '+b.program_name;
- W.summary=b=>'<div class="water-start-summary">'+washLoadMembers(b).map(x=>{const l=db.lots.find(l=>String(l.id)===String(x.lot_id));return '<div><strong>'+esc(l?lotno(l):'Lotto '+x.lot_id)+'</strong><div class="wash-client"><span>Cliente</span><strong>'+esc(l?.client||'Cliente non disponibile')+'</strong></div><div>Reparto: '+esc(l?.departmentName||'Reparto non indicato')+'</div></div>'}).join('')+'</div>';
+ W.summary=b=>'<div class="water-start-summary">'+washLoadMembers(b).map(x=>{const l=db.lots.find(l=>String(l.id)===String(x.lot_id));return '<div><strong>'+esc(l?lotno(l):'Lotto '+x.lot_id)+'</strong><div class="wash-client"><span>Cliente</span><strong>'+esc(l?.client||'Cliente non disponibile')+'</strong></div><div class="wash-department"><span>Reparto</span><strong>'+esc(l?.departmentName||'Reparto non indicato')+'</strong></div></div>'}).join('')+'</div>';
  W.open=function(id){
   if(!userCan('production_execute'))return notify('Avvio riservato agli operatori autorizzati.');
   const rows=W.rows(),b=rows.find(b=>b.id===id)||rows[0];
