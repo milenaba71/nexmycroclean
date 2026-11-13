@@ -85,3 +85,11 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-machine .wash-lot-identity small{font-size:15px}
 
 .floor-tabs{flex-wrap:wrap}
+
+.wash-load-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:16px;background:#edf3fb;border:1px solid #cbd9ea;border-radius:12px;margin:14px 0}
+.wash-load-toolbar p{flex-basis:100%;margin:0;font-size:15px}
+.wash-load-choice>label{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;margin:10px 0}
+.wash-load-choice>label input{width:24px;height:24px}
+.wash-mixed-label{display:block;color:#163b65;margin:8px 0;font-size:17px}
+.wash-load-review{max-height:35vh;overflow:auto;border:1px solid #d5dfed;border-radius:10px;padding:12px}
+.wash-load-review>div+div{border-top:1px solid #d5dfed;margin-top:10px;padding-top:10px}
