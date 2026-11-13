@@ -4,6 +4,7 @@ returns jsonb language plpgsql security definer set search_path='' as $function$
 declare who jsonb; l jsonb; result jsonb; prior jsonb; request_data jsonb;
  lid bigint; token uuid; code text; rev bigint; typ text; dept text;
 begin
+ perform set_config('laundry.compact_snapshot','on',true);
  who:=laundry_private.laundry_authenticated('version','{}')->'user';
  perform laundry_private.require_permission('lots_work');
  token:=(p->>'request_id')::uuid;
