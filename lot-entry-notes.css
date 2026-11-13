@@ -1,0 +1,12 @@
+/* Keep scanning on the left and a larger note area on the right. */
+.entry-scan-notes{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr);gap:18px;align-items:start;margin:12px 0}
+.entry-scan-notes>.scan{min-width:0;width:auto;display:flex;flex-wrap:wrap;align-content:start;gap:10px;margin:0!important;padding:0!important}
+.entry-scan-notes>.scan input#scan{min-width:0!important;width:100%!important;flex:1 1 100%!important;box-sizing:border-box;font-size:18px!important}
+.entry-scan-notes>.scan button{margin:0}
+.entry-lot-note{min-width:0}
+.entry-lot-note>label{display:block;color:#163b65;font-size:17px;font-weight:700;margin-bottom:8px}
+.entry-lot-note textarea{display:block;box-sizing:border-box;width:100%;min-height:135px;resize:vertical;padding:12px;border:1px solid #9aacc5;border-radius:9px;background:#fff;color:#172c49;font:inherit;font-size:17px;line-height:1.4}
+.entry-note-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.entry-note-actions #entryNotesSave{background:#163b65;border-color:#163b65;color:white}
+.entry-note-actions #entryNotesStatus{font-size:13px;overflow-wrap:anywhere;flex-basis:100%}
+@media(max-width:640px){.entry-scan-notes{grid-template-columns:minmax(0,1fr)}}
