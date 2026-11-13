@@ -1,12 +1,27 @@
-/* Keep scanning on the left and a larger note area on the right. */
-.entry-scan-notes{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr);gap:18px;align-items:start;margin:12px 0}
-.entry-scan-notes>.scan{min-width:0;width:auto;display:flex;flex-wrap:wrap;align-content:start;gap:10px;margin:0!important;padding:0!important}
-.entry-scan-notes>.scan input#scan{min-width:0!important;width:100%!important;flex:1 1 100%!important;box-sizing:border-box;font-size:18px!important}
-.entry-scan-notes>.scan button{margin:0}
-.entry-lot-note{min-width:0}
-.entry-lot-note>label{display:block;color:#163b65;font-size:17px;font-weight:700;margin-bottom:8px}
-.entry-lot-note textarea{display:block;box-sizing:border-box;width:100%;min-height:135px;resize:vertical;padding:12px;border:1px solid #9aacc5;border-radius:9px;background:#fff;color:#172c49;font:inherit;font-size:17px;line-height:1.4}
-.entry-note-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
-.entry-note-actions #entryNotesSave{background:#163b65;border-color:#163b65;color:white}
-.entry-note-actions #entryNotesStatus{font-size:13px;overflow-wrap:anywhere;flex-basis:100%}
-@media(max-width:640px){.entry-scan-notes{grid-template-columns:minmax(0,1fr)}}
+/* Entry controls: identity + notes, counters, then route + scanner. */
+.entry-identity-notes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;padding:18px;border-bottom:1px solid #e2e8f0}
+.entry-identity{display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere;color:#183b64}
+.entry-identity>span{font-size:12px;color:#637492;margin-top:5px}.entry-identity>strong{font-size:27px;line-height:1.2;font-weight:800}.entry-identity>b{font-size:21px;line-height:1.25;font-weight:750}
+.entry-lot-note{min-width:0;display:grid;align-content:start;gap:8px}.entry-lot-note>label{font-weight:700;font-size:16px;color:#183b64}
+.entry-lot-note textarea{width:100%;min-height:125px;resize:vertical;padding:10px;font:inherit;line-height:1.4;border:1px solid #cbd7e7;border-radius:7px;background:white}
+.entry-note-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.entry-note-actions .btn{padding:8px 12px;min-height:36px}.entry-note-actions span{font-size:12px;flex-basis:100%;color:#52688b}
+#entryLotCounts{padding:12px 18px;border-bottom:1px solid #e2e8f0;background:#f4f7fc;color:#183b64}#entryLotCounts> b{font-size:16px}#entryLotCounts strong{font-size:23px;margin-left:10px}#entryLotCounts>div{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}#entryLotCounts span{padding:5px 9px;background:white;border:1px solid #dce4ef;border-radius:6px}
+.lot-workspace .entry-path-scan{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:0;border-bottom:1px solid #e2e8f0}
+.lot-workspace .entry-path-scan>.lot-work-section{min-width:0;margin:0!important;padding:16px!important;border:0!important;background:white!important;border-radius:0}
+.lot-workspace .entry-path-scan>.lot-work-section+section{border-left:1px solid #e2e8f0!important}
+.entry-path-scan .scan{display:flex!important;flex-wrap:wrap!important;gap:8px!important}.entry-path-scan #scan{width:100%;min-width:0!important;flex:1 1 180px!important;font-size:16px!important;min-height:46px!important}
+.entry-path-scan .scan button{min-height:42px!important;padding:8px 12px!important;font-size:13px!important}
+.entry-new-product{margin-top:10px;background:#193c66!important;color:white!important}
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] #floorEntryTypes{display:none}
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] #floorLotSummary>.floor-counter{display:none}
+body.floor-mode .entry-identity-notes,body.floor-mode #entryLotCounts{display:grid!important}
+body.floor-mode .entry-path-scan .floor-route-title,body.floor-mode .entry-path-scan .floor-scan-step{font-size:18px!important;margin:0 0 12px!important}
+body.floor-mode .entry-path-scan .floor-route-help{font-size:13px!important}
+@media(max-width:700px){.entry-identity-notes{grid-template-columns:1fr;gap:14px}.lot-workspace .entry-path-scan{grid-template-columns:1fr!important}.lot-workspace .entry-path-scan>.lot-work-section+section{border-left:0!important;border-top:1px solid #e2e8f0!important}.entry-identity>strong{font-size:24px}.entry-identity>b{font-size:19px}}
+
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-top{margin-bottom:10px}
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-tabs{margin-bottom:10px;gap:8px}
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-tabs .floor-button{min-height:40px;padding:9px 14px}
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-title{margin-bottom:12px;padding-top:8px;padding-bottom:8px}
+body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-title h1{font-size:25px}
+body.floor-mode .entry-identity-notes{background:white;border:1px solid #e2e8f0;border-radius:10px 10px 0 0}

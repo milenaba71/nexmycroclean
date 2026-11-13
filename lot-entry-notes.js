@@ -8,19 +8,35 @@
   if(N.owner!==cloudUser?.email){N.drafts.clear();N.owner=cloudUser?.email}
   if(!current||stage!=='Entrata')return;
   const scan=$id('scan'),row=scan?.closest('.scan');if(!row)return;
-  const d=draft(current),key=String(current.id);let grid=row.closest('.entry-scan-notes');
-  if(!grid){grid=document.createElement('div');grid.className='entry-scan-notes';row.before(grid);grid.append(row);const aside=document.createElement('section');aside.className='entry-lot-note';aside.innerHTML='<label for="entryLotNotes">Note del lotto</label><textarea id="entryLotNotes" rows="5" maxlength="4000" placeholder="Scrivi qui le note e le istruzioni per questo lotto…"></textarea><div class="entry-note-actions"><button type="button" class="btn" id="entryNotesSave">Salva note</button><button type="button" class="btn secondary" id="entryNotesReset">Annulla modifiche</button><span id="entryNotesStatus" role="status" aria-live="polite"></span></div>';grid.append(aside);
+  const d=draft(current),key=String(current.id);let grid=$id('entryIdentityNotes');
+  if(!grid){grid=document.createElement('div');grid.id='entryIdentityNotes';grid.className='entry-identity-notes';const panel=row.closest('.lot-workspace');(panel||row.parentElement).prepend(grid);const identity=document.createElement('div');identity.className='entry-identity';grid.append(identity);const aside=document.createElement('section');aside.className='entry-lot-note';aside.innerHTML='<label for="entryLotNotes">Note del lotto</label><textarea id="entryLotNotes" rows="5" maxlength="4000" placeholder="Scrivi qui le note e le istruzioni per questo lotto…"></textarea><div class="entry-note-actions"><button type="button" class="btn" id="entryNotesSave">Salva note</button><button type="button" class="btn secondary" id="entryNotesReset">Annulla modifiche</button><span id="entryNotesStatus" role="status" aria-live="polite"></span></div>';grid.append(aside);
    $id('entryLotNotes').oninput=()=>{const value=draft(current);value.text=$id('entryLotNotes').value;value.dirty=value.text!==value.base;value.status=value.dirty?'Note da salvare':'';N.mount()};
    $id('entryNotesSave').onclick=N.save;$id('entryNotesReset').onclick=N.reset;
   }
   if(!d.dirty&&!N.saving){d.base=current.notes||'';d.text=d.base}
   const area=$id('entryLotNotes');if(area.value!==d.text)area.value=d.text;
   grid.dataset.lotId=key;
+  const identity=grid.querySelector('.entry-identity'),identityHtml='<span>Entrata · Lotto</span><strong>'+esc(lotno(current))+'</strong><span>Cliente</span><b>'+esc(current.client)+'</b><span>Reparto</span><b>'+esc(current.departmentName||'Reparto non indicato')+'</b>';
+  if(identity.innerHTML!==identityHtml)identity.innerHTML=identityHtml;
+  N.arrange(row,grid);
   const allowed=userCan('lots_work')&&!current.archived;
   area.disabled=N.saving||!allowed;
   $id('entryNotesSave').disabled=N.saving||!allowed||!d.dirty;
   $id('entryNotesReset').disabled=N.saving||!d.dirty;
   text($id('entryNotesStatus'),N.saving?'Salvataggio…':d.status||(!allowed?'Sola lettura':d.base?'Note salvate':''));
+ };
+ N.arrange=function(row,grid){
+  const panel=row.closest('.lot-workspace'),scan=row.closest('.lot-work-section'),route=$id('entryProcessing')?.closest('.lot-work-section');if(!panel||!scan||!route||scan===route)return;
+  let line=panel.querySelector('.office-entry-line');if(!line){line=document.createElement('div');line.className='office-entry-line';panel.append(line)}line.classList.add('entry-path-scan');
+  const title=route.querySelector('.lot-work-title h2');if(title&&title.textContent!=='Scegli il percorso')title.textContent='Scegli il percorso';
+  if(route.parentElement!==line)line.append(route);if(scan.parentElement!==line)line.append(scan);
+  let counts=$id('entryLotCounts');if(!counts){counts=document.createElement('div');counts.id='entryLotCounts';counts.setAttribute('role','status');counts.setAttribute('aria-live','polite');panel.append(counts)}
+  if(line.previousElementSibling!==counts)line.before(counts);
+  if(counts.previousElementSibling!==grid)counts.before(grid);
+  const products=new Map(db.garments.map(g=>[String(g.id),g])),seen=new Set(),types=new Map();
+  for(const r of current.rows||[]){if(r.state==='Dismesso'||seen.has(String(r.code)))continue;seen.add(String(r.code));const type=products.get(String(r.code))?.type||'Da definire';types.set(type,(types.get(type)||0)+1)}
+  const html='<b>Capi entrati nel lotto <strong>'+seen.size+'</strong></b><div>'+([...types].map(([name,n])=>'<span><b>'+n+'</b> '+esc(name)+'</span>').join('')||'<span>Nessun capo acquisito</span>')+'</div>';
+  if(counts.innerHTML!==html)counts.innerHTML=html;
  };
  N.reset=function(){if(!current||N.saving)return;N.drafts.delete(String(current.id));N.mount()};
  N.save=async function(){
