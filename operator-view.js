@@ -159,7 +159,7 @@ function drawWater(){
   const cycles=isDry?dryers.filter(c=>c.cycle?.machine_id===m.id&&c.cycle.state==='running').map(dryCard):washes.filter(b=>b.machine_id===m.id&&b.state==='running').map(washCard);
   return '<article class="floor-machine '+status.tone+' phase-'+(isDry?'dry':'wash')+'"><span class="floor-machine-phase">'+(isDry?'ESSICCATOIO':'LAVATRICE AD ACQUA')+'</span><h2>'+esc(m.name)+'</h2><strong><i aria-hidden="true"></i>'+esc(status.title)+'</strong><p>'+esc(status.detail)+'</p>'+cycles.join('')+'</article>';
  }
- shell('<div class="floor-water-toolbar">'+button('Aggiorna','floor.refresh()')+'<span>Aggiornamento automatico ogni 15 secondi</span></div>'+
+ shell('<div class="floor-water-toolbar">'+(userCan('production_execute')?button('Avvia macchina','WaterStart.open()','primary'):'')+button('Aggiorna','floor.refresh()')+'<span>Aggiornamento automatico ogni 15 secondi</span></div>'+
  '<section class="floor-water-people"><h2>Operatori del reparto acqua · oggi</h2>'+ (roster.map(({op,slots})=>'<span><b>'+esc(pMember(op.email))+'</b> · '+slots.map(s=>PC.clock(s.start)+'–'+PC.clock(s.end)).join(' / ')+'</span>').join('')||'<p>Nessun operatore con turno valido assegnato oggi al reparto acqua.</p>')+'</section>'+
  '<h2>Lavatrici ad acqua</h2><div class="floor-machines">'+(machines.filter(m=>m.kind==='water').map(machineCard).join('')||'<p>Nessuna lavatrice ad acqua configurata.</p>')+'</div>'+
  '<section class="floor-carts phase-wash"><h2>Carrelli da avviare al lavaggio · '+waiting.length+'</h2>'+WashLoads.toolbar(waiting)+'<div class="wash-carts">'+(waiting.map(WashLoads.card).join('')||'<p>Nessun carrello in attesa.</p>')+'</div></section>'+

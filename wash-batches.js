@@ -43,11 +43,12 @@ function washStartDuration(){
 function washStartDialog(id){
  const b=washState?.batches.find(b=>b.id===id);if(!b)return;
  const programs=washStartPrograms(b),machines=washState.machines.filter(m=>m.kind===b.machine_kind&&m.active!==false&&Number(m.capacity)>=washLoadQuantity(b)&&!washMachineBusy(m.id,id)&&!(washState.tickets||[]).some(t=>t.machineId===m.id&&t.blocking&&t.status!=='closed'));
- show(`<h2>${b.state==='blocked'?'Riavvia':'Avvia'} macchinata</h2><p>${washLoadQuantity(b)} prodotti${b.load_group_id?' · Tutti i lotti del carico unificato':''}</p>
+ const waterView=window.floor?.active&&floor.screen==='water';
+ show(`<h2>${b.state==='blocked'?'Riavvia':'Avvia'} macchina</h2>${waterView?WaterStart.summary(b):`<p>${washLoadQuantity(b)} prodotti${b.load_group_id?' · Tutti i lotti del carico unificato':''}</p>`}
  <label style="display:grid;gap:8px">Macchina<select id="washStartMachine">${machines.length?'':'<option value="">Nessuna macchina disponibile</option>'}${machines.map(m=>`<option value="${esc(m.id)}" ${m.id===b.machine_id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
  <label style="display:grid;gap:8px;margin-top:16px">Programma di lavaggio<select id="washStartProgram" onchange="washStartDuration()">${programs.length?'':'<option value="">Nessun programma disponibile</option>'}${programs.map(t=>`<option value="${esc(t.id)}" ${t.id===b.program_id?'selected':''}>${esc(t.name)} · ${esc(String(t.value))} min</option>`).join('')}</select></label>
  <p id="washStartDuration"></p><p>Sono disponibili i programmi compatibili con il tipo di macchina e le tue abilitazioni. Premi Avvia quando la macchina parte realmente. ${b.state==='blocked'?'Il ciclo ripartirà con l’intera durata del programma scelto.':''}</p>
- <div class="tools"><button id="washStartButton" class="btn" ${machines.length&&programs.length?'':'disabled'} onclick="washStart('${id}')">Avvia macchinata</button><button class="btn secondary" onclick="$('#modal').close()">Annulla</button></div>`);
+ <div class="tools"><button id="washStartButton" class="btn" ${machines.length&&programs.length?'':'disabled'} onclick="washStart('${id}')">Avvia macchina</button><button class="btn secondary" onclick="$('#modal').close()">Annulla</button></div>`);
  washStartDuration();
 }
 async function washStart(id,machineId){
