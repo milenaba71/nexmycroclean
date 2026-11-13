@@ -27,7 +27,8 @@
   if(treatment)treatment.classList.add('office-treatment-section');
   const carts=panel.querySelector('#washCarts');
   if(carts){
-   if(carts.previousElementSibling!==line)line.after(carts);
+   const anchor=stage==='Entrata'&&panel.querySelector('#entryIdentityNotes')?(panel.querySelector('.lot-products-section')||line):line;
+   if(carts.previousElementSibling!==anchor)anchor.after(carts);
    let help=carts.querySelector(':scope > .office-cart-help');
    const paragraphs=[...carts.querySelectorAll(':scope > p.muted')];
    if(paragraphs.length&&!help){help=document.createElement('details');help.className='office-cart-help';help.innerHTML='<summary>Come funzionano carrelli e tempi</summary>';carts.append(help);paragraphs.forEach(p=>help.append(p))}

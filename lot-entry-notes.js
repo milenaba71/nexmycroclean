@@ -33,6 +33,16 @@
   let counts=$id('entryLotCounts');if(!counts){counts=document.createElement('div');counts.id='entryLotCounts';counts.setAttribute('role','status');counts.setAttribute('aria-live','polite');panel.append(counts)}
   if(line.previousElementSibling!==counts)line.before(counts);
   if(counts.previousElementSibling!==grid)counts.before(grid);
+  // Restore the complete order after floor refreshes move individual live controls.
+  const steps=panel.querySelector(':scope > .steps');
+  if(steps){if(steps.nextElementSibling!==grid)steps.after(grid)}
+  else if(panel.firstElementChild!==grid)panel.prepend(grid);
+  if(grid.nextElementSibling!==counts)grid.after(counts);
+  if(counts.nextElementSibling!==line)counts.after(line);
+  const list=document.body.classList.contains('floor-mode')?$id('floorProducts'):panel.querySelector('.lot-products-section');
+  if(list&&line.nextElementSibling!==list)line.after(list);
+  const carts=$id('washCarts'),anchor=list||line;
+  if(carts&&anchor.nextElementSibling!==carts)anchor.after(carts);
   const products=new Map(db.garments.map(g=>[String(g.id),g])),seen=new Set(),types=new Map();
   for(const r of current.rows||[]){if(r.state==='Dismesso'||seen.has(String(r.code)))continue;seen.add(String(r.code));const type=products.get(String(r.code))?.type||'Da definire';types.set(type,(types.get(type)||0)+1)}
   const html='<b>Capi entrati nel lotto <strong>'+seen.size+'</strong></b><div>'+([...types].map(([name,n])=>'<span><b>'+n+'</b> '+esc(name)+'</span>').join('')||'<span>Nessun capo acquisito</span>')+'</div>';
