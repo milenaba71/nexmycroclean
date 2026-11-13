@@ -1,5 +1,5 @@
 /* Office lot overview. Existing lot operations, permissions and history remain authoritative. */
-let officeLotSort='due';
+let officeLotSort='newest';
 function officeLotText(value){return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('it')}
 function officeLotRows(){
  const words=officeLotText(lotListSearch).split(/\s+/).filter(Boolean);
@@ -11,7 +11,7 @@ function officeLotRows(){
  }).sort((a,b)=>officeLotSort==='newest'?Number(b.id)-Number(a.id):officeLotSort==='client'?String(a.client).localeCompare(String(b.client),'it')||Number(b.id)-Number(a.id):String(a.due||'9999').localeCompare(String(b.due||'9999'))||Number(b.id)-Number(a.id));
 }
 const officePreviousLotListRows=lotListRows;
-lotListRows=function(history){return history?officePreviousLotListRows(true):officeLotRows()};
+lotListRows=function(history){return history?officePreviousLotListRows(true).sort((a,b)=>Number(b.id)-Number(a.id)):officeLotRows()};
 function officeLotFilter(state){lotListState=state;lotMetric='';lotTable()}
 function officeLotClear(){lotListSearch='';lotListState='';lotMetric='';const input=$('#officeLotSearch');if(input)input.value='';lotTable()}
 function officeLotDue(l){

@@ -35,7 +35,7 @@ function lotSearchIndex(l,products){
  return lotSearchText([lotno(l),l.id,l.client,l.departmentName,l.departmentId,l.date,l.due,...dates,l.notes,l.colli,lotSignal(l).label,lotStatus(l),...(l.rows||[]).flatMap(r=>{const g=products.get(r.code)||{};return [r.code,g.barcode,...(g.barcodeAliases||[]),g.name,g.type,g.dept,g.size,g.color,r.notes,r.processingName,lotRowStatus(r)]})].join(' '));
 }
 function drawLots(){
- const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!r.foldedAt):openRows(l).length));
+ const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!r.foldedAt):openRows(l).length)).sort((a,b)=>Number(b.id)-Number(a.id));
  const products=new Map(db.garments.map(g=>[g.id,g]));
  F.lotSearchRows=lots.map(l=>({lot:l,text:lotSearchIndex(l,products)}));
  shell(`${F.phase==='entry'?`<div class="floor-new-lot">${button('Apri nuovo lotto','floor.newLot()','primary',userCan('lots_create')?'':'disabled')}${!userCan('lots_create')?'<p>Creazione lotti riservata agli operatori abilitati.</p>':''}</div>`:''}<p class="floor-lead">Scegli il lotto. Controlla reparto e cliente prima di scansionare.</p>
