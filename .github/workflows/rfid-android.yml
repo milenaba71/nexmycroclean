@@ -2,6 +2,8 @@ name: Build RFID Android pilot
 on:
   push:
     paths: ['android-rfid/**', '.github/workflows/rfid-android.yml']
+  pull_request:
+    paths: ['android-rfid/**', '.github/workflows/rfid-android.yml']
   workflow_dispatch:
 permissions:
   contents: read

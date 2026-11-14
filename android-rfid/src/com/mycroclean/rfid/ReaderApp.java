@@ -32,6 +32,15 @@ public class ReaderApp extends Activity {
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setUserAgentString(web.getSettings().getUserAgentString()+" MycrocleanRFID/1");
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view,String url) {
+                if (!trusted(Uri.parse(url))) return;
+                try (BufferedReader reader=new BufferedReader(new InputStreamReader(getAssets().open("bulk.js"),"UTF-8"))) {
+                    StringBuilder script=new StringBuilder();
+                    String line;
+                    while((line=reader.readLine())!=null) script.append(line).append('\n');
+                    view.evaluateJavascript(script.toString(),null);
+                } catch(IOException e){new AlertDialog.Builder(ReaderApp.this).setMessage("Modulo RFID indisponibile").setPositiveButton("Chiudi",null).show();}
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri uri = req.getUrl();
                 if ("mycro-rfid".equals(uri.getScheme())) {
