@@ -7,7 +7,7 @@ sdk="${ANDROID_HOME:?Android SDK richiesto}"
 bt="$sdk/build-tools/35.0.0"
 platform="$sdk/platforms/android-35/android.jar"
 mkdir "$out/classes" "$out/dex"
-javac --release 8 -cp "$platform" -d "$out/classes" src/com/mycroclean/rfid/ReaderApp.java
+javac -source 8 -target 8 -cp "$platform" -d "$out/classes" src/com/mycroclean/rfid/ReaderApp.java
 jar cf "$out/app.jar" -C "$out/classes" .
 "$bt/d8" --min-api 23 --lib "$platform" --output "$out/dex" "$out/app.jar"
 "$bt/aapt" package -f -M AndroidManifest.xml -A assets -I "$platform" -F "$out/app.apk"
