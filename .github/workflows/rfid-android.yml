@@ -1,0 +1,22 @@
+name: Build RFID Android pilot
+on:
+  push:
+    paths: ['android-rfid/**', '.github/workflows/rfid-android.yml']
+  pull_request:
+    paths: ['android-rfid/**', '.github/workflows/rfid-android.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
+      - run: bash android-rfid/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mycroclean-RFID-test
+          path: android-rfid/Mycroclean-RFID-test.apk
