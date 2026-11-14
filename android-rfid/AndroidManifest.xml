@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.mycroclean.rfid" android:versionCode="1" android:versionName="1.0">
+  <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="30"/>
+  <uses-permission android:name="android.permission.BLUETOOTH"/>
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <application android:allowBackup="false" android:usesCleartextTraffic="false" android:label="Mycroclean RFID" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <activity android:name=".ReaderApp" android:exported="true" android:configChanges="orientation|keyboardHidden|screenSize">
+      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+    </activity>
+  </application>
+</manifest>
