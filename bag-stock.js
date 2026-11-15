@@ -1,7 +1,10 @@
 (function () {
   const title = 'Magazzino sacchetti';
+  const officeVisible = () => cloudUser && !window.floor?.active &&
+    (cloudUser.role === 'admin' || userCan('production_manage'));
   let version = 0;
   const rpc = async (action, p = {}) => {
+    if (!officeVisible()) throw new Error('Magazzino disponibile nella vista ufficio.');
     const {data,error} = await appSupabase.rpc('laundry_bag_stock',{action,p});
     if (error) throw new Error(error.message);
     return data;
@@ -13,7 +16,7 @@
     const panel = $('#bagView');
     try {
       const data = await rpc('read');
-      if (token !== version || !panel.isConnected) return;
+      if (!officeVisible() || token !== version || !panel.isConnected) return;
       const {bags,rules,history} = data;
       const names = new Map(bags.map(b=>[b.id,b.name]));
       const choices = bags.map(b=>'<option value="'+text(b.id)+'">'+text(b.name)+'</option>').join('');
@@ -61,8 +64,12 @@
   render=function(...args){
     const result=before.apply(this,args);
     const nav=$('#nav');
-    if(cloudUser && nav && !$('#bagStockNav')){
-      const b=document.createElement('button');b.id='bagStockNav';b.textContent=title;b.onclick=()=>go(title);
+    if(!officeVisible()){
+      $('#bagStockNav')?.remove();
+      return result;
+    }
+    if(nav && !$('#bagStockNav')){
+      const b=document.createElement('button');b.id='bagStockNav';b.textContent=title;b.onclick=()=>{if(officeVisible())go(title);};
       nav.appendChild(b);
     }
     if(page===title && !current)view();
