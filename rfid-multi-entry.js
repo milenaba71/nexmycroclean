@@ -115,3 +115,43 @@
   new MutationObserver(mount).observe(document.getElementById('app'), {childList:true,subtree:true});
   mount();
 })();
+// The installed Android reader adds its button after the entry screen is drawn.
+(function () {
+  if (!navigator.userAgent.includes('MycrocleanRFID/')) return;
+  document.addEventListener('click', event => {
+    const tapped = event.target.closest?.('#nativeBulkProducts, #rfidEntryButton');
+    const native = document.getElementById('nativeBulkProducts');
+    if (!tapped || !native || !document.getElementById('entryNewProduct')) return;
+    const block = message => { event.stopImmediatePropagation(); notify(message); };
+    if (!current) return block('Seleziona il lotto da lavorare.');
+    if (current.archived) return block('Questo lotto è archiviato.');
+    if (stage !== 'Entrata') return block('Seleziona la fase Entrata per registrare i capi.');
+    if (lotBusy() || washBusy || !washState) return block('Attendi il completamento dell’operazione in corso, poi tocca di nuovo RFID.');
+    if (washChoice && selectedProcessing()) {
+      if (tapped !== native) { event.stopImmediatePropagation(); native.click(); }
+      return;
+    }
+    event.stopImmediatePropagation();
+    const lotId = current.id;
+    const routeField = document.getElementById('entryProcessing');
+    if (!routeField) return notify('Il percorso di lavaggio è in caricamento. Riprova tra un momento.');
+    const choices = Array.from(routeField.options).filter(o => o.value && !o.disabled);
+    show('<h2>Scegli il percorso per la lettura RFID</h2><p><b>'+esc(lotno(current))+'</b> · '+esc(current.client)+'</p>'+
+      '<form id="rfidRouteForm"><label>Lavaggio e macchina<select required data-native-select name="route"><option value="">Scegli il percorso…</option></select></label>'+
+      '<button class="btn" type="submit">Continua con RFID</button><button class="btn secondary" type="button">Annulla</button></form>');
+    const form = document.getElementById('rfidRouteForm'), modal = document.getElementById('modal');
+    choices.forEach(o => form.elements.route.add(new Option(o.text, o.value)));
+    form.querySelector('[type=button]').onclick = () => modal.close();
+    form.onsubmit = e => {
+      e.preventDefault();
+      if (!current || current.id !== lotId || stage !== 'Entrata' || current.archived) {
+        modal.close(); return notify('Il lotto è cambiato. Seleziona di nuovo la lettura RFID.');
+      }
+      if (lotBusy() || washBusy) return notify('Attendi il completamento dell’operazione in corso.');
+      washSelect(form.elements.route.value);
+      if (washChoice !== form.elements.route.value || !selectedProcessing()) return;
+      modal.close();
+      document.getElementById('nativeBulkProducts')?.click();
+    };
+  }, true);
+})();
