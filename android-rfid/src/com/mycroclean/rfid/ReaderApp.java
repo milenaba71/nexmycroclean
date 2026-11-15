@@ -88,19 +88,39 @@ public class ReaderApp extends Activity {
         closeSocket();
         final int session = ++generation;
         final Set<String> tags = Collections.synchronizedSet(new LinkedHashSet<String>());
-        AlertDialog progress = new AlertDialog.Builder(this).setTitle("Lettura RFID").setMessage("Collegamento alla pistola…")
-            .setPositiveButton("Ferma e mantieni",(d,i)->{
-                if (session != generation) return;
-                generation++;
-                closeSocket();
-                deliver(token,tags);
-            })
-            .setNegativeButton("Annulla",(d,i)->{generation++;closeSocket();}).setCancelable(false).show();
-        progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         final BluetoothSocket socket;
         try { socket=reader.createRfcommSocketToServiceRecord(RFID); active=socket; }
-        catch(IOException e){progress.setMessage(e.getMessage());return;}
-        Runnable timeout = ()->{if(session==generation)closeSocket();};
+        catch(IOException e){new AlertDialog.Builder(this).setMessage(e.toString()).setPositiveButton("Chiudi",null).show();return;}
+        AlertDialog progress = new AlertDialog.Builder(this).setTitle("Lettura RFID").setMessage("Collegamento alla pistola…")
+            .setPositiveButton("Ferma e mantieni",null).setNegativeButton("Annulla",null).setCancelable(false).show();
+        class Stop {
+            boolean requested, discard, inventory;
+            final Runnable deadline=()->{try{socket.close();}catch(IOException ignored){}};
+            synchronized void begin() throws IOException {
+                if(requested)return;
+                send(socket,"inventory"); inventory=true;
+            }
+            synchronized void request(boolean cancel) {
+                if(requested)return;
+                requested=true; discard=cancel;
+                runOnUiThread(()->{
+                    if(session!=generation || !progress.isShowing())return;
+                    progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+                    progress.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
+                    progress.setMessage("Arresto della pistola… · "+tags.size()+" tag");
+                });
+                if(!inventory){new Thread(deadline).start();return;}
+                handler.postDelayed(deadline,5000);
+                new Thread(()->{
+                    try {send(socket,"abort");} catch(IOException e){deadline.run();}
+                }).start();
+            }
+        }
+        final Stop stop=new Stop();
+        progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+        progress.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->stop.request(false));
+        progress.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v->stop.request(true));
+        Runnable timeout=()->stop.request(false);
         handler.postDelayed(timeout,15000);
         new Thread(()->{
             String error=null;
@@ -108,40 +128,45 @@ public class ReaderApp extends Activity {
                 socket.connect();
                 send(socket,"connect");
                 BufferedReader input=new BufferedReader(new InputStreamReader(socket.getInputStream(),"US-ASCII"));
-                boolean started=false;
                 String line;
-                while(tags.size()<count && (line=input.readLine())!=null) {
-                    if(line.contains("Status:") && !line.contains("Status:OK") && !line.contains("Connection Successful"))
-                        throw new IOException(line);
-                    if(!started && line.contains("Connection Successful")) {
-                        started=true;
-                        send(socket,"inventory");
-                        handler.removeCallbacks(timeout);
-                        handler.postDelayed(timeout,120000);
-                        runOnUiThread(()->{if(session==generation)progress.setMessage("Avvicina i capi · 0 / "+count);});
-                    } else if(started) {
-                        String[] fields=line.split(",",-1);
-                        if(fields.length<3 || !line.startsWith(",,")) continue;
-                        String epc=fields[2].trim().toUpperCase(Locale.ROOT);
-                        if(epc.matches("(?:[0-9A-F]{2}){1,62}") && tags.add(epc)){
+                while(true) {
+                    line=input.readLine();
+                    if(line==null)throw new IOException("Connessione terminata.");
+                    synchronized(stop) {
+                        if(stop.requested){
+                            if(line.replace(" ","").startsWith("Command:abort,Status:OK"))break;
+                            continue;
+                        }
+                        if(line.contains("Status:") && !line.contains("Status:OK") && !line.contains("Connection Successful"))
+                            throw new IOException(line);
+                        if(!stop.inventory && line.contains("Connection Successful")) {
+                            stop.begin();
+                            handler.removeCallbacks(timeout); handler.postDelayed(timeout,120000);
+                            runOnUiThread(()->{synchronized(stop){if(!stop.requested && session==generation)progress.setMessage("Avvicina i capi · 0 / "+count);}});
+                        } else if(stop.inventory && line.startsWith(",,")) {
+                            String[] fields=line.split(",",-1);
+                            if(fields.length<3)continue;
+                            String epc=fields[2].trim().toUpperCase(Locale.ROOT);
+                            if(!epc.matches("(?:[0-9A-F]{2}){1,62}") || !tags.add(epc))continue;
                             int n=tags.size();
-                            runOnUiThread(()->{if(session==generation){progress.setMessage(n+" / "+count+" tag distinti"); progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);}});
+                            if(n==count){stop.request(false);continue;}
+                            runOnUiThread(()->{synchronized(stop){if(!stop.requested && session==generation){progress.setMessage(n+" / "+count+" tag distinti");progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);}}});
                         }
                     }
                 }
-                if(tags.size()<count)throw new IOException("Lettura incompleta");
-            } catch(Exception e){error=e.getMessage();}
+            } catch(Exception e){error=e.toString();}
             finally {
-                handler.removeCallbacks(timeout);
-                try {send(socket,"abort");}catch(IOException ignored){}
+                handler.removeCallbacks(timeout);handler.removeCallbacks(stop.deadline);
+                if(stop.inventory && !stop.requested)try{send(socket,"abort");}catch(IOException ignored){}
                 try {socket.close();}catch(IOException ignored){}
             }
             final String message=error;
             runOnUiThread(()->{
                 if(session!=generation || isFinishing())return;
                 active=null; progress.dismiss();
+                if(stop.discard)return;
                 if(message!=null){
-                    AlertDialog.Builder interrupted=new AlertDialog.Builder(this).setTitle("Lettura interrotta").setMessage(tags.size()+" / "+count+" tag. "+message);
+                    AlertDialog.Builder interrupted=new AlertDialog.Builder(this).setTitle("Lettura interrotta").setMessage(tags.size()+" / "+count+" tag. La pistola non ha confermato l’arresto. "+message);
                     if(!tags.isEmpty())interrupted.setPositiveButton("Mantieni letture",(d,i)->deliver(token,tags));
                     interrupted.setNegativeButton("Chiudi",null).show();
                 } else deliver(token,tags);
