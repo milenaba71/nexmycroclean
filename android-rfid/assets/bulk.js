@@ -24,7 +24,7 @@
     show('<h2>Registra capi RFID</h2>'+(lot?'<p>'+esc(lotno(lot))+' · '+esc(lot.client)+'</p>':'')+
       '<form id="nativeRfidForm"><label>Cliente<select required name="client"><option value=""></option>'+options(lot?[lot.client]:clientNames())+'</select></label>'+
       '<label>Reparto<input name="dept"></label><label>Tipo di capo<select required name="type"><option value=""></option>'+options(types)+'</select></label>'+
-      '<label>Quanti capi vuoi leggere?<input name="goal" type="number" required min="1" max="1000" step="1" value="100"></label>'+
+      '<label>Numero massimo di capi da leggere<input name="goal" type="number" required min="1" max="1000" step="1" value="100"></label>'+
       '<button class="btn" type="submit">Inizia lettura</button></form><p id="nativeRfidStatus" role="status"></p>'+
       '<button class="btn" id="nativeRfidSave" hidden></button> <button class="btn secondary" id="nativeRfidClose">Chiudi</button>');
     const modal = document.getElementById('modal'), form = document.getElementById('nativeRfidForm');
@@ -43,7 +43,7 @@
       pending = {token, receive: result => {
         if (!modal.open || !form.isConnected || !valid()) return;
         const ids=Array.from(new Set(result));
-        if (ids.length!==goal || !ids.every(id=>typeof id==='string' && /^(?:[A-F0-9]{2}){1,62}$/.test(id))) return;
+        if (!ids.length || ids.length>goal || !ids.every(id=>typeof id==='string' && /^(?:[A-F0-9]{2}){1,62}$/.test(id))) return;
         tags=ids; form.hidden=true;
         status.textContent=tags.length+' tag distinti · '+client+' · '+type;
         save.textContent=lot?'Salva prodotti e registra nel lotto':'Salva prodotti';

@@ -87,15 +87,22 @@ public class ReaderApp extends Activity {
     private void scan(BluetoothDevice reader, int count, String token) {
         closeSocket();
         final int session = ++generation;
+        final Set<String> tags = Collections.synchronizedSet(new LinkedHashSet<String>());
         AlertDialog progress = new AlertDialog.Builder(this).setTitle("Lettura RFID").setMessage("Collegamento alla pistola…")
+            .setPositiveButton("Ferma e mantieni",(d,i)->{
+                if (session != generation) return;
+                generation++;
+                closeSocket();
+                deliver(token,tags);
+            })
             .setNegativeButton("Annulla",(d,i)->{generation++;closeSocket();}).setCancelable(false).show();
+        progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
         final BluetoothSocket socket;
         try { socket=reader.createRfcommSocketToServiceRecord(RFID); active=socket; }
         catch(IOException e){progress.setMessage(e.getMessage());return;}
         Runnable timeout = ()->{if(session==generation)closeSocket();};
         handler.postDelayed(timeout,15000);
         new Thread(()->{
-            Set<String> tags=new LinkedHashSet<>();
             String error=null;
             try {
                 socket.connect();
@@ -118,7 +125,7 @@ public class ReaderApp extends Activity {
                         String epc=fields[2].trim().toUpperCase(Locale.ROOT);
                         if(epc.matches("(?:[0-9A-F]{2}){1,62}") && tags.add(epc)){
                             int n=tags.size();
-                            runOnUiThread(()->{if(session==generation)progress.setMessage(n+" / "+count+" tag distinti");});
+                            runOnUiThread(()->{if(session==generation){progress.setMessage(n+" / "+count+" tag distinti"); progress.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);}});
                         }
                     }
                 }
@@ -134,12 +141,18 @@ public class ReaderApp extends Activity {
                 if(session!=generation || isFinishing())return;
                 active=null; progress.dismiss();
                 if(message!=null){
-                    new AlertDialog.Builder(this).setTitle("Lettura interrotta").setMessage(tags.size()+" / "+count+" tag. Chiudi eventuali altre app collegate alla pistola e riprova. "+message).setPositiveButton("Chiudi",null).show();
-                } else if(web.getUrl()!=null && trusted(Uri.parse(web.getUrl()))) {
-                    web.evaluateJavascript("window.dispatchEvent(new CustomEvent('mycro-rfid-result',{detail:{token:"+JSONObject.quote(token)+",tags:"+new JSONArray(tags).toString()+"}}))",null);
-                }
+                    AlertDialog.Builder interrupted=new AlertDialog.Builder(this).setTitle("Lettura interrotta").setMessage(tags.size()+" / "+count+" tag. "+message);
+                    if(!tags.isEmpty())interrupted.setPositiveButton("Mantieni letture",(d,i)->deliver(token,tags));
+                    interrupted.setNegativeButton("Chiudi",null).show();
+                } else deliver(token,tags);
             });
         }).start();
+    }
+    private void deliver(String token,Set<String> tags) {
+        if(web.getUrl()==null || !trusted(Uri.parse(web.getUrl())))return;
+        final JSONArray result;
+        synchronized(tags){result=new JSONArray(tags);}
+        web.evaluateJavascript("window.dispatchEvent(new CustomEvent('mycro-rfid-result',{detail:{token:"+JSONObject.quote(token)+",tags:"+result+"}}))",null);
     }
     @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
     @Override public void onDestroy(){generation++;closeSocket();handler.removeCallbacksAndMessages(null);super.onDestroy();}
