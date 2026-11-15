@@ -95,10 +95,11 @@ public class ReaderApp extends Activity {
             .setPositiveButton("Ferma e mantieni",null).setNegativeButton("Annulla",null).setCancelable(false).show();
         class Stop {
             boolean requested, discard, inventory;
+            int stopChecks;
             final Runnable deadline=()->{try{socket.close();}catch(IOException ignored){}};
             synchronized void begin() throws IOException {
                 if(requested)return;
-                send(socket,"inventory"); inventory=true;
+                send(socket,"inventory .bm disable"); inventory=true;
             }
             synchronized void request(boolean cancel) {
                 if(requested)return;
@@ -110,7 +111,7 @@ public class ReaderApp extends Activity {
                     progress.setMessage("Arresto della pistola… · "+tags.size()+" tag");
                 });
                 if(!inventory){new Thread(deadline).start();return;}
-                handler.postDelayed(deadline,5000);
+                handler.postDelayed(deadline,8000);
                 new Thread(()->{
                     try {send(socket,"abort");} catch(IOException e){deadline.run();}
                 }).start();
@@ -134,7 +135,12 @@ public class ReaderApp extends Activity {
                     if(line==null)throw new IOException("Connessione terminata.");
                     synchronized(stop) {
                         if(stop.requested){
-                            if(line.replace(" ","").startsWith("Command:abort,Status:OK"))break;
+                            String reply=line.replace(" ","");
+                            if(reply.equalsIgnoreCase("Command:abort,Status:NoRadioOperationinProgress"))break;
+                            if(reply.equalsIgnoreCase("Command:abort,Status:OK")){
+                                if(++stop.stopChecks>3)throw new IOException("Stato radio non confermato.");
+                                send(socket,"abort");
+                            }
                             continue;
                         }
                         if(line.contains("Status:") && !line.contains("Status:OK") && !line.contains("Connection Successful"))
