@@ -20,6 +20,9 @@
       const {bags,rules,history} = data;
       const names = new Map(bags.map(b=>[b.id,b.name]));
       const choices = bags.map(b=>'<option value="'+text(b.id)+'">'+text(b.name)+'</option>').join('');
+      const clients=ensureClients();
+      const clientNames=new Map(clients.map(c=>[String(c.id),c.name]));
+      const clientField='<label>Cliente<select name="client_id"><option value="">Tutti i clienti</option>'+clients.filter(c=>c.active!==false && !c.mergedInto).map(c=>'<option value="'+text(c.id)+'">'+text(c.name)+'</option>').join('')+'</select></label>';
       const typeChoices = catalogRows('type').filter(t=>t.active).map(t=>'<option value="'+text(t.id)+'">'+text(t.name)+'</option>').join('');
       const manage = userCan('products_manage');
       const form = (id,fields,caption) => '<form id="'+id+'" style="display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin:12px 0">'+fields+'<button class="btn">'+caption+'</button></form>';
@@ -29,9 +32,9 @@
         table(['Sacchetto','Disponibili'],bags.map(b=>[text(b.name),'<b>'+text(b.stock)+'</b>'+(b.stock<0?' · Verifica i carichi':'')]),'Inserisci il primo tipo di sacchetto.')+
         (manage?form('bagCreate','<label>Nuovo tipo di sacchetto<input required maxlength="120" name="name"></label>','Aggiungi sacchetto'):'')+
         (manage&&bags.length?form('bagMove',bagField+'<label>Movimento<select name="sign"><option value="1">Carico</option><option value="-1">Rettifica in diminuzione</option></select></label><label>Pezzi<input required type="number" min="1" max="2147483647" step="1" name="quantity"></label><label>Causale<input name="note" required maxlength="250" placeholder="Es. inventario iniziale"></label>','Registra movimento'):'')+
-        '<h2>Distinta base</h2><p>Il capo usa il sacchetto della sua tipologia. Una regola sul singolo codice ha precedenza.</p>'+
-        table(['Associazione','Capo','Sacchetto','Pezzi per uscita',...(manage?['']:[])],rules.map((r,i)=>[r.scope==='type'?'Tipologia':'Prodotto',text(r.label),text(names.get(r.bag)),text(r.quantity),...(manage?['<button class="link" data-rule="'+i+'">Rimuovi</button>']:[])]),'Nessuna associazione configurata.')+
-        (manage&&bags.length?form('bagRule','<label>Applica a<select name="scope"><option value="type">Tipologia</option><option value="product">Singolo prodotto</option></select></label><label id="bagType">Tipo capo<select name="type" required>'+typeChoices+'</select></label><label id="bagProduct" hidden>Barcode / tag<input name="product" disabled></label>'+bagField+'<label>Pezzi per capo<input name="quantity" type="number" min="1" max="1000" required value="1"></label>','Salva associazione'):'')+
+        '<h2>Distinta base</h2><p>Il capo usa il sacchetto della sua tipologia. Per ogni cliente puoi indicare quanti capi contiene una confezione. Il conteggio riparte per ogni lotto. Una regola sul singolo codice ha precedenza.</p>'+
+        table(['Associazione','Capo','Cliente','Sacchetto','Sacchetti per confezione','Capi per confezione',...(manage?['']:[])],rules.map((r,i)=>[r.scope==='type'?'Tipologia':'Prodotto',text(r.label),text(r.client_id?(clientNames.get(r.client_id)||r.client_id):'Tutti'),text(names.get(r.bag)),text(r.quantity),text(r.capacity),...(manage?['<button class="link" data-rule="'+i+'">Rimuovi</button>']:[])]),'Nessuna associazione configurata.')+
+        (manage&&bags.length?form('bagRule','<label>Applica a<select name="scope"><option value="type">Tipologia</option><option value="product">Singolo prodotto</option></select></label><label id="bagType">Tipo capo<select name="type" required>'+typeChoices+'</select></label><label id="bagProduct" hidden>Barcode / tag<input name="product" disabled></label>'+clientField+bagField+'<label>Capi per confezione<input required name="capacity" type="number" min="1" max="10000" value="1"></label><label>Sacchetti per confezione<input name="quantity" type="number" min="1" max="1000" required value="1"></label>','Salva associazione'):'')+
         '<h2>Ultimi 100 movimenti</h2>'+table(['Data','Sacchetto','Pezzi','Causale','Lotto','Codice capo'],history.map(m=>[text(new Date(m.at).toLocaleString('it-IT')),text(names.get(m.bag)),text(m.delta),text(m.note||'Uscita capo'),m.lot?text(lotno({id:m.lot})):'',text(m.product)]),'Nessun movimento registrato.')+'<p role="alert" id="bagError"></p>';
       $('#bagRefresh').onclick = view;
       async function write(button,action,p) {
@@ -56,7 +59,7 @@
       };
       panel.querySelectorAll('[data-rule]').forEach(b=>b.onclick=()=>{
         const r=rules[Number(b.dataset.rule)];
-        if(confirm('Rimuovere l’associazione per '+r.label+'?'))write(b,'remove',{scope:r.scope,target:r.target});
+        if(confirm('Rimuovere l’associazione per '+r.label+'?'))write(b,'remove',{scope:r.scope,target:r.target,client_id:r.client_id});
       });
     } catch(e){if(panel.isConnected)panel.textContent=e.message;}
   }
