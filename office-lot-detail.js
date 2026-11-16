@@ -46,3 +46,5 @@
  let queued=false;new MutationObserver(()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;arrange()})}).observe(document.getElementById('app'),{childList:true,subtree:true});
  arrange();
 })();
+
+import('./office-assistant.js').catch(() => {});
