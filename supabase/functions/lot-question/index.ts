@@ -20,10 +20,10 @@ Deno.serve(async req => {
     const response=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
       headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
       body:JSON.stringify({model:'gpt-4.1-mini',store:false,max_completion_tokens:200,response_format:{type:'json_object'},
-        messages:[{role:'system',content:'Traduci la domanda in un filtro JSON: metric (all, repair, relabel, verify, out oppure unsupported), lot (numero senza anno o stringa vuota), client e department (sottostringhe letterali o vuote). Disponibili solo conteggi di indumenti dei lotti non archiviati, totali o per intervento. Per filtri temporali, tipi di capo, stato del lotto, archivi, interrogazioni diverse o ambigue usa unsupported. Non inventare filtri.'},{role:'user',content:question}]})});
+        messages:[{role:'system',content:'Traduci la domanda in un filtro JSON: metric (all, entered, fold, repair, relabel, verify, out oppure unsupported), lot (numero senza anno o stringa vuota), client e department (sottostringhe letterali o vuote). Disponibili solo conteggi di indumenti dei lotti non archiviati, totali o per intervento. entered conta tutti i capi registrati in entrata anche se successivamente usciti. fold conta i capi pronti ancora da piegare. Per filtri temporali, tipi di capo, stato del lotto, archivi, interrogazioni diverse o ambigue usa unsupported. Non inventare filtri.'},{role:'user',content:question}]})});
     if(!response.ok)return reply({},502);
     const plan=JSON.parse((await response.json()).choices[0].message.content);
-    const result:Record<string,string>={metric:['all','repair','relabel','verify','out'].includes(plan.metric)?plan.metric:'unsupported'};
+    const result:Record<string,string>={metric:['all','entered','fold','repair','relabel','verify','out'].includes(plan.metric)?plan.metric:'unsupported'};
     for(const field of ['lot','client','department'])result[field]=String(plan[field]??'').slice(0,120);
     return reply(result);
   }catch{return reply({},502)}

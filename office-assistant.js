@@ -1,13 +1,25 @@
 /* Ask about lot quantities. All operational records stay in the active session. */
 (function () {
-  const metrics = {all:'capi', repair:'capi da riparare', relabel:'capi da etichettare', verify:'capi da verificare', out:'capi usciti'};
+  const metrics = {all:'capi', entered:'capi entrati', fold:'capi pronti da piegare', repair:'capi da riparare', relabel:'capi da etichettare', verify:'capi da verificare', out:'capi usciti'};
   const examples = new Map([
     ['Quanti capi ci sono nei lotti attivi?', 'all'],
+    ['Quanti capi sono entrati?', 'entered'],
+    ['Quanti capi sono ancora da piegare?', 'fold'],
+    ['Quanti capi sono usciti?', 'out'],
     ['Quanti capi sono da riparare?', 'repair'],
     ['Quanti capi sono da etichettare?', 'relabel']
   ]);
   const allowed = () => typeof cloudUser !== 'undefined' && (cloudUser?.isSuperAdmin || cloudUser?.role === 'admin') && !document.body.classList.contains('floor-mode');
   const fold = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  function matchesMetric(row, metric) {
+    if (metric==='all' || metric==='entered') return true;
+    if (metric==='out') return row.state==='Uscito';
+    if (metric==='fold') {
+      return !['Uscito','Dismesso'].includes(row.state) && row.washed && !row.foldedAt &&
+        (!row.requiresDrying || row.dryState==='done');
+    }
+    return row.state!=='Uscito' && row[metric]===true;
+  }
   function answer(plan, target) {
     target.replaceChildren();
     if (!Object.hasOwn(metrics,plan.metric)) {
@@ -19,7 +31,7 @@
     for(const lot of db.lots) {
       if (lot.archived || (plan.lot && String(lot.id)!==String(plan.lot)) ||
           !fold(lot.client).includes(fold(plan.client)) || !fold(lot.departmentName).includes(fold(plan.department))) continue;
-      const count=lot.rows.filter(row=>plan.metric==='all'||(plan.metric==='out'?row.state==='Uscito':row.state!=='Uscito'&&row[plan.metric]===true)).length;
+      const count=lot.rows.filter(row=>matchesMetric(row,plan.metric)).length;
       if(!count)continue;
       total+=count;
       const li=document.createElement('li');li.textContent=lotno(lot)+' · '+lot.client+' · '+(lot.departmentName||'Reparto non indicato')+' · '+count;
@@ -49,7 +61,7 @@
       if(!dialog.open||id!==generation||!allowed())return;
       if(error)throw Error();
       answer(data,target);
-    } catch {if(dialog.open&&id===generation)target.textContent='Domande libere al momento indisponibili. Puoi usare le tre domande qui sopra.'}
+    } catch {if(dialog.open&&id===generation)target.textContent='Domande libere al momento indisponibili. Puoi usare le domande qui sopra.'}
     finally {if(id===generation)ask.disabled=false}
   };
   input.onkeydown=e=>{if(e.key==='Enter')ask.click()};
