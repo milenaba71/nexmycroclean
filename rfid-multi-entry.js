@@ -155,3 +155,151 @@
     };
   }, true);
 })();
+
+// WebView bridge for installed Zebra readers. Loaded before the bundled fallback.
+(function () {
+  if (!navigator.userAgent.includes('MycrocleanRFID/') || window.mycroBulkInstalled) return;
+  window.mycroBulkInstalled = true;
+  let pending = null;
+  function mount() {
+    if (typeof userCan !== 'function') return;
+    const lotButton = document.querySelector('#entryNewProduct');
+    if (!(lotButton ? userCan('lots_work') : userCan('products_manage'))) return;
+    const anchor = lotButton || document.querySelector('#app [onclick="newGarment()"]');
+    if (!anchor || document.getElementById('nativeBulkProducts')) return;
+    const button = document.createElement('button');
+    button.id = 'nativeBulkProducts';
+    button.className = 'btn';
+    button.textContent = 'Registra capi RFID';
+    button.onclick = () => open(Boolean(lotButton));
+    anchor.after(button);
+  }
+  function open(inLot) {
+    const lot = inLot ? current : null;
+    if (inLot && (!lot || lot.archived || stage !== 'Entrata' || lotBusy() || !selectedProcessing()))
+      return notify('Apri il lotto in Entrata e scegli il percorso.');
+    const route = inLot ? washChoice : null;
+    const valid = () => (!inLot ? userCan('products_manage') :
+      (current && current.id === lot.id && !current.archived && stage === 'Entrata' && washChoice === route && userCan('lots_work')));
+    show('<h2>Registra capi RFID</h2>'+(lot?'<p>'+esc(lotno(lot))+' · '+esc(lot.client)+'</p>':'')+
+      '<form id="nativeRfidForm"><label>Cliente<select required name="client"><option value=""></option>'+options(lot?[lot.client]:clientNames())+'</select></label>'+
+      '<label>Reparto<input name="dept"></label>'+
+      '<label>Numero massimo di capi da leggere<input name="goal" type="number" required min="1" max="1000" step="1" value="100"></label>'+
+      '<button class="btn" type="submit">Inizia lettura</button></form><p id="nativeRfidStatus" role="status"></p>'+
+      '<div id="rfidUnknown"></div><button class="btn" id="nativeRfidSave" hidden></button> <button class="btn secondary" id="nativeRfidClose">Chiudi</button>');
+    const modal = document.getElementById('modal'), form = document.getElementById('nativeRfidForm');
+    const status = document.getElementById('nativeRfidStatus'), save = document.getElementById('nativeRfidSave');
+    const close = document.getElementById('nativeRfidClose');
+    if (lot) { form.elements.client.value = lot.client; form.elements.dept.value = lot.departmentName || ''; }
+    let tags=[], next=0, created=0, existing=0, entered=0, skipped=0, failures=[], busy=false;
+    let client, dept, reviewed=false;
+    const choices=new Map();
+    const unknown=document.getElementById('rfidUnknown');
+    const saveLabel=lot?'Registra ingresso nel lotto':'Salva prodotti';
+    async function review() {
+      await cloudFlush();
+      cloudAccept(await cloudRequest(),false);
+      const missing=[];
+      let known=0, ambiguous=0;
+      for(const epc of tags){
+        if(!form.isConnected || !modal.open || !valid()) throw Error('La sessione di lettura è cambiata.');
+        const {rows}=await productsRead({mode:'lookup',code:epc});
+        if(!rows.length)missing.push(epc);
+        else if(rows.length===1)known++;
+        else ambiguous++;
+      }
+      choices.clear(); unknown.textContent='';
+      if(missing.length && userCan('products_manage')){
+        const available=catalogRows('type').filter(t=>t.active);
+        const template=document.createElement('select');
+        template.add(new Option('Salta questo tag',''));
+        available.forEach(t=>template.add(new Option(t.name,t.name)));
+        for(const epc of missing){
+          const label=document.createElement('label');
+          label.textContent='Tipo di prodotto per il nuovo tag '+epc;
+          const select=template.cloneNode(true);
+          label.append(select);unknown.append(label);choices.set(epc,select);
+        }
+      }
+      status.textContent=known+' già in Prodotti · '+missing.length+' nuovi'+(ambiguous?' · '+ambiguous+' con associazione ambigua':'');
+      if(missing.length && !userCan('products_manage')) status.textContent+=' · Per creare i nuovi prodotti serve un utente abilitato.';
+      reviewed=true; save.textContent=saveLabel;
+    }
+    close.onclick = () => modal.close();
+    form.onsubmit = event => {
+      event.preventDefault();
+      if (!valid()) return notify('Riapri il lotto e controlla il percorso.');
+      client=form.elements.client.value; dept=form.elements.dept.value.trim();
+      const goal=Number(form.elements.goal.value);
+      const token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+      pending = {token, receive: result => {
+        if (!modal.open || !form.isConnected || !valid()) return;
+        const ids=Array.from(new Set(result));
+        if (!ids.length || ids.length>goal || !ids.every(id=>typeof id==='string' && /^(?:[A-F0-9]{2}){1,62}$/.test(id))) return;
+        tags=ids; form.hidden=true;
+        status.textContent='Cerco '+tags.length+' tag in Prodotti…';
+        save.textContent='Verifica tag';
+        save.hidden=false; save.click();
+      }};
+      location.href='mycro-rfid://scan?count='+goal+'&token='+token;
+    };
+    save.onclick=async () => {
+      if (busy || !tags.length || !valid()) return;
+      busy=true; save.disabled=close.disabled=true;
+      const guard=e=>e.preventDefault();
+      modal.addEventListener('cancel',guard);
+      try {
+        if(!reviewed){await review();return;}
+        await cloudFlush();
+        cloudAccept(await cloudRequest(),false);
+        for (;next<tags.length;next++) {
+          if (!valid()) throw Error('Lotto o percorso cambiato.');
+          const epc=tags[next];
+          status.textContent='Registrazione '+(next+1)+' di '+tags.length;
+          const matches=(await productsRead({mode:'lookup',code:epc})).rows;
+          if(matches.length>1){failures.push(epc+' · più prodotti associati');continue;}
+          let id;
+          if(matches.length){productsHydrate(matches);id=matches[0].id;existing++;}
+          else {
+            const type=choices.get(epc)?.value;
+            if(!type || !userCan('products_manage')){failures.push(epc+' · nuovo, ingresso saltato');continue;}
+            const product={id:epc,client,type,dept,name:'',size:'Da definire',color:'Da definire',wash:0,max:80,rental:null,history:[],
+              raw:{CODICE:epc,TIPO:type,AZIENDA:client,REPARTO:dept,'NUMERO LAVAGGI':0,'LAVAGGI MASSIMI':80}};
+            const response=await appSupabase.rpc('laundry_product_save',{p_payload:{revision:cloudRevision,original_id:null,mode:'manual',product}});
+            if(response.error) {
+              if(/BARCODE_ALREADY_EXISTS/.test(response.error.message)){failures.push(epc+' · codice già assegnato');continue;}
+              throw Error(response.error.message);
+            }
+            cloudAccept(response.data,false);
+            id=response.data.saved_id; await productsLoadIds([id]); created++;
+          }
+          if(lot) {
+            if(!valid())throw Error('Lotto o percorso cambiato.');
+            if(current.rows.some(r=>r.code===id)){skipped++;continue;}
+            productRemote.pinned=[id];
+            const error=await checkedProcess(id);
+            if(error) failures.push(epc+' · '+error);
+            else {await cloudFlush();entered++;}
+          }
+        }
+        status.textContent='Prodotti creati: '+created+' · già registrati: '+existing+(lot?' · inseriti nel lotto: '+entered+' · già presenti: '+skipped:'');
+        if(failures.length)status.textContent+=' · Da verificare: '+failures.join(' / ');
+        save.hidden=true;
+      } catch(err) {
+        status.textContent='Interrotto al tag '+(next+1)+' di '+tags.length+'. '+err.message;
+        save.textContent=reviewed?'Riprendi':'Riprova verifica';
+      } finally {
+        busy=false;save.disabled=close.disabled=false;modal.removeEventListener('cancel',guard);
+        if(!form.isConnected) {show('<h2>Registrazione RFID</h2><p>'+esc(status.textContent)+'</p><button class="btn" onclick="document.getElementById(\'modal\').close()">Chiudi</button>');}
+      }
+    };
+    modal.addEventListener('close',()=>{pending=null;if(!busy && next>0)render();},{once:true});
+  }
+  window.addEventListener('mycro-rfid-result',e=>{
+    if(pending && e.detail && pending.token===e.detail.token && Array.isArray(e.detail.tags)){
+      const receive=pending.receive;pending=null;receive(e.detail.tags);
+    }
+  });
+  new MutationObserver(mount).observe(document.body,{childList:true,subtree:true});
+  mount();
+})();
