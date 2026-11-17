@@ -46,7 +46,8 @@
   const products=new Map(db.garments.map(g=>[String(g.id),g])),seen=new Set(),types=new Map();
   for(const r of current.rows||[]){if(r.state==='Dismesso'||seen.has(String(r.code)))continue;seen.add(String(r.code));const type=products.get(String(r.code))?.type||'Da definire';types.set(type,(types.get(type)||0)+1)}
   const html='<b>Capi entrati nel lotto <strong>'+seen.size+'</strong></b><div>'+([...types].map(([name,n])=>'<span><b>'+n+'</b> '+esc(name)+'</span>').join('')||'<span>Nessun capo acquisito</span>')+'</div>';
-  if(counts.innerHTML!==html)counts.innerHTML=html;
+  const summary=html+(window.floor?.entryPendingSummary?.(current.rows)||'');
+  if(counts.innerHTML!==summary)counts.innerHTML=summary;
  };
  N.reset=function(){if(!current||N.saving)return;N.drafts.delete(String(current.id));N.mount()};
  N.save=async function(){
