@@ -100,6 +100,16 @@ function entryTypeCounts(lot,garments){
  }
  return {total:seen.size,groups:[...counts.values()].sort((a,b)=>a.label.localeCompare(b.label,'it'))};
 }
+function entryPendingSummary(rows){
+ const counts=new Map(Object.keys(flagLabels).map(key=>[key,new Set()]));
+ for(const row of rows){
+  for(const key of pendingFlags(row))counts.get(key).add(row.code);
+ }
+ const badges=[...counts].filter(([,codes])=>codes.size).map(([key,codes])=>
+  '<span><b>'+codes.size+'</b> '+flagLabels[key]+'</span>');
+ return '<div class="floor-entry-total">Interventi da fare</div><div class="floor-entry-types">'+
+  (badges.join('')||'<span>Nessun intervento aperto</span>')+'</div>';
+}
 F.entryTypeSummary=function(){
  const existing=$('#floorEntryTypes');
  if(!F.active||F.screen!=='lot'||F.phase!=='entry'||!current){existing?.remove();return}
@@ -110,7 +120,8 @@ F.entryTypeSummary=function(){
  F.entryCountLot=current.id;F.entryCountLatest=latest;
  const {total,groups}=entryTypeCounts(current,db.garments);
  const html='<div class="floor-entry-total">Capi entrati nel lotto <strong>'+total+'</strong></div><div class="floor-entry-types">'+(groups.map(g=>'<span><b>'+g.count+'</b> '+esc(g.label)+'</span>').join('')||'<span>Nessun capo acquisito</span>')+'</div>';
- if(host.innerHTML!==html)host.innerHTML=html;
+ const summary=html+entryPendingSummary(current.rows);
+ if(host.innerHTML!==summary)host.innerHTML=summary;
 };
 
 function feedbackMarkup(){const f=F.feedback||{tone:'ready',title:'PRONTO',message:'Leggi un codice. Aspetta la risposta prima del capo successivo.'};return `<section class="floor-feedback ${f.tone}" role="status" aria-live="polite"><strong>${f.title}</strong><p>${esc(f.message)}</p>${f.name?`<b>${esc(f.name)}</b>`:''}${f.bin?`<div class="floor-bin">CESTO ${esc(f.bin)}</div>`:''}</section>`}
@@ -199,7 +210,7 @@ F.decorateInstructions=function(){if(!F.active||F.screen!=='instructions')return
 
 // Every intervention keeps its original lot, garment identity and server controls.
 const flagLabels={repair:'Da riparare',relabel:'Da etichettare',verify:'Da verificare',replacement:'Sostituzione richiesta',discardReview:'Scarto da verificare',rewash:'Rilavaggio'};
-function pendingFlags(r){if(['Uscito','Dismesso'].includes(r.state))return [];const g=db.garments.find(g=>g.id===r.code);return Object.keys(flagLabels).filter(k=>k==='discardReview'?repairDiscardPending(r):k==='rewash'?!!r.rewashPending:!!r[k]);}
+function pendingFlags(r){if(['Uscito','Dismesso'].includes(r.state))return [];return Object.keys(flagLabels).filter(k=>k==='discardReview'?repairDiscardPending(r):k==='rewash'?!!r.rewashPending:!!r[k]);}
 function pendingRows(l){return (l?.rows||[]).filter(r=>pendingFlags(r).length)}
 function flagBadges(r){return pendingFlags(r).map(k=>`<span class="floor-flag">${flagLabels[k]}</span>`).join('')}
 function garmentLine(r){const g=db.garments.find(g=>g.id===r.code);return `${productCodeLink(g.id||r.code)}<p>${esc(g?.name||'Utilizzatore non indicato')}</p><p>${esc(g?.type||'Tipo non indicato')} · ${esc(g?.size||'—')} · ${esc(g?.dept||'Reparto non indicato')}</p>`}
