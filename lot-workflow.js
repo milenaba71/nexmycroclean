@@ -44,6 +44,16 @@ function bindAutoScanner(input){
  // A pause is not an end-of-code marker: manual input and slow scanners may pause.
  // Keyboard readers submit with their Enter/Tab suffix; camera scans enqueue directly.
  input.addEventListener('input',()=>clearTimeout(scanTimer));
+ if(input.id==='scan')input.addEventListener('paste',event=>{
+   const text=event.clipboardData?.getData('text/plain')||'';
+   if(!/[\r\n\t]/.test(text.trim()))return;
+   event.preventDefault();
+   if(input.disabled||!input.isConnected||current?.id!==boundLot||stage!==boundPhase||!lotWritable())return;
+   if(input.value.trim())return notify('Svuota il campo prima di incollare un elenco.');
+   const codes=[...new Set(text.split(/[\r\n\t]+/).map(code=>code.trim()).filter(Boolean))];
+   if(!codes.length||!window.confirm('Registrare '+codes.length+' codici nel lotto '+lotno(current)+' · '+stage+'?'))return;
+   for(const code of codes)enqueueBarcode(code);
+ });
  input.addEventListener('keydown',e=>{
   if(e.isComposing||e.keyCode===229||!(e.key==='Enter'||e.key==='Tab')||!input.value.trim())return;
   e.preventDefault();e.stopPropagation();clearTimeout(scanTimer);
