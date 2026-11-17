@@ -14,7 +14,7 @@
   for(const code of labelCodes)if(!allowed.has(code))labelCodes.delete(code);
   if(!rows.length)return;
   const panel=document.createElement('section');panel.dataset.sewingBulk='';panel.className='panel';
-  panel.innerHTML='<h2>Etichette da fare</h2><div class="tools"></div><div class="tools"><button type="button" class="btn secondary" data-all>Seleziona tutte</button><button type="button" class="btn" data-print></button></div>';
+  panel.innerHTML='<h2>Etichette da fare</h2><div class="tools"></div><div class="tools"><button type="button" class="btn secondary" data-all>Seleziona tutto</button><button type="button" class="btn secondary" data-clear>Deseleziona tutto</button><button type="button" class="btn" data-print></button></div>';
   const print=panel.querySelector('[data-print]');
   function count(){print.disabled=!labelCodes.size;print.textContent='Stampa etichette selezionate ('+labelCodes.size+')'}
   const boxes=[];
@@ -30,6 +30,7 @@
    const add=document.createElement('button');add.type='button';add.className='btn secondary';add.textContent='Nuovo prodotto';add.onclick=()=>newGarment();print.before(add);
   }
   panel.querySelector('[data-all]').onclick=()=>{rows.forEach((r,i)=>{labelCodes.add(r.code);boxes[i].checked=true});count()};
+  panel.querySelector('[data-clear]').onclick=()=>{labelCodes.clear();boxes.forEach(box=>box.checked=false);count()};
   print.onclick=()=>openLabelEditor([...labelCodes]);count();container.before(panel);
  }
  const sewingGo=go;
@@ -58,7 +59,7 @@
   }
   labelTools(l,summary||document.querySelector('#app .repair-cards,#app .floor-product-cards'));
   if(!userCan('lots_work'))return;
-  const bar=document.createElement('div');bar.dataset.sewingBulk='';bar.className='tools';bar.innerHTML='<button class="btn secondary" id="sewingSelectAll">Seleziona tutti i capi disponibili</button><button class="btn secondary" id="sewingClear">Deseleziona</button><button class="btn" id="sewingBulkOpen">Ripara selezionati</button><span id="sewingBulkCount" role="status"></span>';
+  const bar=document.createElement('div');bar.dataset.sewingBulk='';bar.className='tools';bar.innerHTML='<button class="btn secondary" id="sewingSelectAll">Seleziona tutto</button><button class="btn secondary" id="sewingClear">Deseleziona tutto</button><button class="btn" id="sewingBulkOpen">Ripara selezionati</button><span id="sewingBulkCount" role="status"></span>';
   const container=summary?.querySelector('.sewing-detail-scroll')||document.querySelector('#app .repair-cards,#app .floor-product-cards');if(!container)return;container.before(bar);
   $('#sewingSelectAll').onclick=()=>{selected=new Set(l.rows.filter(r=>eligible(l,r)).map(r=>r.code));decorate()};$('#sewingClear').onclick=()=>{selected.clear();decorate()};$('#sewingBulkOpen').onclick=open;updateCount();
  }
