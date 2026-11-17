@@ -41,7 +41,34 @@ const washLabelBeforeLoads=washLotLabel;
 washLotLabel=function(batch){return washLoadMembers(batch).map(washLabelBeforeLoads).join(' / ')};
 washMachineBusy=function(id,exceptBatch){const own=washState?.batches.find(b=>b.id===exceptBatch);return (washState?.batches||[]).some(b=>b.machine_id===id&&b.id!==exceptBatch&&(!own?.load_group_id||b.load_group_id!==own.load_group_id)&&['running','blocked'].includes(b.state))};
 const washCardBeforeLoads=washCard;
-washCard=function(batch){return washCardBeforeLoads({...batch,quantity:washLoadQuantity(batch)})};
+washCard=function(batch){
+ const html=washCardBeforeLoads({...batch,quantity:washLoadQuantity(batch)});
+ return !batch.started_at&&!batch.load_group_id&&['gathering','ready'].includes(batch.state)
+  ? washArchiveButton(html,batch.id,'wash',batch.quantity) : html;
+};
+function washArchiveButton(html,id,phase,quantity){
+ if(!washFloorLotLinks()||!userCan('production_execute'))return html;
+ return html.replace('</article>',`<button type="button" class="btn secondary" onclick="archiveFloorCart('${esc(id)}','${phase}',${Number(quantity)})">Archivia</button></article>`);
+}
+const dryCardBeforeArchive=dryCard;
+dryCard=function(cart){
+ const html=dryCardBeforeArchive(cart);
+ return cart.cycle ? html : washArchiveButton(html,cart.batchId,'dry',cart.quantity);
+};
+async function archiveFloorCart(id,phase,quantity){
+ if(washBusy||dryBusy||lotBusy())return notify('Attendi la registrazione in corso.');
+ const batch=washState?.batches.find(b=>b.id===id);
+ const lotId=batch?.lot_id || dryState?.carts.find(c=>c.batchId===id)?.lotId;
+ if(!confirm('Archiviare il carrello del lotto '+lotno({id:lotId})+' ('+quantity+' capi)? Verrà tolto dalla coda. I capi e lo storico resteranno nel lotto.'))return;
+ washBusy=true;
+ try{
+  await cloudFlush();
+  const {error}=await appSupabase.rpc('laundry_archive_cart',{batch:id,phase,pieces:quantity});
+  if(error)throw Error(washMessage(error));
+  WashLoads.selected.delete(id);
+  notify('Carrello archiviato.');
+ }catch(e){notify(e.message)}finally{washBusy=false;await floor.refresh()}
+}
 const washCorrectionBeforeLoads=washCorrectionDialog;
 washCorrectionDialog=function(id,action){washCorrectionBeforeLoads(id,action);const b=washState?.batches.find(x=>x.id===id);if(b?.load_group_id)$('#modal h2')?.insertAdjacentHTML('afterend','<p class="notice">Carico unificato: questa operazione riguarda tutti i carrelli e i lotti del carico.</p>')};
 const washMessageBeforeLoads=washMessage;
