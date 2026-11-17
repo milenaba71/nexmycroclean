@@ -6,8 +6,15 @@ const labels={clean:'Pulizia: assenza di sporco e macchie',dry:'Asciugatura comp
 const outcome=x=>x==='pass'?'Conforme':'Non conforme';
 const valueLabel=x=>({ok:'Conforme',ko:'Non conforme',na:'Non applicabile'}[x]||'Non indicato');
 const date=x=>x?new Date(x).toLocaleString('it-IT',{timeZone:'Europe/Rome'}):'Non registrata';
-const err=e=>{const s=e.message||String(e);return Object.entries({QUALITY_RELEASE_REQUIRED:'Uscita bloccata: registra un controllo qualità conforme.',QUALITY_RECHECK_REQUIRED:'Il capo è nuovo o è cambiato dopo il controllo: ripeti la verifica qualità.',QUALITY_NOT_ENABLED:'Attiva prima il controllo qualità sul lotto.',REVISION_CONFLICT:'Il lotto è cambiato. Chiudi e riapri il controllo prima di registrare.',INCOMPLETE_CHECKLIST:'Compila tutti i controlli.',QUALITY_CHECKS_FAILED:'Per dare esito conforme risolvi le non conformità della checklist.',QUALITY_REASON_REQUIRED:'Descrivi il motivo della non conformità.',INVALID_SAMPLE_COUNT:'Inserisci quanti capi hai controllato, entro il numero indicato.',PERMISSION_DENIED:'Non hai il permesso di lavorare sui lotti.'}).find(([k])=>s.includes(k))?.[1]||s};
-Q.rpc=async function(action,p){const {data,error}=await appSupabase.rpc('laundry_quality',{p_action:action,p});if(error)throw Error(err(error));return data};
+const entryConflict='I dati del lotto sono stati aggiornati. Riapri lo stesso lotto e controlla l’elenco dei capi. Se manca l’ultimo capo, scansiona di nuovo solo quello.';
+const err=(e,context)=>{const s=e.message||String(e);
+ if(e.status===409||s.includes('REVISION_CONFLICT')){
+  if(context==='quality')return 'I dati del lotto sono stati aggiornati. Riapri Controllo qualità e verifica i capi prima di confermare.';
+  if(context==='entry')return entryConflict;
+  return 'I dati sono stati aggiornati. Aggiorna la schermata e riprova.';
+ }
+ return Object.entries({QUALITY_RELEASE_REQUIRED:'Uscita bloccata: registra un controllo qualità conforme.',QUALITY_RECHECK_REQUIRED:'Il capo è nuovo o è cambiato dopo il controllo: ripeti la verifica qualità.',QUALITY_NOT_ENABLED:'Attiva prima il controllo qualità sul lotto.',INCOMPLETE_CHECKLIST:'Compila tutti i controlli.',QUALITY_CHECKS_FAILED:'Per dare esito conforme risolvi le non conformità della checklist.',QUALITY_REASON_REQUIRED:'Descrivi il motivo della non conformità.',INVALID_SAMPLE_COUNT:'Inserisci quanti capi hai controllato, entro il numero indicato.',PERMISSION_DENIED:'Non hai il permesso di lavorare sui lotti.'}).find(([k])=>s.includes(k))?.[1]||s};
+Q.rpc=async function(action,p){const {data,error}=await appSupabase.rpc('laundry_quality',{p_action:action,p});if(error)throw Error(err(error,action==='record'?'quality':undefined));return data};
 function history(q){return q.checks.length?`<details><summary>Controlli registrati (${q.checks.length})</summary>${q.checks.map(c=>`<article class="quality-history"><b>${outcome(c.outcome)}</b> · ${esc(date(c.checked_at))}<p>${esc(c.actor_name)} · ${c.sample_count} capi controllati</p><ul>${Object.entries(labels).map(([k,l])=>`<li>${l}: ${valueLabel(c.checks[k])}</li>`).join('')}</ul><p>${esc(c.notes||'Nessuna nota')}</p>${c.evidence?`<p>Riferimento prova / documento: ${esc(c.evidence)}</p>`:''}</article>`).join('')}</details>`:'<p>Nessun controllo registrato.</p>'}
 Q.open=async function(id){const ticket=++Q.request;show('<h2>Controllo qualità</h2><p role="status">Caricamento…</p>');try{await cloudFlush();const q=await Q.rpc('read',{lot_id:id});if(ticket!==Q.request||!$('#modal').open)return;const l=db.lots.find(l=>l.id===id),last=q.checks[0],remaining=q.rows.filter(r=>!['Uscito','Dismesso'].includes(r.state)).length;
 show(`<h2>Qualità · ${esc(l?lotno(l):String(id))}</h2><p>${esc(l?.client||'')}</p><p class="notice">${q.enabled?'Controllo obbligatorio prima dell’uscita.':'Lotto preesistente: controllo qualità non ancora attivato.'} ${q.eligible.length} capi pronti da verificare · ${remaining} ancora da uscire.</p>${last?`<p>Ultimo esito: <b>${outcome(last.outcome)}</b> · ${esc(date(last.checked_at))}. Capi coperti dal controllo attuale: ${q.released.filter(code=>q.rows.some(r=>r.code===code&&r.state!=='Uscito')).length}.</p>`:''}
@@ -31,7 +38,7 @@ checkedProcess=async function(code){
  }
  return beforeQualityScan.apply(this,arguments);
 };
-const beforeRequest=cloudRequest;cloudRequest=async function(...args){try{return await beforeRequest.apply(this,args)}catch(e){e.message=err(e);throw e}};
+const beforeRequest=cloudRequest;cloudRequest=async function(...args){try{return await beforeRequest.apply(this,args)}catch(e){e.message=err(e,args[0]==='lot_acquire'||(typeof stage!=='undefined'&&stage==='Entrata'&&typeof activeScanJob!=='undefined'&&activeScanJob)?'entry':undefined);throw e}};
 const css=document.createElement('style');css.textContent='.quality-history{padding:14px 0;border-top:1px solid #dce3ef}.quality-history p{white-space:pre-wrap}#qualityForm{margin:16px 0}#qualityForm textarea{width:100%;padding:12px;border:1px solid #dce3ef;border-radius:6px}';document.head.append(css);
 
 // Compact administration view: movement quantities and executed work, never requests.
