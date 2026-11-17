@@ -25,3 +25,6 @@ body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-tabs .floor-butt
 body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-title{margin-bottom:12px;padding-top:8px;padding-bottom:8px}
 body.floor-mode #app.floor-lot[data-floor-phase="entry"] .floor-title h1{font-size:25px}
 body.floor-mode .entry-identity-notes{background:white;border:1px solid #e2e8f0;border-radius:10px 10px 0 0}
+
+#floorProducts .floor-list-actions .floor-button.floor-product-notes{background:#184eaa!important;color:#fff!important;border-color:#184eaa!important}
+#floorProducts .floor-list-actions .floor-button.floor-product-remove{background:#ac2031!important;color:white!important;border-color:#ac2031!important;width:auto;min-height:34px;padding:5px 9px;font-size:13px;justify-self:start}
