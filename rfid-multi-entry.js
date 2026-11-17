@@ -212,21 +212,36 @@
       let known=0, ambiguous=0, mismatched=0;
       for(const epc of tags){
         if(!form.isConnected || !modal.open || !valid()) throw Error('La sessione di lettura è cambiata.');
-        const {rows}=await productsRead({mode:'lookup',code:epc});
+        // Preview only. Unrelated changes in other lots must not invalidate the scanned list.
+        // Each EPC is looked up again with revision checks before anything is written.
+        const {data,error}=await productRpcOriginal('laundry_products_query',{p:{mode:'lookup',code:epc}});
+        if(error) throw Error(error.message);
+        const rows=data.rows;
         if(!rows.length)missing.push(epc);
         else if(rows.length===1){if(differentType(rows[0]))mismatched++;else known++;}
         else ambiguous++;
       }
       choices.clear(); unknown.textContent='';
-      if(!batchType && missing.length && userCan('products_manage')){
+      if(missing.length && userCan('products_manage')){
         const available=catalogRows('type').filter(t=>t.active);
         const template=document.createElement('select');
-        template.add(new Option('Salta questo tag',''));
+        template.setAttribute('data-native-select','');
+        template.add(new Option('Scegli la tipologia…',''));
+        template.add(new Option('Salta questo tag','__skip__'));
         available.forEach(t=>template.add(new Option(t.name,t.name)));
+        if(missing.length>1){
+          const label=document.createElement('label');
+          label.textContent='Applica una tipologia a tutti i tag nuovi';
+          const all=template.cloneNode(true);
+          all.value=batchType;
+          all.onchange=()=>{for(const field of choices.values())field.value=all.value;};
+          label.append(all);unknown.append(label);
+        }
         for(const epc of missing){
           const label=document.createElement('label');
           label.textContent='Tipo di prodotto per il nuovo tag '+epc;
           const select=template.cloneNode(true);
+          select.value=batchType;
           label.append(select);unknown.append(label);choices.set(epc,select);
         }
       }
@@ -261,6 +276,8 @@
       modal.addEventListener('cancel',guard);
       try {
         if(!reviewed){await review();return;}
+        const incomplete=[...choices].find(([,field])=>!field.value);
+        if(incomplete){status.textContent='Scegli la tipologia oppure «Salta questo tag» per '+incomplete[0];incomplete[1].focus();return;}
         await cloudFlush();
         cloudAccept(await cloudRequest(),false);
         for (;next<tags.length;next++) {
@@ -273,8 +290,8 @@
           if(matches.length && differentType(matches[0])){failures.push(epc+' · altra tipologia: '+(matches[0].type||'non indicata'));continue;}
           if(matches.length){productsHydrate(matches);id=matches[0].id;existing++;}
           else {
-            const type=batchType || choices.get(epc)?.value;
-            if(!type || !userCan('products_manage')){failures.push(epc+' · nuovo, ingresso saltato');continue;}
+            const type=choices.get(epc)?.value;
+            if(!type || type==='__skip__' || !userCan('products_manage')){failures.push(epc+' · nuovo, ingresso saltato');continue;}
             const product={id:epc,client,type,dept,name:'',size:'Da definire',color:'Da definire',wash:0,max:80,rental:null,history:[],
               raw:{CODICE:epc,TIPO:type,AZIENDA:client,REPARTO:dept,'NUMERO LAVAGGI':0,'LAVAGGI MASSIMI':80}};
             const response=await appSupabase.rpc('laundry_product_save',{p_payload:{revision:cloudRevision,original_id:null,mode:'manual',product}});
