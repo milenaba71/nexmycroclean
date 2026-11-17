@@ -184,6 +184,7 @@
     show('<h2>Registra capi RFID</h2>'+(lot?'<p>'+esc(lotno(lot))+' · '+esc(lot.client)+'</p>':'')+
       '<form id="nativeRfidForm"><label>Cliente<select required name="client"><option value=""></option>'+options(lot?[lot.client]:clientNames())+'</select></label>'+
       '<label>Reparto<input name="dept"></label>'+
+      (lot?'<label>Modalità di lettura<select name="batchType" data-native-select><option value="">Leggi tutto · tipologie miste</option></select></label>':'')+
       '<label>Numero massimo di capi da leggere<input name="goal" type="number" required min="1" max="1000" step="1" value="100"></label>'+
       '<button class="btn" type="submit">Inizia lettura</button></form><p id="nativeRfidStatus" role="status"></p>'+
       '<div id="rfidUnknown"></div><button class="btn" id="nativeRfidSave" hidden></button> <button class="btn secondary" id="nativeRfidClose">Chiudi</button>');
@@ -191,6 +192,14 @@
     const status = document.getElementById('nativeRfidStatus'), save = document.getElementById('nativeRfidSave');
     const close = document.getElementById('nativeRfidClose');
     if (lot) { form.elements.client.value = lot.client; form.elements.dept.value = lot.departmentName || ''; }
+    const typeField = form.elements.batchType;
+    if (typeField) {
+      for (const t of catalogRows('type').filter(t=>t.active)) {
+        typeField.add(new Option('Per tipologia · '+t.name,t.name));
+      }
+    }
+    let batchType = '';
+    const differentType = product => batchType && String(product.type || '').trim().toLowerCase() !== batchType.trim().toLowerCase();
     let tags=[], next=0, created=0, existing=0, entered=0, skipped=0, failures=[], busy=false;
     let client, dept, reviewed=false;
     const choices=new Map();
@@ -200,16 +209,16 @@
       await cloudFlush();
       cloudAccept(await cloudRequest(),false);
       const missing=[];
-      let known=0, ambiguous=0;
+      let known=0, ambiguous=0, mismatched=0;
       for(const epc of tags){
         if(!form.isConnected || !modal.open || !valid()) throw Error('La sessione di lettura è cambiata.');
         const {rows}=await productsRead({mode:'lookup',code:epc});
         if(!rows.length)missing.push(epc);
-        else if(rows.length===1)known++;
+        else if(rows.length===1){if(differentType(rows[0]))mismatched++;else known++;}
         else ambiguous++;
       }
       choices.clear(); unknown.textContent='';
-      if(missing.length && userCan('products_manage')){
+      if(!batchType && missing.length && userCan('products_manage')){
         const available=catalogRows('type').filter(t=>t.active);
         const template=document.createElement('select');
         template.add(new Option('Salta questo tag',''));
@@ -222,6 +231,7 @@
         }
       }
       status.textContent=known+' già in Prodotti · '+missing.length+' nuovi'+(ambiguous?' · '+ambiguous+' con associazione ambigua':'');
+      if(batchType) status.textContent+=' · Tipologia scelta: '+batchType+(mismatched?' · '+mismatched+' di altra tipologia da escludere':'');
       if(missing.length && !userCan('products_manage')) status.textContent+=' · Per creare i nuovi prodotti serve un utente abilitato.';
       reviewed=true; save.textContent=saveLabel;
     }
@@ -230,6 +240,7 @@
       event.preventDefault();
       if (!valid()) return notify('Riapri il lotto e controlla il percorso.');
       client=form.elements.client.value; dept=form.elements.dept.value.trim();
+      batchType=typeField?.value || '';
       const goal=Number(form.elements.goal.value);
       const token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
       pending = {token, receive: result => {
@@ -259,9 +270,10 @@
           const matches=(await productsRead({mode:'lookup',code:epc})).rows;
           if(matches.length>1){failures.push(epc+' · più prodotti associati');continue;}
           let id;
+          if(matches.length && differentType(matches[0])){failures.push(epc+' · altra tipologia: '+(matches[0].type||'non indicata'));continue;}
           if(matches.length){productsHydrate(matches);id=matches[0].id;existing++;}
           else {
-            const type=choices.get(epc)?.value;
+            const type=batchType || choices.get(epc)?.value;
             if(!type || !userCan('products_manage')){failures.push(epc+' · nuovo, ingresso saltato');continue;}
             const product={id:epc,client,type,dept,name:'',size:'Da definire',color:'Da definire',wash:0,max:80,rental:null,history:[],
               raw:{CODICE:epc,TIPO:type,AZIENDA:client,REPARTO:dept,'NUMERO LAVAGGI':0,'LAVAGGI MASSIMI':80}};
