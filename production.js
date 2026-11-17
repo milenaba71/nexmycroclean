@@ -64,6 +64,16 @@ function pConfirmedPlanState(state,first,days){
  }
  return {...state,operators:state.operators.map(op=>({...op,days:[]})),overrides};
 }
+function pApplyAbsenceRange(state,email,from,to){
+ const valid=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T12:00:00Z'))&&PC.dateAdd(value,0)===value;
+ if(!valid(from)||!valid(to)||from>to)throw Error('Controlla le date di inizio e fine assenza.');
+ if(!state.operators.some(op=>op.email===email&&op.active!==false))throw Error('Seleziona un operatore attivo.');
+ state.attendance??={};
+ for(let date=from;;date=PC.dateAdd(date,1)){
+  (state.attendance[date]??={})[email]='absent';
+  if(date===to)break;
+ }
+}
 function pAttendance(){
  const state=prod,day=prodDate,revision=prodRevision,entries=state.attendance?.[day]||{};
  const operators=state.operators.filter(o=>o.active!==false).sort((a,b)=>pMember(a.email).localeCompare(pMember(b.email),'it'));
@@ -76,7 +86,8 @@ function pAttendance(){
   const checks=pStationOptions().filter(([id])=>op.skills.includes(id)).map(([id,name])=>`<label class="prod-check"><input type="checkbox" value="${esc(id)}" ${multiple&&saved.includes(id)?'checked':''}${disabled}> ${esc(name)}</label>`).join('');
   return `<div><label>${esc(pMember(op.email))}<select data-presence="${esc(op.email)}"${disabled}>${pOptions(choices,multiple?'multi':saved,'Da confermare')}</select></label><fieldset data-stations ${multiple?'':'hidden'}><legend>Postazioni disponibili</legend>${checks||'Configura le abilitazioni in Operatori e turni.'}</fieldset></div>`;
  }).join('');
- $('#prodBody').innerHTML=pPanel('Presenze e postazioni','<div class="tools">'+pDateControl()+'</div><p>Per ogni persona scegli Assente oppure Presente con la postazione del giorno. Il piano usa solo le presenze salvate.</p><form id="dailyAttendance"><div class="prod-grid">'+rows+'</div><p role="alert"></p>'+(pAdmin()&&operators.length?'<button class="btn" type="submit">Salva presenze</button>':'')+'</form>'+(operators.length?'':'<p>Associa le persone in Operatori e turni.</p>')+pBtn('tab','board','Vai alla pianificazione'));
+ const range=pAdmin()&&operators.length?'<details><summary>Registra assenza dal giorno al giorno</summary><div class="tools">'+pSelect('absenceEmail','Operatore assente',operators.map(op=>[op.email,pMember(op.email)]))+pField('absenceFrom','Dal',day,'date')+pField('absenceTo','Al (compreso)',day,'date')+'</div></details>':'';
+ $('#prodBody').innerHTML=pPanel('Presenze e postazioni','<div class="tools">'+pDateControl()+'</div><p>Per ogni persona scegli Assente oppure Presente con la postazione del giorno. Il piano usa solo le presenze salvate.</p><form id="dailyAttendance"><div class="prod-grid">'+rows+'</div>'+range+'<p role="alert"></p>'+(pAdmin()&&operators.length?'<button class="btn" type="submit">Salva presenze</button>':'')+'</form>'+(operators.length?'':'<p>Associa le persone in Operatori e turni.</p>')+pBtn('tab','board','Vai alla pianificazione'));
  $('#dailyAttendance').onchange=event=>{
   if(event.target.matches('[data-presence]'))event.target.closest('label').nextElementSibling.hidden=event.target.value!=='multi';
  };
@@ -100,6 +111,8 @@ function pAttendance(){
     if(!shifts.length||!result.slots.length||result.error||shifts.some(x=>!op.skills.includes(x.station)||!state.stations.some(s=>s.id===x.station&&s.active!==false)))throw Error(pMember(email)+' · '+(result.error||'Verifica orari, assenze e postazioni in Operatori e turni.'));
    }
    next.attendance={...next.attendance,[day]:values};
+   const email=form.elements.absenceEmail?.value;
+   if(email)pApplyAbsenceRange(next,email,form.elements.absenceFrom.value,form.elements.absenceTo.value);
    await pRpc('save',{revision,data:next});
    pDraw();notify('Presenze salvate. Puoi distribuire il lavoro.');
   }catch(e){error.textContent=pError(e)}finally{prodBusy=false}
