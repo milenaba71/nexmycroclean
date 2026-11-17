@@ -4,6 +4,45 @@
  const kinds=['repair','relabel','verify'];
  function eligible(l,r,k){return !l.archived&&!['Uscito','Dismesso'].includes(r.state)&&(!k||r[k])&&kinds.some(x=>r[x])&&!repairWashMessage(l.id,r.code)}
  function names(r){return [...new Set((r.repairWork||[]).map(w=>w.completedBy||w.completedByEmail).filter(Boolean))].join(', ')}
+ const labelCodes=new Set();
+ let labelLot=null;
+ function labelTools(lot,container){
+  if(!container)return;
+  if(labelLot!==lot.id){labelCodes.clear();labelLot=lot.id}
+  const rows=lot.rows.filter(r=>r.relabel&&!['Uscito','Dismesso'].includes(r.state));
+  const allowed=new Set(rows.map(r=>r.code));
+  for(const code of labelCodes)if(!allowed.has(code))labelCodes.delete(code);
+  if(!rows.length)return;
+  const panel=document.createElement('section');panel.dataset.sewingBulk='';panel.className='panel';
+  panel.innerHTML='<h2>Etichette da fare</h2><div class="tools"></div><div class="tools"><button type="button" class="btn secondary" data-all>Seleziona tutte</button><button type="button" class="btn" data-print></button></div>';
+  const print=panel.querySelector('[data-print]');
+  function count(){print.disabled=!labelCodes.size;print.textContent='Stampa etichette selezionate ('+labelCodes.size+')'}
+  const boxes=[];
+  for(const row of rows){
+   const label=document.createElement('label'),box=document.createElement('input'),card=document.createElement('button');
+   box.type='checkbox';box.checked=labelCodes.has(row.code);boxes.push(box);
+   label.append(box,document.createTextNode(' '+repairCode(row.code)));
+   box.onchange=()=>{if(box.checked)labelCodes.add(row.code);else labelCodes.delete(row.code);count()};
+   card.type='button';card.className='link';card.textContent='Scheda prodotto';card.onclick=()=>showGarment(row.code);
+   const item=document.createElement('div');item.append(label,card);panel.querySelector('.tools').append(item);
+  }
+  if(userCan('products_manage')){
+   const add=document.createElement('button');add.type='button';add.className='btn secondary';add.textContent='Nuovo prodotto';add.onclick=()=>newGarment();print.before(add);
+  }
+  panel.querySelector('[data-all]').onclick=()=>{rows.forEach((r,i)=>{labelCodes.add(r.code);boxes[i].checked=true});count()};
+  print.onclick=()=>openLabelEditor([...labelCodes]);count();container.before(panel);
+ }
+ const sewingGo=go;
+ go=function(destination){
+  if(destination==='Etichette'&&window.floor?.active&&floor.screen==='repair'){
+   show('<h2>Editor etichette</h2><button type="button" class="btn secondary" onclick="this.closest(&quot;dialog&quot;).close()">Torna al cucito</button><iframe title="Editor etichette Mycroclean" src="etichette.html?v=20261109-text-style" style="width:100%;height:75vh;border:0"></iframe>');
+   const modal=document.getElementById('modal'),width=modal.style.width,max=modal.style.maxWidth;
+   modal.style.width='96vw';modal.style.maxWidth='1400px';
+   modal.addEventListener('close',()=>{modal.style.width=width;modal.style.maxWidth=max},{once:true});
+   return;
+  }
+  return sewingGo(destination);
+ };
  function decorate(){
   if(page!=='Riparazioni'||repairProductCode||repairLotId===null)return;
   const l=db.lots.find(l=>l.id===Number(repairLotId));if(!l)return;
@@ -17,6 +56,7 @@
    const el=document.createElement('div');el.dataset.sewingBulk='';const n=names(r);if(n){const p=document.createElement('p');p.textContent='Riparato da: '+n;el.append(p)}
    if(userCan('lots_work')&&eligible(l,r)){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.checked=selected.has(code);box.style='width:24px;height:24px;margin-right:10px';box.onchange=()=>{box.checked?selected.add(code):selected.delete(code);decorate()};label.append(box,document.createTextNode('Seleziona capo'));el.prepend(label)}card.prepend(el);
   }
+  labelTools(l,summary||document.querySelector('#app .repair-cards,#app .floor-product-cards'));
   if(!userCan('lots_work'))return;
   const bar=document.createElement('div');bar.dataset.sewingBulk='';bar.className='tools';bar.innerHTML='<button class="btn secondary" id="sewingSelectAll">Seleziona tutti i capi disponibili</button><button class="btn secondary" id="sewingClear">Deseleziona</button><button class="btn" id="sewingBulkOpen">Ripara selezionati</button><span id="sewingBulkCount" role="status"></span>';
   const container=summary?.querySelector('.sewing-detail-scroll')||document.querySelector('#app .repair-cards,#app .floor-product-cards');if(!container)return;container.before(bar);
