@@ -78,13 +78,25 @@ function mountPhaseRfid(scanRow) {
  button.onclick=openPhaseRfid;
  scanRow.append(button);
 }
-function openPhaseRfid() {
+async function openPhaseRfid() {
  if (busy() || F.stopped || F.loading) return notify('Attendi il termine dell’operazione in corso.');
  const phase=F.phase, lotId=current?.id, operation=phase==='fold'?'piegatura':'uscita';
  const valid=()=>F.active && F.screen==='lot' && F.phase===phase && current?.id===lotId &&
    !current.archived && stage===(phase==='fold'?'Lavorazione':'Uscita') && userCan('lots_work');
  if(!valid()) return;
  if(phase==='out'&&!readyForDispatch(current)) return notify('Completa tutti i capi prima di registrare l’uscita del lotto.');
+ if(phase==='out'){
+   try{
+     const quality=await window.LotQuality.rpc('read',{lot_id:lotId});
+     if(!valid()) return;
+     if(quality.enabled&&!openRows(current).some(row=>quality.released.includes(row.code))){
+       show('<h2>Uscita RFID in attesa del controllo qualità</h2><p>'+esc(lotno(current))+' · '+esc(current.client)+'</p><p>Per registrare le uscite serve un controllo qualità conforme che comprenda i capi da spedire.</p><button class="btn" id="rfidOpenQuality">Controllo qualità</button> <button class="btn secondary" id="rfidCloseQuality">Chiudi</button>');
+       $('#rfidOpenQuality').onclick=()=>window.LotQuality.open(lotId);
+       $('#rfidCloseQuality').onclick=()=>$('#modal').close();
+       return;
+     }
+   }catch(error){return notify('Verifica qualità prima della lettura RFID: '+error.message);}
+ }
  const modal=$('#modal'), lotLabel=lotno(current);
  show('<h2>Registra '+operation+' RFID</h2><p>'+esc(lotno(current))+' · '+esc(current.client)+'</p>'+
    '<form id="phaseRfidForm"><label>Numero massimo di tag<input name="goal" type="number" value="100" min="1" max="1000" required></label><button class="btn">Inizia lettura</button></form>'+
