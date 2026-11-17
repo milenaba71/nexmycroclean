@@ -6,17 +6,18 @@ Deno.serve(async req => {
   const token = req.headers.get('authorization');
   if (!token) return reply({},401);
   try {
-    const auth = await fetch(Deno.env.get('SUPABASE_URL')+'/rest/v1/rpc/laundry_app',{
+    const {question,statusOnly}=await req.json();
+    if(!statusOnly && (typeof question!=='string'||!question.trim()||question.length>450))return reply({},400);
+    const key=Deno.env.get('PRODUCT_PHOTO_OPENAI_KEY');
+    const quota=await fetch(Deno.env.get('SUPABASE_URL')+'/rest/v1/rpc/laundry_assistant_quota',{
       method:'POST',headers:{Authorization:token,apikey:Deno.env.get('SUPABASE_ANON_KEY')!,'Content-Type':'application/json'},
-      body:JSON.stringify({p_action:'snapshot',p_payload:{}})
+      body:JSON.stringify({p_consume:!statusOnly && Boolean(key)})
     });
-    if (!auth.ok) return reply({},403);
-    const {user} = await auth.json();
-    if (!(user?.isSuperAdmin || user?.role === 'admin')) return reply({},403);
-    const key = Deno.env.get('PRODUCT_PHOTO_OPENAI_KEY');
-    if (!key) return reply({error:'Servizio domande da configurare.'},503);
-    const {question}=await req.json();
-    if(typeof question!=='string'||!question.trim()||question.length>450)return reply({},400);
+    if(!quota.ok)return reply({},quota.status===401||quota.status===403?quota.status:503);
+    const {remaining,allowed}=await quota.json();
+    if(statusOnly)return reply({remaining,configured:Boolean(key)});
+    if(!key)return reply({error:'Servizio domande da configurare.',remaining},503);
+    if(!allowed)return reply({error:'Hai raggiunto le 10 domande di oggi. Potrai riprendere a mezzanotte.',remaining},429);
     const response=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
       headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},
       body:JSON.stringify({model:'gpt-4.1-mini',store:false,max_completion_tokens:200,response_format:{type:'json_object'},
@@ -25,6 +26,6 @@ Deno.serve(async req => {
     const plan=JSON.parse((await response.json()).choices[0].message.content);
     const result:Record<string,string>={metric:['all','entered','fold','repair','relabel','verify','out'].includes(plan.metric)?plan.metric:'unsupported'};
     for(const field of ['lot','client','department'])result[field]=String(plan[field]??'').slice(0,120);
-    return reply(result);
+    return reply({...result,remaining});
   }catch{return reply({},502)}
 });

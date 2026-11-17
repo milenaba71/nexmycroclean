@@ -119,8 +119,20 @@
   const button=document.createElement('button');button.type='button';button.textContent='🤖';button.setAttribute('aria-label','Apri assistente Mycroclean');button.title='Chiedi al gestionale';
   button.style.cssText='position:fixed;right:12px;bottom:56px;z-index:20;border:1px solid #ccd7e4;border-radius:50%;background:white;height:44px;width:44px;font-size:23px;cursor:pointer';
   const dialog=document.createElement('dialog');dialog.style.cssText='width:min(92vw,500px);max-height:80vh;overflow:auto;padding:18px;border:1px solid #ccd7e4;border-radius:12px';
-  dialog.innerHTML='<h2>Chiedi al gestionale</h2><p>Consulta i capi dei lotti non archiviati per cliente, reparto o intervento.</p><div data-examples></div><label>Domanda<input type="text" maxlength="450" style="width:100%" placeholder="Quanti capi da riparare ha Marelli?"></label><small>La domanda libera viene interpretata da OpenAI. I conteggi vengono calcolati nel gestionale.</small><p><button class="btn" type="button" data-ask>Chiedi</button> <button class="btn secondary" type="button" data-close>Chiudi</button></p><div role="status"></div>';
+  dialog.innerHTML='<h2>Chiedi al gestionale</h2><p>Consulta i capi dei lotti non archiviati per cliente, reparto o intervento.</p><div data-examples></div><p data-quota aria-live="polite">Massimo 10 domande libere al giorno per amministratore.</p><label>Domanda<input type="text" maxlength="450" style="width:100%" placeholder="Quanti capi da riparare ha Marelli?"></label><small>La domanda libera viene interpretata da OpenAI. I conteggi vengono calcolati nel gestionale.</small><p><button class="btn" type="button" data-ask>Chiedi</button> <button class="btn secondary" type="button" data-close>Chiudi</button></p><div role="status"></div>';
   const target=dialog.querySelector('[role=status]'),input=dialog.querySelector('input'),ask=dialog.querySelector('[data-ask]');
+  const quotaLabel=dialog.querySelector('[data-quota]');
+  function showQuota(remaining){
+    if(Number.isInteger(remaining))quotaLabel.textContent='Domande libere rimaste oggi: '+remaining+' su 10. Rinnovo a mezzanotte (Italia).';
+  }
+  async function refreshQuota(){
+    const id=generation;
+    const {data}=await appSupabase.functions.invoke('lot-question',{body:{statusOnly:true}});
+    if(dialog.open&&id===generation&&allowed()&&data){
+      showQuota(data.remaining);
+      if(data.configured===false)quotaLabel.textContent+=' Lettura IA da configurare.';
+    }
+  }
   let generation=0;
   for(const [question,metric] of examples) {
     const example=document.createElement('button');example.type='button';example.className='link';example.textContent=question;
@@ -135,7 +147,14 @@
     try {
       const {data,error}=await appSupabase.functions.invoke('lot-question',{body:{question}});
       if(!dialog.open||id!==generation||!allowed())return;
-      if(error)throw Error();
+      if(error){
+        const detail=await error.context?.json?.().catch(()=>null);
+        if(!dialog.open||id!==generation||!allowed())return;
+        showQuota(detail?.remaining);
+        if(detail?.error){target.textContent=detail.error;return}
+        throw Error();
+      }
+      showQuota(data.remaining);
       answer(data,target);
     } catch {if(dialog.open&&id===generation)target.textContent='Domande libere al momento indisponibili. Puoi usare le domande qui sopra.'}
     finally {if(id===generation)ask.disabled=false}
@@ -143,7 +162,7 @@
   input.onkeydown=e=>{if(e.key==='Enter')ask.click()};
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
   dialog.onclose=()=>{generation++;ask.disabled=false;target.replaceChildren();input.value=''};
-  button.onclick=()=>{if(allowed())dialog.showModal()};
+  button.onclick=()=>{if(allowed()){dialog.showModal();quotaLabel.textContent='Massimo 10 domande libere al giorno per amministratore.';refreshQuota().catch(()=>{})}};
   function refresh(){button.hidden=!allowed();if(button.hidden&&dialog.open)dialog.close()}
   document.body.append(button,dialog);refresh();
   new MutationObserver(refresh).observe(document.querySelector('#app'),{childList:true});
