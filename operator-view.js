@@ -1,30 +1,6 @@
 
-function lotCopyCodeButton(code) {
- return '<button type="button" class="link" data-copy-lot-code="'+esc(code)+'" aria-label="Copia codice '+esc(code)+'">Copia</button>';
-}
-document.addEventListener('click', async event => {
- const button=event.target.closest('[data-copy-lot-code]');
- if(!button)return;
- event.preventDefault();event.stopPropagation();
- const code=button.dataset.copyLotCode;
- try {
-   await navigator.clipboard.writeText(code);
-   button.textContent='Copiato';
- } catch(error) {
-   const input=document.createElement('textarea');
-   input.value=code;
-   input.setAttribute('readonly','');
-   input.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px';
-   document.body.append(input);input.select();
-   const copied=document.execCommand('copy');
-   input.remove();
-   if(copied)button.textContent='Copiato';
-   else {
-     show('<h2>Copia codice</h2><input id="lotCopyFallback" readonly value="'+esc(code)+'"><p>Tieni premuto sul codice e scegli Copia.</p><button class="btn" onclick="document.getElementById(\'modal\').close()">Chiudi</button>');
-     document.getElementById('lotCopyFallback').select();
-   }
- }
-});
+// I codici restano selezionabili con i comandi standard del browser.
+function lotCopyCodeButton() { return ''; }
 /* Reparto: an operational view over the existing authenticated workflows. */
 (function(){
 const F=window.floor={active:false,screen:'home',phase:'entry',loading:false,error:'',feedback:null,stopped:false,request:0};
