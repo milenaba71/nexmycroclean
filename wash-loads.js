@@ -3,7 +3,40 @@ function washLoadMembers(batch){return batch?.load_group_id?(washState?.batches|
 function washLoadQuantity(batch){return washLoadMembers(batch).reduce((n,b)=>n+Number(b.quantity||0),0)}
 function washDistinctLoads(batches){const seen=new Set();return batches.filter(b=>{const key=b.load_group_id||b.id;if(seen.has(key))return false;seen.add(key);return true})}
 const washIdentityBeforeLoads=washLotIdentity;
-washLotIdentity=function(batch){const members=washLoadMembers(batch);return (batch?.load_group_id?'<b class="wash-mixed-label">Lotti misti · unico carico</b>':'')+members.map(b=>washIdentityBeforeLoads(b)+(members.length>1?'<small>'+b.quantity+' capi di questo carrello</small>':'')).join('')};
+function washFloorLotLinks(){
+ return window.floor?.active && ['water','machines'].includes(window.floor.screen);
+}
+washLotIdentity=function(batch){
+ const members=washLoadMembers(batch);
+ return (batch?.load_group_id?'<b class="wash-mixed-label">Lotti misti · unico carico</b>':'')+members.map(b=>{
+  const identity=washIdentityBeforeLoads(b)+(members.length>1?'<small>'+b.quantity+' capi di questo carrello</small>':'');
+  const id=Number(b.lot_id);
+  if(!washFloorLotLinks()||!Number.isSafeInteger(id)||id<=0)return identity;
+  return '<div data-cart-lot="'+id+'" style="cursor:pointer">'+identity+'<button type="button" class="link" data-open-cart-lot="'+id+'">Apri lotto</button></div>';
+ }).join('');
+};
+document.addEventListener('click',event=>{
+ if(!washFloorLotLinks())return;
+ const target=event.target,card=target.closest?.('#app .wash-cart');
+ if(!card)return;
+ const control=target.closest('button,a,input,label,select,textarea,[role="button"]');
+ if(control&&!control.hasAttribute('data-open-cart-lot'))return;
+ const member=target.closest('[data-cart-lot]');
+ const ids=[...new Set([...card.querySelectorAll('[data-cart-lot]')].map(el=>Number(el.dataset.cartLot)))];
+ if(member||ids.length===1){
+  floor.openLot(Number(member?.dataset.cartLot||ids[0]),'entry');
+ }else if(ids.length>1){
+  show('<h2>Scegli il lotto da aprire</h2><div class="tools">'+ids.map(id=>{
+   const lot=db.lots.find(l=>l.id===id);
+   return '<button type="button" class="btn" data-cart-choice="'+id+'">'+esc(lot?lotno(lot)+' · '+lot.client:'Lotto '+id)+'</button>';
+  }).join('')+'</div><button type="button" class="btn secondary" data-close-cart-choice>Chiudi</button>');
+  const modal=document.getElementById('modal');
+  modal.querySelector('[data-close-cart-choice]').onclick=()=>modal.close();
+  modal.querySelectorAll('[data-cart-choice]').forEach(button=>button.onclick=()=>{
+   modal.close();floor.openLot(Number(button.dataset.cartChoice),'entry');
+  });
+ }
+});
 const washLabelBeforeLoads=washLotLabel;
 washLotLabel=function(batch){return washLoadMembers(batch).map(washLabelBeforeLoads).join(' / ')};
 washMachineBusy=function(id,exceptBatch){const own=washState?.batches.find(b=>b.id===exceptBatch);return (washState?.batches||[]).some(b=>b.machine_id===id&&b.id!==exceptBatch&&(!own?.load_group_id||b.load_group_id!==own.load_group_id)&&['running','blocked'].includes(b.state))};
