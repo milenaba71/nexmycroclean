@@ -12,7 +12,7 @@ function initial(){return {stations:stationList({}),operators:[],overrides:[],ma
 function defaultShift(station){return {start:'08:00',end:station==='entry'?'14:00':station==='out'?'17:00':'16:00',days:[],breaks:[{name:'Pausa mattina',start:'',minutes:15},{name:'Pranzo',start:'',minutes:station==='out'?60:null},...(station==='entry'?[]:[{name:'Pausa pomeriggio',start:'',minutes:15}])]}}
 function intervals(shift){let a=minute(shift?.start),b=minute(shift?.end);if(a===null||b===null||b<=a)return {slots:[],error:'Orario turno incompleto'};let rests=[];for(let p of shift.breaks||[]){if(Number(p.minutes)===0&&p.minutes!==null&&p.minutes!=='')continue;let s=minute(p.start),n=Number(p.minutes);if(s===null||!positive(p.minutes)||s<a||s+n>b)return {slots:[],error:'Orario o durata delle pause da completare'};rests.push([s,s+n])}rests.sort((a,b)=>a[0]-b[0]);let slots=[],cursor=a;for(let [s,e] of rests){if(s<cursor)return {slots:[],error:'Pause sovrapposte'};if(s>cursor)slots.push([cursor,s]);cursor=e}if(cursor<b)slots.push([cursor,b]);return {slots,error:null}}
 function shiftForDay(op,day){const hours=op.dayHours?.[day]||{};return {...op,start:hours.start||op.start,end:hours.end||op.end}}
-function daySlots(state,op,date){let overrides=state.overrides.filter(x=>x.email===op.email&&x.date===date);if(overrides.length){let all=[],errors=[];for(let x of overrides){if(x.absent)continue;let r=intervals(x);if(r.error)errors.push(r.error);all.push(...r.slots.map(([a,b])=>({start:a,end:b,station:x.station})))}all.sort((a,b)=>a.start-b.start);if(overrides.some(x=>x.absent)&&overrides.length>1||all.some((s,i)=>i&&s.start<all[i-1].end))errors.push('Fasce operative sovrapposte');return {slots:errors.length?[]:all,error:errors.join('; ')}}
+function daySlots(state,op,date){let overrides=state.overrides.filter(x=>x.email===op.email&&x.date===date);if(overrides.length){let all=[],errors=[];for(let x of overrides){if(x.absent)continue;let r=intervals(x);if(r.error)errors.push(r.error);all.push(...r.slots.map(([a,b])=>({start:a,end:b,station:x.station,stations:x.stations})))}all.sort((a,b)=>a.start-b.start);if(overrides.some(x=>x.absent)&&overrides.length>1||all.some((s,i)=>i&&s.start<all[i-1].end))errors.push('Fasce operative sovrapposte');return {slots:errors.length?[]:all,error:errors.join('; ')}}
  if(!op.active||!(op.days||[]).includes(weekday(date)))return {slots:[],error:null};let r=intervals(shiftForDay(op,weekday(date)));return {slots:r.slots.map(([a,b])=>({start:a,end:b,station:op.station})),error:r.error}}
 function machineAvailable(state,m){return m.active!==false&&!state.tickets.some(t=>t.machineId===m.id&&t.blocking&&t.status!=='closed')}
 function estimate(type,quantity,machine){let q=Number(quantity);if(!type||!positive(q))return {error:'Quantità o lavorazione mancante'};let setup=Number(type.setup||0);if(!Number.isFinite(setup)||setup<0)return {error:'Tempo preparazione non valido'};if(type.mode==='machine'){if(!machine||!positive(machine.capacity)||!positive(type.value)||type.operatorMinutes===null||type.operatorMinutes===''||!Number.isFinite(Number(type.operatorMinutes))||Number(type.operatorMinutes)<0)return {error:'Capacità, durata ciclo o tempo operatore da definire'};let cycles=Math.ceil(q/machine.capacity);return {labor:Math.ceil(setup+cycles*Number(type.operatorMinutes)),machine:Math.ceil(cycles*Number(type.value)),cycles}}
@@ -42,7 +42,7 @@ function plan(state,first,days=7,nowDay='',nowMinute=0){
   for(const date of dates){
    if(date<(t.releaseDate||first)||date<nowDay)continue;
    const floor=Math.max(machineStart,date===nowDay?nowMinute:0,ready>=0?ready-dates.indexOf(date)*1440:0);
-   const available=daySlots(state,op,date).slots.filter(s=>s.station===type.station);
+   const available=daySlots(state,op,date).slots.filter(s=>s.stations?s.stations.includes(type.station):s.station===type.station);
    const busy=[...(opBusy[key(op.email,date)]||[]),...(m?macBusy[key(m.id,date)]||[]:[])];
    for(const slot of subtract(available,busy)){
     const start=Math.max(slot.start,floor),end=Math.min(slot.end,machineEnd);
@@ -67,7 +67,7 @@ function plan(state,first,days=7,nowDay='',nowMinute=0){
   for(let cycle=0;cycle<est.cycles;cycle++){
    let labor=Math.ceil(Number(type.operatorMinutes)+(cycle===0?Number(type.setup||0):0)),found=false;
    for(let date of dates){if(date<(t.releaseDate||first)||date<nowDay)continue;
-    let available=daySlots(state,op,date).slots.filter(s=>s.station===type.station),busy=[...(opBusy[key(op.email,date)]||[]),...segments.filter(s=>s.date===date)];
+    let available=daySlots(state,op,date).slots.filter(s=>s.stations?s.stations.includes(type.station):s.station===type.station),busy=[...(opBusy[key(op.email,date)]||[]),...segments.filter(s=>s.date===date)];
     for(let s of subtract(available,busy)){
      let start=Math.max(s.start,ma,date===nowDay?nowMinute:0,floor>=0?floor-dates.indexOf(date)*1440:0);
      for(let x=start;x+labor<=s.end&&x+labor+Math.ceil(Number(type.value))<=mb;x++){
