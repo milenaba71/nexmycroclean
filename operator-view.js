@@ -40,6 +40,87 @@ function deliveryKey(lot){
  if(!due)return '9999';
  return planned&&planned.slice(0,10)===due&&due.length===10?planned:due;
 }
+
+function mountPhaseRfid(scanRow) {
+ if (!scanRow || !navigator.userAgent.includes('MycrocleanRFID/') ||
+     !['fold','out'].includes(F.phase) || !userCan('lots_work') || !current || current.archived ||
+     scanRow.querySelector('[data-phase-rfid]')) return;
+ const button=document.createElement('button');
+ button.type='button'; button.className='btn'; button.dataset.phaseRfid='1';
+ button.textContent=F.phase==='fold'?'Scansiona piegatura RFID':'Scansiona uscita RFID';
+ button.onclick=openPhaseRfid;
+ scanRow.append(button);
+}
+function openPhaseRfid() {
+ if (busy() || F.stopped || F.loading) return notify('Attendi il termine dell’operazione in corso.');
+ const phase=F.phase, lotId=current?.id, operation=phase==='fold'?'piegatura':'uscita';
+ const valid=()=>F.active && F.screen==='lot' && F.phase===phase && current?.id===lotId &&
+   !current.archived && stage===(phase==='fold'?'Lavorazione':'Uscita') && userCan('lots_work');
+ if(!valid()) return;
+ if(phase==='out'&&!readyForDispatch(current)) return notify('Completa tutti i capi prima di registrare l’uscita del lotto.');
+ const modal=$('#modal'), lotLabel=lotno(current);
+ show('<h2>Registra '+operation+' RFID</h2><p>'+esc(lotno(current))+' · '+esc(current.client)+'</p>'+
+   '<form id="phaseRfidForm"><label>Numero massimo di tag<input name="goal" type="number" value="100" min="1" max="1000" required></label><button class="btn">Inizia lettura</button></form>'+
+   '<p id="phaseRfidStatus" role="status"></p><button class="btn" id="phaseRfidApply" hidden></button> <button class="btn secondary" id="phaseRfidClose">Chiudi</button>');
+ const form=$('#phaseRfidForm'),status=$('#phaseRfidStatus'),apply=$('#phaseRfidApply');
+ let token='', tags=[],goal=0;
+ function received(event){
+   const result=event.detail;
+   if(!token||result?.token!==token||!modal.open||!form.isConnected) return;
+   token=''; form.hidden=false;
+   if(!valid()){status.textContent='Lotto o fase cambiati. Riapri la lettura.';return;}
+   if(!Array.isArray(result.tags)||result.tags.length>goal||!result.tags.every(t=>typeof t==='string'&&/^(?:[A-F0-9]{2}){1,62}$/.test(t))){
+     status.textContent='Lettura non valida. Ripeti la scansione.';return;
+   }
+   tags=[...new Set(result.tags)];
+   if(!tags.length){status.textContent='Nessun tag letto.';return;}
+   form.hidden=true;status.textContent=tags.length+' tag letti.';
+   apply.textContent='Registra '+operation;apply.hidden=false;
+ }
+ window.addEventListener('mycro-rfid-result',received);
+ modal.addEventListener('close',()=>window.removeEventListener('mycro-rfid-result',received),{once:true});
+ $('#phaseRfidClose').onclick=()=>modal.close();
+ form.onsubmit=e=>{
+   e.preventDefault();if(!valid())return;
+   goal=Number(form.elements.goal.value);
+   token=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+   location.href='mycro-rfid://scan?count='+goal+'&token='+token;
+ };
+ apply.onclick=async()=>{
+   if(!valid()||busy()||F.stopped||F.loading)return notify('Attendi e verifica il lotto prima di registrare.');
+   apply.disabled=true; modal.close(); scanningBatch=true;
+   let saved=0, index=0, interrupted='';
+   const issues=[],seen=new Set();
+   try{
+     await cloudFlush();cloudAccept(await cloudRequest(),false);
+     for(;index<tags.length;index++){
+       const epc=tags[index];
+       if(!valid()) throw Error('Lotto o fase cambiati.');
+       const {rows}=await productsRead({mode:'lookup',code:epc});
+       if(!valid()) throw Error('Lotto o fase cambiati.');
+       if(rows.length!==1){issues.push(epc+' · '+(rows.length?'associazione ambigua':'tag sconosciuto'));continue;}
+       const id=rows[0].id,row=current.rows.find(r=>r.code===id);
+       if(!row){issues.push(epc+' · fuori lotto');continue;}
+       if(seen.has(id)||['Uscito','Dismesso'].includes(row.state)||(phase==='fold'&&row.foldedAt)){
+         issues.push(epc+' · già elaborato o dismesso');continue;
+       }
+       if(phase==='out'&&!readyForDispatch(current)) throw Error('Il lotto ha ancora capi da completare.');
+       productsHydrate(rows);productRemote.pinned=[id];
+       const error=await checkedProcess(id);
+       if(error){issues.push(epc+' · '+error);continue;}
+       await cloudFlush();seen.add(id);saved++;
+     }
+   }catch(e){interrupted='Interrotto al tag '+(index+1)+' di '+tags.length+'. '+e.message;}
+   finally{scanningBatch=false;}
+   if(valid())detail();
+   show('<h2>Riepilogo '+operation+' RFID</h2><p>'+esc(lotLabel)+
+     ' · Registrati: '+saved+' su '+tags.length+'</p>'+(interrupted?'<p>'+esc(interrupted)+'</p>':'')+
+     (issues.length?'<ul>'+issues.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul>':'')+
+     '<button class="btn" id="phaseRfidDone">Chiudi</button>');
+   $('#phaseRfidDone').onclick=()=>modal.close();
+ };
+}
+
 function readyForDispatch(lot){
  const rows=openRows(lot);
  return rows.length>0&&rows.every(r=>lotReady(r)&&r.completed&&!pendingFlags(r).length&&(!r.requiresDrying||r.dryState==='done'));
@@ -101,7 +182,7 @@ F.startEntryMachine=function(){
 };
 function exitSummary(){const rows=current.rows.filter(r=>r.state!=='Dismesso'),loaded=rows.filter(r=>r.state==='Uscito').length,missing=rows.filter(r=>r.state!=='Uscito'),working=missing.filter(r=>!lotReady(r)).length;return `<div class="floor-exit-numbers"><div><strong>${loaded}</strong><span>CARICATI</span></div><div><strong>${working}</strong><span>IN LAVORAZIONE</span></div><div><strong>${missing.length}</strong><span>MANCANTI</span></div></div><p class="floor-explain">Mancanti alla spedizione: capi del lotto non ancora usciti, compresi quelli in lavorazione. Non indica uno smarrimento.</p><details class="floor-missing" open><summary>Chi manca alla spedizione</summary>${missing.map(r=>{const g=db.garments.find(g=>g.id===r.code);return `<div><b>${esc(g?.name||'Utilizzatore non indicato')}</b><span>${esc(g?.type||'')} · ${esc(g?.size||'')} · ${esc(productBarcode(g)||r.code)}</span><small>${esc(lotRowStatus(r))}</small></div>`}).join('')||'<p>Tutti i capi del lotto sono stati caricati.</p>'}</details>`}
 F.decorate=function(){if(!F.active||F.screen!=='lot'||!current)return;const app=$('#app');app.classList.add('floor-lot');app.dataset.floorPhase=F.phase;app.querySelector('#floorLotHeader')?.remove();const header=document.createElement('div');header.id='floorLotHeader';header.innerHTML=top(phaseNames[F.phase],F.phase);app.prepend(header);
- const scan=$('#scan'),scanRow=scan?.closest('.scan');if(scan){scan.placeholder='Scansiona qui il codice';scan.setAttribute('aria-label','Scansiona il codice del capo');scan.autocomplete='off';scan.disabled=F.stopped||!userCan('lots_work')||(F.phase==='entry'&&!F.entryReady());scanRow?.classList.add('floor-scan-row');const section=scanRow?.closest('.lot-work-section'),panel=section?.closest('.lot-workspace');if(section&&panel&&panel.firstElementChild!==section)panel.prepend(section);}
+ const scan=$('#scan'),scanRow=scan?.closest('.scan');if(scan){scan.placeholder='Scansiona qui il codice';scan.setAttribute('aria-label','Scansiona il codice del capo');scan.autocomplete='off';scan.disabled=F.stopped||!userCan('lots_work')||(F.phase==='entry'&&!F.entryReady());scanRow?.classList.add('floor-scan-row');mountPhaseRfid(scanRow);const section=scanRow?.closest('.lot-work-section'),panel=section?.closest('.lot-workspace');if(section&&panel&&panel.firstElementChild!==section)panel.prepend(section);}
  app.querySelector('.floor-missing')?.remove();app.querySelector('#floorLotSummary')?.remove();const summary=document.createElement('section');summary.id='floorLotSummary';summary.innerHTML=F.phase==='entry'?progress():F.phase==='out'?exitSummary():`<p class="floor-lead">Controlla e piega il capo. Poi scansiona il tag.</p>${foldingLabels(current)}${feedbackMarkup()}`;header.after(summary);if(F.phase==='out'){const missing=summary.querySelector('.floor-missing');if(missing)app.append(missing);}
  if(F.phase!=='fold'&&F.feedback){const feedback=document.createElement('div');feedback.innerHTML=feedbackMarkup();summary.append(feedback)}
  if(!$('#floorLotTools')){const tools=document.createElement('div');tools.id='floorLotTools';tools.className='floor-lot-tools';tools.innerHTML=(F.phase==='entry'&&userCan('lots_create')?button('Apri nuovo lotto','floor.newLot()','primary'):'')+button('Il mio lavoro','floor.work()')+button('Cambia lotto','floor.list(\''+F.phase+'\')')+button('Reparto cucito del lotto','floor.repairLot('+current.id+')')+button('Aggiorna','floor.refresh()')+(F.phase==='fold'?button('Vedi 4 esempi','floor.examples(0)'):'');app.append(tools)}
