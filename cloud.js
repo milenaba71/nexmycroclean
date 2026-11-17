@@ -39,6 +39,32 @@ async function cloudRecoverAccess(){
  try{for(const suffix of ['', '-code-verifier', '-user'])localStorage.removeItem(key+suffix)}catch{cloudBootError('Il browser non consente di ripristinare la sessione. Apri il gestionale in una nuova scheda.');return}
  location.reload();
 }
+let cloudCheckingVersion=false;
+function cloudViewCanRefresh(){
+ const field=document.activeElement;
+ return cloudUser&&!document.hidden&&!cloudBusy&&!cloudStopped&&!cloudQueue.length&&
+  !(typeof scanningBatch!=='undefined'&&scanningBatch)&&!(typeof lotActionBusy!=='undefined'&&lotActionBusy)&&
+  !(typeof washBusy!=='undefined'&&washBusy)&&!(typeof dryBusy!=='undefined'&&dryBusy)&&
+  !$('#modal').open&&(!field?.matches('input,textarea,select,[contenteditable="true"]')||(field.id==='scan'&&!field.value));
+}
+async function cloudCheckView(){
+ if(cloudCheckingVersion||!cloudViewCanRefresh())return;
+ const revision=cloudRevision,session=cloudUser.email,lot=current?.id,view=page,phase=stage,attempt=cloudBootAttempt;
+ const sameView=()=>cloudViewCanRefresh()&&attempt===cloudBootAttempt&&cloudUser.email===session&&cloudRevision===revision&&current?.id===lot&&page===view&&stage===phase;
+ cloudCheckingVersion=true;
+ try{
+  const version=await cloudRequest('version',{});
+  if(!sameView()||(version.revision===revision&&version.user.role===cloudUser.role))return;
+  const snapshot=await cloudRequest();
+  if(!sameView())return;
+  const scanFocused=document.activeElement?.id==='scan';
+  cloudAccept(snapshot);
+  if(scanFocused)$('#scan')?.focus({preventScroll:true});
+ }catch{if(cloudUser)cloudStatus('Connessione o accesso da verificare',true)}
+ finally{cloudCheckingVersion=false}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudPoll)void cloudCheckView()});
+window.addEventListener('focus',()=>{if(cloudPoll)void cloudCheckView()});
 async function cloudBoot(){
  const attempt=++cloudBootAttempt,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
  if(cloudPoll){clearInterval(cloudPoll);cloudPoll=null}
@@ -53,7 +79,7 @@ async function cloudBoot(){
   const result=await cloudBootDeadline(cloudBootSnapshot(data.session,controller.signal),controller.signal);
   if(attempt!==cloudBootAttempt)return;
   cloudStopped=false;cloudAccept(result);
-  cloudPoll=setInterval(async()=>{if(!cloudUser||cloudBusy||cloudStopped||cloudQueue.length||(typeof scanningBatch!=='undefined'&&scanningBatch)||(typeof lotActionBusy!=='undefined'&&lotActionBusy)||$('#modal').open||document.activeElement?.matches('input,textarea,select'))return;try{let r=await cloudRequest('version',{});if(r.revision!==cloudRevision||r.user.role!==cloudUser.role)cloudAccept(await cloudRequest())}catch{cloudStatus('Connessione o accesso da verificare',true)}},20000);
+  cloudPoll=setInterval(cloudCheckView,5000);
  }catch(e){if(attempt===cloudBootAttempt)cloudBootError(controller.signal.aborted?'Il collegamento sta impiegando troppo tempo. Riprova oppure accedi di nuovo.':e.message)}finally{clearTimeout(timer)}
 }
 // All page extensions must be installed before rendering the authenticated screen.
