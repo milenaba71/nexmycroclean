@@ -42,3 +42,30 @@
   font-size: 15px;
   line-height: 1.25;
 }
+
+/* Water station queues share the same compact layout on desktop and handhelds. */
+.floor-carts.water-queue { padding: 10px 12px; }
+.floor-carts.water-queue h2 { font-size: 18px; margin: 0 0 8px; }
+.floor-carts.water-queue .wash-carts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 255px), 1fr));
+  align-items: start;
+  gap: 8px;
+}
+.floor-carts.water-queue .wash-carts .wash-cart {
+  box-sizing: border-box; display: flex; flex-flow: row wrap; align-items: baseline;
+  gap: 4px 8px; width: 100%; max-width: none; min-width: 0; min-height: 0;
+  margin: 0; padding: 8px 10px;
+}
+.floor-carts.water-queue .wash-cart > div:first-child { flex: 1 1 100%; }
+.floor-carts.water-queue .wash-cart .wash-lot-identity { margin: 2px 0; padding: 2px 0; }
+.floor-carts.water-queue .wash-cart .wash-lot-identity :is(.wash-client,.wash-department) {
+  display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;
+  margin: 1px 0; padding: 0; background: transparent; border: 0;
+}
+.floor-carts.water-queue .wash-cart .wash-lot-identity :is(.wash-client,.wash-department)>strong {
+  font-size: 14px; line-height: 1.25; overflow-wrap: break-word;
+}
+.floor-carts.water-queue .wash-cart p,.floor-carts.water-queue .wash-cart .tools { margin: 0; }
+.floor-carts.water-queue .wash-cart button { width: auto; margin: 0; padding: 6px 9px; font-size: 14px; }
+.floor-carts.water-queue .wash-load-toolbar { margin: 8px 0 0; }
