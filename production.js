@@ -98,7 +98,7 @@ function pAttendance(){
   prodBusy=true;
   try{
    if(prodRevision!==revision)throw Error('I dati sono cambiati. Riapri le presenze prima di salvare.');
-   const next=clone(state),values={};
+   const next=clone(state),values={},warnings=[];
    for(const field of form.querySelectorAll('[data-presence]')){
     const email=field.dataset.presence;
     const choice=field.value==='multi'?Array.from(field.closest('label').nextElementSibling.querySelectorAll('input:checked'),box=>box.value):field.value;
@@ -108,13 +108,17 @@ function pAttendance(){
     if(choice==='absent')continue;
     const op=operators.find(o=>o.email===email),shifts=pDailyAttendance(state,op,day,choice);
     const result=PC.daySlots({...state,overrides:shifts},op,day);
-    if(!shifts.length||!result.slots.length||result.error||shifts.some(x=>!op.skills.includes(x.station)||!state.stations.some(s=>s.id===x.station&&s.active!==false)))throw Error(pMember(email)+' · '+(result.error||'Verifica orari, assenze e postazioni in Operatori e turni.'));
+    if(shifts.some(x=>!op.skills.includes(x.station)||!state.stations.some(s=>s.id===x.station&&s.active!==false)))throw Error(pMember(email)+' · Verifica le postazioni abilitate.');
+    if(!shifts.length||!result.slots.length||result.error)warnings.push(pMember(email)+' · '+(result.error||'Turno da verificare'));
    }
    next.attendance={...next.attendance,[day]:values};
    const email=form.elements.absenceEmail?.value;
    if(email)pApplyAbsenceRange(next,email,form.elements.absenceFrom.value,form.elements.absenceTo.value);
    await pRpc('save',{revision,data:next});
-   pDraw();notify('Presenze salvate. Puoi distribuire il lavoro.');
+   pDraw();
+   const message='Presenze salvate.'+(warnings.length?' Per pianificare questi operatori, completa Operatori e turni: '+warnings.join(' / '):' Puoi distribuire il lavoro.');
+   const status=$('#dailyAttendance [role=alert]');if(status){status.textContent=message;status.style.fontWeight='bold';status.scrollIntoView({block:'nearest'})}
+   notify('Presenze salvate.');
   }catch(e){error.textContent=pError(e)}finally{prodBusy=false}
  };
 }
