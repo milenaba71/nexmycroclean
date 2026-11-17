@@ -115,14 +115,15 @@ washCard=function(b){
  let html=washCardBeforeCorrections(b);
  if(b.state==='estimated')return html;
  let actions='';
- if(['running','blocked'].includes(b.state)&&userCan('production_execute'))actions+=`<button class="btn secondary" onclick="washCorrectionDialog('${b.id}','reset_batch')">Ferma e riprendi le scansioni</button>`;
+ if(b.state==='running' && washCanOperate(b) && userCan('production_execute'))actions+=machineEndButton('wash',b,'Ferma · lavaggio terminato');
+ if(['running','blocked'].includes(b.state)&&userCan('production_execute'))actions+=`<button class="btn secondary" onclick="washCorrectionDialog('${b.id}','reset_batch')">Annulla avvio e riprendi le scansioni</button>`;
  if(cloudUser?.role==='admin')actions+=`<button class="link" onclick="washCorrectionDialog('${b.id}','delete_batch')">Elimina macchinata</button>`;
  return html.replace('</article>',`<div class="tools">${actions}</div></article>`);
 };
 function washCorrectionDialog(id,action){
  const b=washState?.batches.find(x=>x.id===id);if(!b)return;
  if(action==='delete_batch'&&cloudUser?.role!=='admin')return;
- show(`<h2>${action==='delete_batch'?'Elimina macchinata':'Ferma e riprendi le scansioni'}</h2><p>${esc(b.program_name)} · ${esc(b.machine_name)} · ${b.quantity} prodotti</p><p>La macchina fisica va fermata dalla pulsantiera. Il gestionale annulla il conteggio e riporta i prodotti nel carrello, conservando le scansioni del lotto. ${action==='delete_batch'?'La macchinata viene eliminata e sostituita da un carrello da preparare.':''}</p><p>Il prossimo avvio farà ripartire l’intera durata del programma.</p><div class="tools"><button class="btn" id="washCorrectionButton" onclick="washCorrect('${id}','${action}')">Conferma · macchina ferma</button><button class="btn secondary" onclick="$('#modal').close()">Annulla</button></div>`);
+ show(`<h2>${action==='delete_batch'?'Elimina macchinata':'Annulla avvio e riprendi le scansioni'}</h2><p>${esc(b.program_name)} · ${esc(b.machine_name)} · ${b.quantity} prodotti</p><p>La macchina fisica va fermata dalla pulsantiera. Il gestionale annulla il conteggio e riporta i prodotti nel carrello, conservando le scansioni del lotto. ${action==='delete_batch'?'La macchinata viene eliminata e sostituita da un carrello da preparare.':''}</p><p>Il prossimo avvio farà ripartire l’intera durata del programma.</p><div class="tools"><button class="btn" id="washCorrectionButton" onclick="washCorrect('${id}','${action}')">Conferma · macchina ferma</button><button class="btn secondary" onclick="$('#modal').close()">Annulla</button></div>`);
 }
 async function washCorrect(id,action){
  if(washBusy||lotBusy())return notify('Attendi le scansioni in corso.');
@@ -181,3 +182,22 @@ washCard=function(b){let html=washCardBeforeDirectStart(b);if(['gathering','read
 async function washQuickStart(id){const b=washState?.batches.find(x=>x.id===id);if(!b||!['gathering','ready'].includes(b.state))return;if(!washCanOperate(b))return notify(washSkillMessage());if(washBusy||lotBusy())return notify('Attendi le scansioni in corso.');return washStartDialog(id)}
 
 const washIdentityStyle=document.createElement('style');washIdentityStyle.textContent='.wash-lot-identity{margin:8px 0;padding:8px 0;border-top:1px solid #e2e8f1}.wash-lot-identity>b{font-size:15px;color:#193d68}.wash-lot-identity small{margin:3px 0;color:#536784;line-height:1.4}';document.head.append(washIdentityStyle);
+
+function machineEndButton(phase,cycle,label){
+ return `<button class="btn" onclick="endMachineCycle('${phase}','${esc(cycle.id)}','${esc(cycle.started_at)}')">${label}</button>`;
+}
+async function endMachineCycle(phase,id,start){
+ if(washBusy||dryBusy||lotBusy())return notify('Attendi il completamento della registrazione.');
+ const washing=phase==='wash';
+ if(!confirm(washing?'Confermi che la macchinata è finita? Tutti i carrelli della macchinata passeranno alla fase successiva.':'Confermi che l’asciugatura è finita? I capi saranno disponibili per la piegatura.'))return;
+ washBusy=dryBusy=true;
+ try{
+  await cloudFlush();
+  const {error}=await appSupabase.rpc('laundry_end_machine_cycle',{phase,cycle_id:id,cycle_start:start});
+  if(error)throw Error(washMessage(error));
+  await washRefresh();
+  await dryRefresh();
+  await dryAfterChange();
+  notify(washing?'Lavaggio terminato. Carrello disponibile per la fase successiva.':'Asciugatura terminata. Puoi iniziare la piegatura.');
+ }catch(e){notify(e.message)}finally{washBusy=dryBusy=false}
+}
