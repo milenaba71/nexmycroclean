@@ -124,6 +124,14 @@ function pAttendance(){
 }
 
 function pLotPlanWork(state,lots){
+ state.types=[...state.types];
+ const products=new Map(db.garments.map(g=>[g.id,g]));
+ const water=state.stations.find(s=>s.id==='017c9179-a256-4f21-b618-8bb410413887')||state.stations.find(s=>s.name.toLowerCase()==='reparto acqua');
+ const site=state.stations.find(s=>['piegatura cantieri','cantieri'].includes(s.name.toLowerCase()));
+ const fold=state.types.find(t=>t.id==='fold');
+ for(const [key,station,name] of [['water',water,'Piegatura in reparto acqua'],['site',site,'Piegatura cantieri']]){
+  if(fold&&station&&!state.types.some(t=>t.id==='lot-fold-'+key))state.types.push({...fold,id:'lot-fold-'+key,station:station.id,name});
+ }
  const tasks=[],blocked=[],covered=new Set();
  for(const task of state.tasks.filter(t=>!['completed','cancelled'].includes(t.status))){
   for(const item of task.items||[])covered.add(JSON.stringify([+item.lotId,item.code]));
@@ -144,14 +152,18 @@ function pLotPlanWork(state,lots){
    else if(r.rewash||r.rewashPending||(!r.washed&&r.washRequired!==false)){typeId=r.washProgramId;reason='Programma di lavaggio da definire'}
    else if(r.requiresDrying&&r.dryState!=='done'){typeId=r.dryProgramId;reason='Programma di asciugatura da definire'}
    else if(pendingSew(r)){typeId='repair-unknown';reason='Intervento di cucito da definire'}
-   else if(!r.foldedAt&&!r.completed)typeId='fold';
+   else if(!r.foldedAt&&!r.completed){
+    const department=productProcessingDepartment(products.get(r.code));
+    typeId=department==='clean'?'fold':department==='sewing'?'repair-unknown':department?'lot-fold-'+department:'';
+    reason=department==='site'&&!site?'Postazione piegatura cantieri da configurare':department==='water'&&!water?'Postazione reparto acqua da configurare':'Tipo lavorazione da definire';
+   }
    else reason='In attesa che il lotto sia pronto per l’uscita';
    if(typeId&&state.types.some(t=>t.id===typeId&&t.active!==false)){
     if(!groups.has(typeId))groups.set(typeId,[]);
     groups.get(typeId).push({lotId:lot.id,code:r.code});
    }else{reason=reason||'Lavorazione da configurare';reasons.set(reason,(reasons.get(reason)||0)+1)}
   }
-  for(const [typeId,items] of groups)tasks.push({id:'lot-plan/'+lot.id+'/'+typeId,typeId,items,quantity:items.length,due,dependsOn:[],status:'pending',title:state.types.find(t=>t.id===typeId).name});
+  for(const [typeId,items] of groups)tasks.push({id:'lot-plan/'+lot.id+'/'+typeId,typeId,items,quantity:items.length,due,dependsOn:[],status:'pending',title:state.types.find(t=>t.id===typeId).name,station:state.types.find(t=>t.id===typeId).station});
   for(const [reason,quantity] of reasons)blocked.push({lotId:lot.id,quantity,reason});
  }
  return {tasks,blocked};
@@ -168,7 +180,7 @@ function pAssignedSheet(){
   for(const slot of a.segments?.length?a.segments:(a.machineSpans||[]))team.get(a.email).push({slot,t});
  }
  const lotNames=t=>pLots(t).map(l=>lotno(l)+' · '+l.client).join(', ');
- const panels=[...team].sort(([a],[b])=>pMember(a).localeCompare(pMember(b),'it')).map(([email,work])=>pPanel(pMember(email),work.sort((a,b)=>a.slot.date.localeCompare(b.slot.date)||a.slot.start-b.slot.start).map(({slot,t})=>`<p><b>${esc(pFriendlyDate(slot.date))} · ${PC.clock(slot.start)}–${PC.clock(slot.end)}</b><br>${esc(pStationName(pType(t.typeId)?.station))} · ${esc(pTaskName(t))}<br>${esc(lotNames(t))} · ${Number(t.quantity)} capi nella lavorazione</p>`).join('')));
+ const panels=[...team].sort(([a],[b])=>pMember(a).localeCompare(pMember(b),'it')).map(([email,work])=>pPanel(pMember(email),work.sort((a,b)=>a.slot.date.localeCompare(b.slot.date)||a.slot.start-b.slot.start).map(({slot,t})=>`<p><b>${esc(pFriendlyDate(slot.date))} · ${PC.clock(slot.start)}–${PC.clock(slot.end)}</b><br>${esc(pStationName(t.station||pType(t.typeId)?.station))} · ${esc(pTaskName(t))}<br>${esc(lotNames(t))} · ${Number(t.quantity)} capi nella lavorazione</p>`).join('')));
  const issues=admin?[...(plan.issues||[]).map(i=>{const t=tasks.get(i.taskId);return [t&&lotNames(t),t&&pTaskName(t),i.reason].filter(Boolean).join(' · ')}),...(plan.lotBlocked||[]).map(b=>{const l=db.lots.find(l=>l.id===b.lotId);return (l?lotno(l)+' · '+l.client:'Lotto '+b.lotId)+' · '+b.quantity+' capi · '+b.reason})]:[];
  $('#prodBody').innerHTML=pPanel(admin?'Piano di tutti':'Piano assegnato',esc(pFriendlyDate(plan.first))+' – '+esc(pFriendlyDate(PC.dateAdd(plan.first,plan.days-1)))+(plan.stale?' · Da ricalcolare':''))+ (panels.join('')||'<p>Nessuna assegnazione nel periodo.</p>')+(issues.length?pPanel('Da verificare','<ul>'+issues.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>'):'');
 }
