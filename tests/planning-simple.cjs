@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const {JSDOM}=require(process.env.JSDOM_PATH||'/tmp/chat-dom-tests/node_modules/jsdom');
+const dom=new JSDOM('<div id="app"><div id="prodBody"></div></div>');
+const auto={id:'lot-plan/1/fold',typeId:'fold',station:'clean',title:'Piegatura',items:[{lotId:1,code:'A'}],quantity:1,status:'pending',due:'2026-11-19'};
+const prod={tasks:[],types:[],operators:[],plan:{first:'2026-11-19',days:1,lotTasks:[auto],allocations:[{taskId:auto.id,email:'nadia',labor:20,segments:[{date:'2026-11-19',start:480,end:500}]}],issues:[],lotBlocked:[]}};
+const c={document:dom.window.document,MutationObserver:class{observe(){}},setTimeout,clearTimeout,Date,prod,prodDate:'2026-11-19',prodRevision:1,prodQuery:'',prodBusy:false,prodTab:'board',page:'Produzione',productionPage:'Produzione',current:null,cloudUser:{email:'nadia',role:'operator'},db:{lots:[{id:1,client:'Cliente'}]},PC:{clock:n=>Math.floor(n/60)+':'+String(n%60).padStart(2,'0'),dateAdd:d=>d},$:s=>dom.window.document.querySelector(s),esc:s=>String(s??'').replaceAll('<','&lt;'),pType:()=>undefined,pTaskCard:()=>'<article>saved</article>',pFriendlyDate:s=>s,pMinutes:n=>n+' min',pMember:s=>s==='nadia'?'Nadia Raia':s||'',pStationName:s=>s,pTaskName:t=>t.title,pLots:t=>t.items?.length?c.db.lots:[],lotno:l=>'L.1',pTaskLotAction:()=> 'lot',pBtn:(a,id,label)=>`<button data-prod-action="${a}">${label}</button>`,pDailyAttendance:()=>[],pDateControl:()=>'<input id="prodDate">',pAdmin:()=>false,pDraw:()=>{},pAttendance:()=>{},pMine:()=>{},pDistributeLots:async()=>{},detail:()=>{},taskDeliveryKey:t=>t.due,pTaskPriorityOrder:()=>0,pMissing:()=>[],pRpc:async()=>{},notify:()=>{}};
+vm.createContext(c);vm.runInContext(fs.readFileSync('planning-simple.js','utf8'),c);
+assert.equal(c.pVisibleTasks().length,1);assert.equal(c.pType('fold').station,'clean');
+assert(c.pAssignmentsMarkup(1).includes('Nadia Raia'));
+c.pBoard();assert(c.$('#prodBody').textContent.includes('Nadia Raia'));assert(c.$('#prodBody').textContent.includes('1 attività assegnate'));
+const html=c.pTaskCard(c.pVisibleTasks()[0]);assert(!html.includes('taskStart'));assert(!html.includes('taskEdit'));assert(html.includes('Apri lotto'));
+prod.plan.stale=true;assert(c.pAssignmentsMarkup(1).includes('precedenti assegnazioni'));
+prod.tasks=[{...auto,title:'Saved task'}];assert.equal(c.pVisibleTasks().length,1);assert.equal(c.pVisibleTasks()[0].title,'Saved task');
+prod.tasks=[];prod.plan.allocations=[];prod.plan.issues=[{taskId:auto.id,reason:'Nessuna presenza confermata'}];c.pBoard();assert(c.$('#prodBody').textContent.includes('Nessuna presenza confermata'));assert(c.$('#prodBody').textContent.includes('1 da assegnare'));
+prod.tasks=[{id:'done',status:'completed',items:[{lotId:2}],assignee:'nadia'}];assert.equal(c.pAssignmentsMarkup(2),'Lavoro non ancora assegnato');
+console.log('PASS: automatic tasks visible, deduplicated, named on lots; stale plans labelled; missing attendance shown; virtual tasks have no invalid timer/edit commands.');

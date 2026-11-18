@@ -193,6 +193,7 @@ async function pDistributeLots(days){
  const noPresence=!state.overrides.length;
  if(noPresence)for(const i of next.plan.issues){if(state.tasks.some(t=>t.id===i.taskId&&t.status==='pending'))i.reason='Nessuna presenza confermata nel periodo.'}
  next.plan.lotTasks=auto.tasks;
+ next.plan.lotTypes=state.types;
  next.plan.lotBlocked=auto.blocked;
  await pRpc('plan',{revision:prodRevision,data:next});
  prodTab='assigned';pDraw();
