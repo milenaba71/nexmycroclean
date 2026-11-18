@@ -140,3 +140,5 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-control-entry-label{height:112px}.floor-control-entry-label>span{text-align:center;line-height:19px;padding:2px 3px}.floor-home-card.phase-entry>strong{display:block;margin:8px 0}@media(max-width:600px){.floor-control-entry-label{height:100px}.floor-control-entry-label>span{line-height:18px}}
 
 .floor-home-card.phase-repair>strong,.floor-home-card.phase-out>strong{display:block;margin:8px 0}
+
+.floor-maintenance-icon-label{height:auto;min-height:112px;overflow:visible}.floor-maintenance-icon-label>span{font-size:14px;line-height:18px;text-align:center;padding:3px 2px;overflow-wrap:anywhere}@media(max-width:600px){.floor-maintenance-icon-label{min-height:106px}.floor-maintenance-icon-label>span{font-size:13px;line-height:17px}}
