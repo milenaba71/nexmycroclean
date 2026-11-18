@@ -1,9 +1,10 @@
 const fs=require('fs'),assert=require('node:assert/strict');const {PGlite}=require(process.env.PGLITE_PATH);
-(async()=>{const pg=new PGlite();await pg.exec(`create role anon;create role authenticated;create schema laundry_private;create schema auth;create table auth.users(id uuid,email text);create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;grant usage on schema auth to authenticated;
+(async()=>{const pg=new PGlite();await pg.exec(`create role anon;create role authenticated;create schema storage;create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint);create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text,metadata jsonb);alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select,insert on storage.objects to authenticated;create schema laundry_private;create schema auth;create table auth.users(id uuid,email text);create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;grant usage on schema auth to authenticated;
 create table public.laundry_members(email text,name text,role text,active boolean);create table public.laundry_lots(id bigint,data jsonb);
 insert into auth.users values('00000000-0000-0000-0000-000000000001','a@test.invalid'),('00000000-0000-0000-0000-000000000002','b@test.invalid'),('00000000-0000-0000-0000-000000000003','c@test.invalid');
 insert into laundry_members values('a@test.invalid','A','operator',true),('b@test.invalid','B','operator',true),('c@test.invalid','C','operator',true),('off@test.invalid','Off','operator',false);insert into laundry_lots values(45,'{"client":"TEST"}');`);
 await pg.exec(fs.readFileSync('supabase/migrations/20261118123150_lot_chat.sql','utf8'));
+await pg.exec(fs.readFileSync('supabase/migrations/20261118130157_chat_attachments.sql','utf8'));
 const uid=n=>pg.exec(`set test.uid='00000000-0000-0000-0000-${String(n).padStart(12,'0')}'`),call=async(a,p={})=>(await pg.query('select public.laundry_chat($1,$2) data',[a,JSON.stringify(p)])).rows[0].data;
 await assert.rejects(()=>call('list'),/UNAUTHORIZED/);await uid(1);await pg.exec('set role authenticated');
 assert.equal((await call('users')).length,2);
@@ -19,7 +20,22 @@ await uid(2);let inbox=await call('list');assert.equal(inbox.unread,1);assert.eq
 await assert.rejects(()=>pg.query('select * from laundry_private.chat_messages'),/permission denied/);
 await uid(1);assert((await call('list',{box:'sent'})).messages[0].recipients[0].read_at);
 await call('send',{...msg,id:'10000000-0000-0000-0000-000000000002',lot_id:null,recipients:['b@test.invalid','c@test.invalid','b@test.invalid']});await uid(3);assert.equal((await call('list')).unread,1);
+
+await uid(1);
+const path='00000000-0000-0000-0000-000000000001/20000000-0000-0000-0000-000000000001';
+await pg.query('insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',['chat-attachments',path,JSON.stringify({size:3})]);
+await assert.rejects(()=>pg.query('insert into storage.objects(bucket_id,name,metadata) values($1,$2,$3)',['chat-attachments',path.replace('000000000001/','000000000002/'),JSON.stringify({size:3})]),/row-level security/);
+const withFile={...msg,id:'10000000-0000-0000-0000-000000000003',body:'File',attachments:[{path,name:'test.pdf',size:3}]};
+await assert.rejects(()=>call('send',{...withFile,attachments:[{path,name:'test.pdf',size:4}]}),/INVALID_ATTACHMENTS/);
+await call('send',withFile);await call('send',withFile);
+await uid(3);assert.equal((await pg.query('select * from storage.objects')).rows.length,0);await assert.rejects(()=>call('archive',{id:withFile.id}),/MESSAGE_NOT_FOUND/);
+await uid(2);assert.equal((await pg.query('select * from storage.objects')).rows.length,1);
+await call('archive',{id:withFile.id});let history=await call('list',{box:'archived'});assert.equal(history.messages.length,1);assert.equal(history.messages[0].attachments[0].name,'test.pdf');assert(!(await call('list')).messages.some(m=>m.id===withFile.id));assert(!(await call('list')).alerts.some(m=>m.id===withFile.id));assert.equal((await pg.query('select * from storage.objects')).rows.length,1);
+await uid(1);assert((await call('list',{box:'sent'})).messages.some(m=>m.id===withFile.id));await call('archive',{id:withFile.id});assert((await call('list',{box:'archived'})).messages.some(m=>m.id===withFile.id));
+await uid(2);await call('restore',{id:withFile.id});assert((await call('list')).messages.some(m=>m.id===withFile.id));assert.equal((await call('list',{box:'archived'})).messages.length,0);
+await uid(1);assert(!(await call('list',{box:'sent'})).messages.some(m=>m.id===withFile.id));await call('restore',{id:withFile.id});assert((await call('list',{box:'sent'})).messages.some(m=>m.id===withFile.id));
+await uid(3);
 await pg.exec('reset role;update laundry_members set active=false where email=\'c@test.invalid\';set role authenticated');await assert.rejects(()=>call('list'),/FORBIDDEN/);
 await pg.exec('reset role;set role anon');await assert.rejects(()=>call('list'),/permission denied/);
-await pg.close();console.log('PASS: participant privacy, inactive/anonymous denial, read receipts, validation, multiple recipients and idempotent retries');
+await pg.close();console.log('PASS: participant privacy, private file upload/read, attachment validation, per-user archive/restore, history retention, read receipts and idempotent retries');
 })().catch(e=>{console.error(e);process.exitCode=1});
