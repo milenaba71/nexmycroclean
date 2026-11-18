@@ -142,3 +142,5 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-home-card.phase-repair>strong,.floor-home-card.phase-out>strong{display:block;margin:8px 0}
 
 .floor-maintenance-icon-label{height:auto;min-height:112px;overflow:visible}.floor-maintenance-icon-label>span{font-size:14px;line-height:18px;text-align:center;padding:3px 2px;overflow-wrap:anywhere}@media(max-width:600px){.floor-maintenance-icon-label{min-height:106px}.floor-maintenance-icon-label>span{font-size:13px;line-height:17px}}
+
+.floor-home-card.phase-wash>strong{display:block;margin:8px 0}
