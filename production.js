@@ -179,7 +179,7 @@ function pAssignedSheet(){
   if(!team.has(a.email))team.set(a.email,[]);
   for(const slot of a.segments?.length?a.segments:(a.machineSpans||[]))team.get(a.email).push({slot,t});
  }
- const lotNames=t=>pLots(t).map(l=>lotno(l)+' · '+l.client).join(', ');
+ const lotNames=t=>pLots(t).map(l=>lotno(l)+' · '+l.client+' · Reparto: '+(l.departmentName||'Non indicato')).join(', ');
  const panels=[...team].sort(([a],[b])=>pMember(a).localeCompare(pMember(b),'it')).map(([email,work])=>pPanel(pMember(email),work.sort((a,b)=>a.slot.date.localeCompare(b.slot.date)||a.slot.start-b.slot.start).map(({slot,t})=>`<p><b>${esc(pFriendlyDate(slot.date))} · ${PC.clock(slot.start)}–${PC.clock(slot.end)}</b><br>${esc(pStationName(t.station||pType(t.typeId)?.station))} · ${esc(pTaskName(t))}<br>${esc(lotNames(t))} · ${Number(t.quantity)} capi nella lavorazione</p>`).join('')));
  const issues=admin?[...(plan.issues||[]).map(i=>{const t=tasks.get(i.taskId);return [t&&lotNames(t),t&&pTaskName(t),i.reason].filter(Boolean).join(' · ')}),...(plan.lotBlocked||[]).map(b=>{const l=db.lots.find(l=>l.id===b.lotId);return (l?lotno(l)+' · '+l.client:'Lotto '+b.lotId)+' · '+b.quantity+' capi · '+b.reason})]:[];
  $('#prodBody').innerHTML=pPanel(admin?'Piano di tutti':'Piano assegnato',esc(pFriendlyDate(plan.first))+' – '+esc(pFriendlyDate(PC.dateAdd(plan.first,plan.days-1)))+(plan.stale?' · Da ricalcolare':''))+ (panels.join('')||'<p>Nessuna assegnazione nel periodo.</p>')+(issues.length?pPanel('Da verificare','<ul>'+issues.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>'):'');
