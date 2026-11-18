@@ -259,7 +259,11 @@ F.decorate=function(){if(!F.active||F.screen!=='lot'||!current)return;const app=
  if(!$('#floorLotTools')){const tools=document.createElement('div');tools.id='floorLotTools';tools.className='floor-lot-tools';tools.innerHTML=(F.phase==='entry'&&userCan('lots_create')?button('Apri nuovo lotto','floor.newLot()','primary'):'')+button('Il mio lavoro','floor.work()')+button('Cambia lotto','floor.list(\''+F.phase+'\')')+button('Reparto cucito del lotto','floor.repairLot('+current.id+')')+button('Aggiorna','floor.refresh()')+(F.phase==='fold'?button('Vedi 4 esempi','floor.examples(0)'):'');app.append(tools)}
  if(!userCan('production_execute'))app.querySelectorAll('button[onclick^="washStartDialog"],button[onclick^="washInterrupt"]').forEach(b=>b.disabled=true);
  if(F.phase==='entry'){const carts=$('#washCarts');if(carts)for(const card of carts.querySelectorAll('[data-wash-batch]')){const b=washState?.batches.find(b=>b.id===card.dataset.washBatch);card.hidden=!b||!['gathering','ready','blocked','running'].includes(b.state);for(const btn of card.querySelectorAll('button[onclick^="washStartDialog"]'))btn.hidden=!b||!['gathering','ready','blocked'].includes(b.state);card.querySelectorAll('button[onclick*="delete_batch"]').forEach(el=>el.hidden=true)} }
- F.entryOrder();F.entryTypeSummary();F.productList();F.focus();
+ F.entryOrder();
+ // Camera controls must remain outside the office-only collapsed section.
+ const cameraTools=$('#phoneScanTools');
+ if(scanRow&&cameraTools){scanRow.after(cameraTools);cameraTools.classList.add('floor-camera-tools');cameraTools.querySelectorAll('button,select').forEach(el=>el.disabled=!!scan?.disabled);}
+ F.entryTypeSummary();F.productList();F.focus();
 };
 F.entryReady=function(){if(!washState||!washChoice)return false;const option=washOptions().find(o=>o.key===washChoice);return !!(option&&Number(option.m.capacity)>0)||washChoice.startsWith('plain:')&&ensureProcessing().some(p=>p.id===washChoice.slice(6)&&p.active&&!p.wash)};
 F.entryOrder=function(){if(F.phase!=='entry')return;const route=$('#entryProcessing')?.closest('.lot-work-section'),scan=$('#scan'),section=scan?.closest('.lot-work-section'),panel=section?.closest('.lot-workspace'),summary=$('#floorLotSummary');if(!route||!section||!panel||route===section)return;route.classList.add('floor-route');if(!route.querySelector('.floor-route-title'))route.insertAdjacentHTML('afterbegin','<h2 class="floor-route-title">1. Scegli il percorso e il tipo di lavaggio</h2>');panel.prepend(route);route.after(summary);summary.after(section);if(!section.querySelector('.floor-scan-step'))section.insertAdjacentHTML('afterbegin','<h2 class="floor-scan-step">2. Scansiona il codice del capo</h2>');let help=section.querySelector('.floor-route-help');if(!help){help=document.createElement('p');help.className='floor-route-help';help.setAttribute('role','status');section.querySelector('.floor-scan-step').after(help)}const ready=F.entryReady();help.textContent=ready?'Percorso scelto. Ora puoi scansionare i capi.':'Prima scegli il percorso qui sopra. Poi potrai scansionare il codice.';scan.placeholder=ready?'Scansiona qui il codice':'Scegli prima il percorso';section.querySelectorAll('.scan button').forEach(b=>b.disabled=!ready||F.stopped||!userCan('lots_work'));};
@@ -497,7 +501,3 @@ const oldGo=go;go=function(destination){if(F.active){if(destination==='Mascherin
 document.addEventListener('pointerdown',e=>{if(F.active&&F.screen==='lot'&&!e.target.closest('input,select,textarea,button,a,summary,dialog,.floor-products-table,[contenteditable]'))setTimeout(F.focus,0)});
 setInterval(()=>{if(F.active&&['machines','work'].includes(F.screen)&&!$('#modal').open&&!busy())void F.refresh()},15000);
 })();
-
-
-
-
