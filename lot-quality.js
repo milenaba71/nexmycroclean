@@ -27,8 +27,16 @@ Q.decorate=function(){if(!current||!cloudUser)return;let host=window.floor?.acti
 const beforeDetail=detail;detail=function(...args){const result=beforeDetail.apply(this,args);Q.decorate();return result};
 if(window.floor){const beforeFloor=window.floor.decorate;window.floor.decorate=function(...args){const result=beforeFloor.apply(this,args);Q.decorate();return result}};
 // Check before mutating the local lot, so a normal quality hold does not stop the save queue.
-async function qualityScanBlocked(code,message){
- if(window.floor?.active&&window.floor.screen==='lot'&&window.floor.scanBlocked)await window.floor.scanBlocked(code,message);
+async function qualityScanBlocked(code,message,qualityLotId){
+ if(window.floor?.active&&window.floor.screen==='lot'&&window.floor.scanBlocked){
+  await window.floor.scanBlocked(code,message);
+  if(qualityLotId&&current?.id===qualityLotId&&stage==='Uscita'){
+   await Q.open(qualityLotId);
+   // Keep queued scans paused while the operator records the quality check.
+   const modal=$('#modal');
+   if(modal?.open)await new Promise(resolve=>modal.addEventListener('close',resolve,{once:true}));
+  }
+ }
  return message;
 }
 const beforeQualityScan=checkedProcess;
@@ -37,7 +45,7 @@ checkedProcess=async function(code){
   const id=current.id;
   try{await cloudFlush();const q=await Q.rpc('read',{lot_id:id});
    if(current?.id!==id||stage!=='Uscita')return 'Schermata cambiata: scansione non registrata.';
-   if(q.enabled&&!q.released.includes(code))return await qualityScanBlocked(code,'Manca un controllo qualità conforme per questo capo. Apri Controllo qualità nel lotto, registra il controllo eseguito e poi ripeti la scansione in Uscita.');
+   if(q.enabled&&!q.released.includes(code))return await qualityScanBlocked(code,'Manca un controllo qualità conforme per questo capo. Premi HO CAPITO per aprire il controllo qualità del lotto. Registra il controllo eseguito con esito conforme, poi ripeti la scansione in Uscita.',id);
   }catch(e){return await qualityScanBlocked(code,err(e))}
  }
  return beforeQualityScan.apply(this,arguments);
