@@ -144,3 +144,8 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-maintenance-icon-label{height:auto;min-height:112px;overflow:visible}.floor-maintenance-icon-label>span{font-size:14px;line-height:18px;text-align:center;padding:3px 2px;overflow-wrap:anywhere}@media(max-width:600px){.floor-maintenance-icon-label{min-height:106px}.floor-maintenance-icon-label>span{font-size:13px;line-height:17px}}
 
 .floor-home-card.phase-wash>strong{display:block;margin:8px 0}
+
+/* Department navigation: prominent illustration with a smaller caption. */
+.floor-mode .floor-tabs>.floor-button:has(.department-symbol){flex-direction:column;gap:4px;font-size:13px;line-height:1.2;padding:8px 10px;min-height:88px}
+.floor-mode .floor-tabs>.floor-button .department-symbol{width:68px;height:48px;max-width:100%;object-fit:contain;margin:0;border-radius:7px}
+@media(max-width:380px){.floor-mode .floor-tabs>.floor-button:has(.department-symbol){font-size:12px}.floor-mode .floor-tabs>.floor-button .department-symbol{width:60px;height:44px}}
