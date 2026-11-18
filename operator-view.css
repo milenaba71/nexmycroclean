@@ -130,3 +130,6 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 
 /* Supplied department images, displayed whole with their text labels. */
 .floor-department-icon{display:block;width:100px;height:100px;object-fit:contain;background:#fff;border-radius:10px;margin-bottom:12px}.floor-home-card.phase-wash{min-height:300px}.floor-fold-department .floor-department-icon{width:100px;height:110px;margin:0}.floor-fold-departments{align-items:stretch}@media(max-width:600px){.floor-department-icon{width:76px;height:76px}.floor-home-card.phase-wash{min-height:260px}.floor-fold-department .floor-department-icon{width:85px;height:95px}}
+
+/* Frame the acceptance-desk illustration from the supplied photograph. */
+.floor-department-icon.floor-entry-icon{width:200px;max-width:100%;height:90px;object-fit:cover;object-position:50% 64%;border-radius:10px}@media(max-width:600px){.floor-department-icon.floor-entry-icon{width:150px;height:68px}}
