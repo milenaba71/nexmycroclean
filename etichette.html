@@ -327,11 +327,14 @@ function rowsToObjects(rows){
 }
 function get(row, names){
   if(typeof names==='string') names=[names];
-  var keys=Object.keys(row);
+  var keys=Object.keys(row), normal=function(s){return String(s).trim().toLowerCase().replace(/[_\s]+/g,' ');};
   for(var n=0;n<names.length;n++){
-    var want=names[n].toLowerCase();
-    for(var k=0;k<keys.length;k++){ if(keys[k].toLowerCase()===want) return row[keys[k]]; }
-    for(var k2=0;k2<keys.length;k2++){ if(keys[k2].toLowerCase().indexOf(want)!==-1) return row[keys[k2]]; }
+    var want=normal(names[n]);
+    for(var k=0;k<keys.length;k++){if(normal(keys[k])===want && cleanVal(row[keys[k]])!=='')return row[keys[k]];}
+  }
+  for(var n=0;n<names.length;n++){
+    var want=normal(names[n]);
+    for(var k=0;k<keys.length;k++){if(normal(keys[k]).indexOf(want)!==-1 && cleanVal(row[keys[k]])!=='')return row[keys[k]];}
   }
   return '';
 }
@@ -747,6 +750,7 @@ var GRID_COLS = [
   {key:'data', lab:'Data', col:'created_at'},
   {key:'armadio', lab:'Armadio', col:'armadio'},
   {key:'posizione', lab:'Posizione', col:'posizione'},
+  {key:'personalizzazione', lab:'Data personalizzazione', col:'data_personalizzazione'},
   {key:'matricola', lab:'Matricola', col:'matricola'},
   {key:'iniziali', lab:'Iniziali', col:'iniziali'},
   {key:'lotto', lab:'Lotto', col:'lotto'},
@@ -756,12 +760,13 @@ var GRID_READ = {
   codice:['barcode','codice','CODICE'], nome:['fullname','NOME E COGNOME','nome'],
   azienda:['azienda','AZIENDA'], reparto:['reparto','REPARTO'], taglia:['taglia','TAGLIA'],
   tipo:['tipo','TIPO'], data:['created_at','DATA'], armadio:['armadio','ARMADIO'],
+  personalizzazione:['data_personalizzazione','DATA DI PERSONALIZZAZIONE','data di personalizzazione'],
   posizione:['posizione','POSIZIONE'], matricola:['matricola','MATRICOLA'],
   iniziali:['iniziali','INIZIALI'], lotto:['lotto','LOTTO'], note:['note','NOTE']
 };
 var GRID_WRITE = { codice:'codice', nome:'fullname', azienda:'azienda', reparto:'reparto',
   taglia:'taglia', tipo:'tipo', data:'created_at', armadio:'armadio', posizione:'posizione',
-  matricola:'matricola', iniziali:'iniziali', lotto:'lotto', note:'note' };
+  personalizzazione:'data_personalizzazione', matricola:'matricola', iniziali:'iniziali', lotto:'lotto', note:'note' };
 
 function buildGrid(){
   var wrap=document.getElementById('gridWrap');
@@ -789,6 +794,7 @@ function buildGrid(){
   wrap.querySelectorAll('input[data-ck]').forEach(function(inp){
     inp.addEventListener('input', function(){
       var ri=+this.dataset.ri, ck=this.dataset.ck;
+      (GRID_READ[ck]||[]).forEach(function(alias){Object.keys(ROWS[ri]).forEach(function(key){if(key.trim().toLowerCase().replace(/[_\s]+/g,' ')===alias.trim().toLowerCase().replace(/[_\s]+/g,' '))ROWS[ri][key]=inp.value;});});
       ROWS[ri][GRID_WRITE[ck]] = this.value;
       render();
     });
@@ -1150,6 +1156,6 @@ updateFormatoUI();
 refreshPresetSelect();
 </script>
 <script>
-try { var transferred=sessionStorage.getItem('mycro-label-transfer');if(transferred){ sessionStorage.removeItem('mycro-label-transfer');ROWS=JSON.parse(transferred);CSVROWS=ROWS.slice();MODE='data';document.getElementById('drop').style.display='none';render(); }}catch(e){console.error('Impossibile caricare i prodotti',e)}
+try { var transferred=sessionStorage.getItem('mycro-label-transfer');if(transferred){ sessionStorage.removeItem('mycro-label-transfer');ROWS=JSON.parse(transferred);CSVROWS=ROWS.slice();MODE='data';['armadio','posizione','dataPe'].forEach(function(key){var field=FIELDS.find(function(f){return f.key===key;});if(ROWS.some(function(row){return fieldValue(field,row)!=='';}))document.getElementById('f_'+key).checked=true;});document.getElementById('drop').style.display='none';render(); }}catch(e){console.error('Impossibile caricare i prodotti',e)}
 </script></body>
 <link rel="stylesheet" href="button-theme.css?v=20261110-2"><script src="button-theme.js?v=20261110-2"></script></html>
