@@ -151,7 +151,7 @@ function foldingLabels(lot){
  }).join('')+'</details>';
 }
 function drawLots(){
- const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!r.foldedAt||r.relabel):readyForDispatch(l))).sort((a,b)=>(F.phase==='entry'?0:deliveryKey(a).localeCompare(deliveryKey(b)))||Number(b.id)-Number(a.id));
+ const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!(r.foldedAt||(!r.washBatchId&&r.completed))||r.relabel):readyForDispatch(l))).sort((a,b)=>(F.phase==='entry'?0:deliveryKey(a).localeCompare(deliveryKey(b)))||Number(b.id)-Number(a.id));
  const products=new Map(db.garments.map(g=>[g.id,g]));
  F.lotSearchRows=lots.map(l=>({lot:l,text:lotSearchIndex(l,products)}));
  shell(`${F.phase==='entry'?`<div class="floor-new-lot">${button('Apri nuovo lotto','floor.newLot()','primary',userCan('lots_create')?'':'disabled')}${!userCan('lots_create')?'<p>Creazione lotti riservata agli operatori abilitati.</p>':''}</div>`:''}<p class="floor-lead">Scegli il lotto. Controlla reparto e cliente prima di scansionare.</p>
@@ -275,6 +275,11 @@ F.entryTypeSummary=function(){
 function feedbackMarkup(){const f=F.feedback||{tone:'ready',title:'PRONTO',message:'Leggi un codice. Aspetta la risposta prima del capo successivo.'};return `<section class="floor-feedback ${f.tone}" role="status" aria-live="polite"><strong>${f.title}</strong><p>${esc(f.message)}</p>${f.name?`<b>${esc(f.name)}</b>`:''}${f.bin?`<div class="floor-bin">CESTO ${esc(f.bin)}</div>`:''}</section>`}
 function asideFor(r,g){if(!r?.discardForReturn&&(r?.discard||g&&productIsDiscard(g)))return ['SCARTI DA VERIFICARE','Capo segnalato come scarto. Chiedi al responsabile.'];if(r?.repair)return ['RIPARAZIONI','Riparazione ancora aperta. Non registrare la piegatura.'];if(r?.rewashPending)return ['RILAVAGGIO','Il capo deve essere rilavato.'];if(r?.relabel)return ['ETICHETTE','Etichettatura da completare.'];if(r?.verify||r?.replacement)return ['VERIFICHE','Serve il controllo del responsabile.'];return null}
 function acknowledge(title,message,tone='stop',bin){F.ack=(F.ack||0)+1;F.stopped=true;return new Promise(resolve=>{show(`<section class="floor-feedback ${tone}" role="alertdialog" aria-labelledby="floorAlertTitle"><h2 id="floorAlertTitle">${title}</h2><p>${esc(message)}</p>${bin?`<div class="floor-bin">CESTO ${esc(bin)}</div>`:''}<p>Questo passaggio non è stato registrato.</p><button type="button" class="floor-button" id="floorAcknowledge">${tone==='stop'?'HO CAPITO':'MESSO DA PARTE'}</button></section>`);const modal=$('#modal');const prevent=e=>e.preventDefault();const key=e=>{if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();e.stopPropagation()}};modal.addEventListener('cancel',prevent);modal.addEventListener('keydown',key,true);$('#scan')?.setAttribute('disabled','');$('#floorAcknowledge').onclick=()=>{modal.removeEventListener('cancel',prevent);modal.removeEventListener('keydown',key,true);F.stopped=false;modal.close();$('#scan')?.removeAttribute('disabled');resolve();F.focus()}})}
+F.scanBlocked=async function(code,message){
+ if(!F.active||F.screen!=='lot')return;
+ F.feedback={tone:'stop',title:'USCITA NON REGISTRATA',message:message+' Codice: '+code};
+ await acknowledge('USCITA NON REGISTRATA',message+' Codice: '+code);
+};
 const oldMismatch=showLotMismatch;showLotMismatch=function(code,info){if(!F.active)return oldMismatch(code,info);F.feedback={tone:'stop',title:'FERMATI',message:info.reason};return acknowledge('FERMATI',info.reason+' Codice: '+code)};
 const oldAlert=timedProductAlert;timedProductAlert=async function(title,lines,seconds,code){if(title==='Attenzione prodotto'&&['Lavorazione','Uscita'].includes(stage)&&current?.rows.find(r=>r.code===code)?.discardForReturn){
  lines=lines.filter(line=>!line.startsWith('Prodotto segnato come SCARTO.')&&!line.startsWith('Limite lavaggi RAGGIUNTO O SUPERATO:'));
