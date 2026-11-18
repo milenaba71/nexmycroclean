@@ -1,6 +1,6 @@
 const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),nodes={};
-const ctx={render(){},document:{createElement:()=>({}),head:{insertAdjacentHTML(){},appendChild(){}}},db:{garments:[{id:'A',type:'TUTA'},{id:'B',discard:true}],lots:[]},productIsDiscard:g=>!!g?.discard,esc:x=>String(x??''),lotno:l=>'L.'+l.id,$:s=>nodes[s]??=( {} ),heading:()=>'',badge:x=>x,cloudDecorate(){},repairTotalsPanel:()=>'',sewingDetailsPanel:()=>'',sewingHasHistory:()=>false,repairMinutes:x=>x,cloudUser:{role:'admin'},userCan:()=>true};vm.createContext(ctx);
+const ctx={productCodeLink:x=>x,render(){},document:{createElement:()=>({}),head:{insertAdjacentHTML(){},appendChild(){}}},db:{garments:[{id:'A',type:'TUTA'},{id:'B',discard:true}],lots:[]},productIsDiscard:g=>!!g?.discard,esc:x=>String(x??''),lotno:l=>'L.'+l.id,$:s=>nodes[s]??=( {} ),heading:()=>'',badge:x=>x,cloudDecorate(){},repairTotalsPanel:()=>'',sewingDetailsPanel:()=>'',sewingHasHistory:()=>false,repairMinutes:x=>x,cloudUser:{role:'admin'},userCan:()=>true};vm.createContext(ctx);
 for(const f of ['repairs.js','repair-products.js'])vm.runInContext(fs.readFileSync(path.join(root,f),'utf8'),ctx);
 const r={code:'A',state:'Entrato',discard:true},lot={id:1,client:'Cliente',date:'2026-11-04',rows:[r]};ctx.db.lots=[lot];
 assert.equal(ctx.repairTasks(lot)[0].kind,'discardReview');
