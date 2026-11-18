@@ -150,15 +150,29 @@ function foldingLabels(lot){
   return '<div>'+productCodeLink(r.code)+'<span>'+esc(garment?.type||'Tipo non indicato')+'</span><small>'+esc(garment?.name||'')+'</small></div>';
  }).join('')+'</details>';
 }
+function foldingPending(lot){return openRows(lot).some(r=>!(r.foldedAt||(!r.washBatchId&&r.completed))||r.relabel)}
+function foldingWorked(lot){return !lot.archived&&!foldingPending(lot)&&(lot.rows||[]).some(r=>r.foldedAt||r.completed)}
 function drawLots(){
- const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?openRows(l).some(r=>!(r.foldedAt||(!r.washBatchId&&r.completed))||r.relabel):readyForDispatch(l))).sort((a,b)=>(F.phase==='entry'?0:deliveryKey(a).localeCompare(deliveryKey(b)))||Number(b.id)-Number(a.id));
+ const lots=db.lots.filter(l=>!l.archived&&(F.phase==='entry'?true:F.phase==='fold'?foldingPending(l):readyForDispatch(l))).sort((a,b)=>(F.phase==='entry'?0:deliveryKey(a).localeCompare(deliveryKey(b)))||Number(b.id)-Number(a.id));
  const products=new Map(db.garments.map(g=>[g.id,g]));
  F.lotSearchRows=lots.map(l=>({lot:l,text:lotSearchIndex(l,products)}));
+ F.workedFoldRows=F.phase==='fold'?db.lots.filter(foldingWorked).sort((a,b)=>Number(b.id)-Number(a.id)).map(l=>({lot:l,text:lotSearchIndex(l,products)})):[];
  shell(`${F.phase==='entry'?`<div class="floor-new-lot">${button('Apri nuovo lotto','floor.newLot()','primary',userCan('lots_create')?'':'disabled')}${!userCan('lots_create')?'<p>Creazione lotti riservata agli operatori abilitati.</p>':''}</div>`:''}<p class="floor-lead">Scegli il lotto. Controlla reparto e cliente prima di scansionare.</p>
  <div class="floor-lot-search"><label for="floorLotSearch">Cerca lotti</label><div><input id="floorLotSearch" type="search" value="${esc(F.lotQuery||'')}" placeholder="Numero lotto, reparto, azienda, codice capo, utilizzatore…" oninput="floor.searchLots(this.value)"><button type="button" class="floor-button" onclick="floor.clearLotSearch()">Azzera ricerca</button></div><p id="floorLotSearchCount" role="status" aria-live="polite"></p></div>
- ${F.phase==='entry'?'<p class="floor-lot-legend"><span class="legend-open">Aperto</span><span class="legend-working">In lavorazione</span><span class="legend-finished">Finito</span></p>':''}<div class="floor-lots" id="floorLotResults"></div>`,phaseNames[F.phase],F.phase);
+ ${F.phase==='entry'?'<p class="floor-lot-legend"><span class="legend-open">Aperto</span><span class="legend-working">In lavorazione</span><span class="legend-finished">Finito</span></p>':''}<div class="floor-lots" id="floorLotResults"></div>
+ ${F.phase==='fold'?`<details id="workedFoldingLots" ${F.workedFoldOpen?'open':''} ontoggle="floor.workedFoldOpen=this.open"><summary><b>Lotti già lavorati · ${F.workedFoldRows.length}</b></summary><div class="floor-lot-search"><label for="workedFoldSearch">Cerca nei lotti già lavorati</label><div><input id="workedFoldSearch" type="search" value="${esc(F.workedFoldQuery||'')}" placeholder="Numero lotto, cliente, reparto o codice capo…" oninput="floor.searchWorkedFolding(this.value)"><button type="button" class="floor-button" onclick="floor.clearWorkedFolding()">Azzera ricerca</button></div><p id="workedFoldCount" role="status" aria-live="polite"></p></div><div id="workedFoldResults" class="floor-lots"></div></details>`:''}`,phaseNames[F.phase],F.phase);
  F.drawLotResults();
+ F.drawWorkedFolding();
 }
+F.searchWorkedFolding=function(value){F.workedFoldQuery=value;F.drawWorkedFolding()};
+F.clearWorkedFolding=function(){F.workedFoldQuery='';const input=$('#workedFoldSearch');if(input)input.value='';F.drawWorkedFolding();input?.focus()};
+F.drawWorkedFolding=function(){
+ const host=$('#workedFoldResults');if(!host)return;
+ const words=lotSearchText(F.workedFoldQuery||'').trim().split(/\s+/).filter(Boolean);
+ const all=F.workedFoldRows||[],lots=all.filter(x=>words.every(w=>x.text.includes(w))).map(x=>x.lot);
+ $('#workedFoldCount').textContent=lots.length+' lotti trovati su '+all.length;
+ host.innerHTML=lots.map(l=>`<button class="floor-lot-choice phase-fold" onclick="floor.openLot(${Number(l.id)},'fold')"><span>${esc(lotno(l))}</span><strong>${esc(l.client)}</strong><span>${esc(l.departmentName||'Reparto non indicato')}</span><span>Piegatura completata · ${l.rows.length} capi nel lotto</span><b>Apri lotto →</b></button>`).join('')||'<p class="floor-empty">'+(words.length?'Nessun lotto lavorato corrisponde alla ricerca.':'Nessun lotto già lavorato.')+'</p>';
+};
 F.searchLots=function(value){F.lotQuery=value;F.drawLotResults()};
 F.clearLotSearch=function(){F.lotQuery='';const input=$('#floorLotSearch');if(input)input.value='';F.drawLotResults();input?.focus()};
 F.drawLotResults=function(){
