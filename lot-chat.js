@@ -8,7 +8,7 @@
  C.sync=function(){if(C.owner!==(cloudUser?.email||null))C.reset();C.mountNotes();C.badges()};
  C.badges=function(){document.querySelectorAll('[data-chat-count]').forEach(n=>{const value=C.unread?' · '+C.unread:'';if(n.textContent!==value)n.textContent=value})};
  C.open=function(){if(window.floor)floor.chat()};
- C.poll=async function(){C.sync();if(!C.owner||document.hidden||C.loading)return;C.loading=true;const request=++C.request,owner=C.owner,box=C.box,offset=C.offset;
+ C.poll=async function(){C.sync();if(!C.owner||C.loading)return;C.loading=true;const request=++C.request,owner=C.owner,box=C.box,offset=C.offset;
   try{const data=await C.rpc('list',{box,offset});if(request!==C.request||owner!==C.owner)return;C.unread=Number(data.unread)||0;if(box===C.box&&offset===C.offset){C.messages=data.messages||[];C.error='';C.renderList()}C.badges();window.ChatSound?.receive(data.alerts||[]);C.alert(data.alerts||[])}catch(e){if(owner===C.owner){C.error='Messaggi non aggiornati. Premi Aggiorna per riprovare.';C.renderList()}}finally{if(request===C.request)C.loading=false}
  };
  C.alert=function(rows){if(el('chatAlert')||(el('modal')?.open&&el('chatCompose')))return;const m=rows.find(m=>!C.seen.has(m.id));if(!m)return;C.seen.add(m.id);const box=document.createElement('div');box.id='chatAlert';box.dataset.messageId=m.id;box.className='chat-alert';box.setAttribute('role','status');box.setAttribute('aria-live','polite');box.innerHTML='<b>Messaggio da '+html(m.sender_name)+'</b>'+(m.lot_label?'<small>'+html(m.lot_label)+'</small>':'')+'<p>'+html(m.body)+'</p><div class="tools"><button type="button" class="btn" id="chatAlertOpen">Apri Chatta</button><button type="button" class="btn secondary" id="chatAlertClose">Chiudi avviso</button></div>';document.body.append(box);el('chatAlertOpen').onclick=()=>{box.remove();C.box='inbox';C.offset=0;C.open()};el('chatAlertClose').onclick=()=>box.remove()};
@@ -52,5 +52,5 @@
  const accept=cloudAccept;cloudAccept=function(...args){const r=accept(...args);C.sync();return r};
  const login=standaloneLogin;standaloneLogin=function(...args){const r=login(...args);C.reset();return r};
  let queued=false;new MutationObserver(()=>{if(!queued){queued=true;queueMicrotask(()=>{queued=false;C.sync()})}}).observe(el('app'),{childList:true,subtree:true});
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)void C.poll()});setInterval(()=>void C.poll(),10000);C.sync();void C.poll();
+ document.addEventListener('visibilitychange',()=>{void C.poll()});setInterval(()=>void C.poll(),10000);C.sync();void C.poll();
 })();
