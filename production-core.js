@@ -8,7 +8,7 @@ function minute(v){if(!/^\d\d:\d\d$/.test(v||''))return null;let [h,m]=v.split('
 function clock(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
 function positive(v){return Number.isFinite(Number(v))&&Number(v)>0}
 function stationList(state){return state.stations||Object.entries(stations).map(([id,name])=>({id,name,kind:id,active:true}))}
-function initial(){return {stations:stationList({}),operators:[],overrides:[],machines:[...['1','2','4'].map(n=>({id:'decon-'+n,name:'Lavaggio e decontaminazione '+n,kind:'decon',capacity:50,active:true})),{id:'dry-3',name:'Lavaggio a secco 3',kind:'dry',capacity:50,active:true},...[1,2,3,4].map(n=>({id:'water-'+n,name:'Lavatrice ad acqua '+n,kind:'water',capacity:null,active:true})),...[1,2,3].map(n=>({id:'dryer-'+n,name:'Essiccatoio '+n,kind:'dryer',capacity:null,active:true}))],types:[{id:'entry',name:'Controllo in entrata',station:'entry',mode:'rate',value:85,setup:0,active:true},{id:'fold',name:'Controllo e piegatura in clean room',station:'clean',mode:'rate',value:75,setup:0,active:true},{id:'exit',name:'Smistamento e controllo uscita',station:'out',mode:'rate',value:120,setup:0,active:true},{id:'repair-unknown',name:'Riparazione da definire',station:'repair',mode:'piece',value:null,setup:0,active:true}],calendars:[],tasks:[],tickets:[],plan:null,planHistory:[]}}
+function initial(){return {stations:stationList({}),operators:[],overrides:[],machines:[...['1','2','4'].map(n=>({id:'decon-'+n,name:'Lavaggio e decontaminazione '+n,kind:'decon',capacity:50,active:true})),{id:'dry-3',name:'Lavaggio a secco 3',kind:'dry',capacity:50,active:true},...[1,2,3,4].map(n=>({id:'water-'+n,name:'Lavatrice ad acqua '+n,kind:'water',capacity:null,active:true})),...[1,2,3].map(n=>({id:'dryer-'+n,name:'Essiccatoio '+n,kind:'dryer',capacity:null,active:true}))],types:[{id:'entry',name:'Controllo in entrata',station:'entry',mode:'rate',value:85,setup:0,active:true},{id:'fold',name:'Controllo e piegatura in clean room',station:'clean',mode:'rate',value:75,setup:0,active:true},{id:'exit',name:'Smistamento e controllo uscita',station:'out',mode:'rate',value:120,setup:0,active:true},{id:'repair-unknown',name:'Cucito · tempo standard per capo',station:'repair',mode:'piece',value:20,setup:0,active:true}],calendars:[],tasks:[],tickets:[],plan:null,planHistory:[]}}
 function defaultShift(station){return {start:'08:00',end:station==='entry'?'14:00':station==='out'?'17:00':'16:00',days:[],breaks:[{name:'Pausa mattina',start:'',minutes:15},{name:'Pranzo',start:'',minutes:station==='out'?60:null},...(station==='entry'?[]:[{name:'Pausa pomeriggio',start:'',minutes:15}])]}}
 function intervals(shift){let a=minute(shift?.start),b=minute(shift?.end);if(a===null||b===null||b<=a)return {slots:[],error:'Orario turno incompleto'};let rests=[];for(let p of shift.breaks||[]){if(Number(p.minutes)===0&&p.minutes!==null&&p.minutes!=='')continue;let s=minute(p.start),n=Number(p.minutes);if(s===null||!positive(p.minutes)||s<a||s+n>b)return {slots:[],error:'Orario o durata delle pause da completare'};rests.push([s,s+n])}rests.sort((a,b)=>a[0]-b[0]);let slots=[],cursor=a;for(let [s,e] of rests){if(s<cursor)return {slots:[],error:'Pause sovrapposte'};if(s>cursor)slots.push([cursor,s]);cursor=e}if(cursor<b)slots.push([cursor,b]);return {slots,error:null}}
 function shiftForDay(op,day){const hours=op.dayHours?.[day]||{};return {...op,start:hours.start||op.start,end:hours.end||op.end}}
@@ -35,7 +35,8 @@ function plan(state,first,days=7,nowDay='',nowMinute=0){
   const type=types.get(t.typeId),est=estimate(type,t.quantity,m);
   if(est.error)return null;
   if(type.mode==='machine')return machineCandidate(t,op,m,ready,est,type);
-  let remaining=t.remainingMinutes==null?est.labor:Math.ceil(Number(t.remainingMinutes));
+  const plannedLabor=t.remainingMinutes==null?est.labor:Math.ceil(Number(t.remainingMinutes));
+  let remaining=plannedLabor;
   const segments=[];
   const machineStart=m?minute(m.start):0,machineEnd=m?minute(m.end):1440;
   if(machineStart===null||machineEnd===null||machineEnd<=machineStart)return null;
@@ -54,7 +55,7 @@ function plan(state,first,days=7,nowDay='',nowMinute=0){
      const finish=absolute(date,start+used);
      return {taskId:t.id,email:op.email,segments,date,machineId:m?.id||null,
       machineStart:m?start:null,machineEnd:m?start+used:null,
-      ...(m?{machineSpans:segments}:{}),cycles:0,labor:est.labor,finish,
+      ...(m?{machineSpans:segments}:{}),cycles:0,labor:plannedLabor,finish,
       late:!!t.due&&(date+'T'+clock(finish%1440)>t.due)};
     }
    }
