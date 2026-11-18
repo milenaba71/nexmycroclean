@@ -123,3 +123,7 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-fold-department h2{margin:0;font-size:26px}.floor-fold-department strong{font-size:38px}.floor-fold-department.selected{border-color:#7350ba;background:#ece4ff;box-shadow:0 0 0 2px #7350ba}
 .floor-fold-department:nth-child(2){background:#edf8ff;color:#14547c}.floor-fold-department:nth-child(2).selected{border-color:#247fa8;box-shadow:0 0 0 2px #247fa8}
 @media(max-width:600px){.floor-fold-departments{grid-template-columns:1fr}}
+
+.floor-finished-lots{grid-column:1/-1;border:1px solid #a7d6b6;border-radius:16px;background:#f1faf4;padding:20px;margin-top:12px}
+.floor-finished-lots>summary{cursor:pointer;color:#14753b;font-size:22px;font-weight:800;padding:6px;min-height:44px;box-sizing:border-box}
+.floor-finished-lots[open]>summary{margin-bottom:18px}
