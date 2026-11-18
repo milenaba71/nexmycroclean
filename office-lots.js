@@ -1,5 +1,5 @@
 /* Office lot overview. Existing lot operations, permissions and history remain authoritative. */
-let officeLotSort='newest';
+let officeLotSort='due';
 function officeLotText(value){return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('it')}
 function officeLotRows(){
  const words=officeLotText(lotListSearch).split(/\s+/).filter(Boolean);
@@ -8,16 +8,16 @@ function officeLotRows(){
   if(!words.length)return true;
   const text=officeLotText([lotno(l),l.id,l.client,l.departmentName,l.date,l.due,l.airtableOrderCode,l.airtableCustomerOrder,l.notes,...l.rows.flatMap(r=>{const g=products.get(String(r.code));return [r.code,r.notes,g?.name,g?.barcode,g?.dept,g?.type]})].join(' '));
   return words.every(w=>text.includes(w));
- }).sort((a,b)=>officeLotSort==='newest'?Number(b.id)-Number(a.id):officeLotSort==='client'?String(a.client).localeCompare(String(b.client),'it')||Number(b.id)-Number(a.id):String(a.due||'9999').localeCompare(String(b.due||'9999'))||Number(b.id)-Number(a.id));
+ }).sort((a,b)=>officeLotSort==='newest'?Number(b.id)-Number(a.id):officeLotSort==='client'?String(a.client).localeCompare(String(b.client),'it')||Number(b.id)-Number(a.id):lotDeliveryOrder(a,b));
 }
 const officePreviousLotListRows=lotListRows;
 lotListRows=function(history){return history?officePreviousLotListRows(true).sort((a,b)=>Number(b.id)-Number(a.id)):officeLotRows()};
 function officeLotFilter(state){lotListState=state;lotMetric='';lotTable()}
 function officeLotClear(){lotListSearch='';lotListState='';lotMetric='';const input=$('#officeLotSearch');if(input)input.value='';lotTable()}
 function officeLotDue(l){
- const today=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Rome'}),date=String(l.due||'').slice(0,10);
+ const today=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Rome'}),date=lotDeliveryKey(l)==='9999'?'':lotDeliveryKey(l).slice(0,10);
  const late=date&&date<today&&lotStatus(l)!=='Chiuso';
- return `<span class="office-due ${late?'overdue':''}">${l.due?esc(lotDeliveryDate(l.due)):'Da definire'}</span>${late?'<small class="office-late">Consegna scaduta</small>':date===today?'<small>Consegna oggi</small>':''}`;
+ return `<span class="office-due ${late?'overdue':''}">${date?esc(lotDeliveryDate(lotDeliveryKey(l))):'Da definire'}</span>${late?'<small class="office-late">Consegna scaduta</small>':date===today?'<small>Consegna oggi</small>':''}`;
 }
 lotsView=function(){
  $('#app').innerHTML=`<section class="office-lots" aria-label="Lotti · vista ufficio">${heading('Lotti','Cerca il lotto, controlla la consegna e apri la scheda per lavorarlo.',`<div class="office-head-actions"><button class="btn secondary" onclick="go('Storico')">Archivio lotti</button>${lotWritable()?'<button class="btn office-primary" onclick="newLot()">＋ Nuovo lotto</button>':''}</div>`)}
