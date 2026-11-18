@@ -1,0 +1,10 @@
+Sewing machine: Caro Asercion / Game-icons.net, CC BY 3.0.
+Source: https://game-icons.net/1x1/caro-asercion/sewing-machine.html
+License: https://creativecommons.org/licenses/by/3.0/
+SVG distributed via https://github.com/iconify/icon-sets (game-icons). Unmodified.
+
+Washing machine (used for the Secco department): Google / Material Design Icons, Apache License 2.0.
+Source: https://pictogrammers.com/library/mdi/icon/washing-machine/
+SVG: https://github.com/Templarian/MaterialDesign/blob/master/svg/washing-machine.svg
+License: https://www.apache.org/licenses/LICENSE-2.0
+Unmodified.
