@@ -1,6 +1,7 @@
 /* Multi-product sewing work: one revision-checked save, one audit entry per garment. */
 (function(){
- let selected=new Set(),lotId=null;
+ let selected=new Set(),lotId=null,searchQuery='';
+ function matchesCode(code){return [String(code),String(repairCode(code))].some(value=>value.toLocaleLowerCase('it').includes(searchQuery.trim().toLocaleLowerCase('it')))}
  const kinds=['repair','relabel','verify'];
  function eligible(l,r,k){return !l.archived&&!['Uscito','Dismesso'].includes(r.state)&&(!k||r[k])&&kinds.some(x=>r[x])&&!repairWashMessage(l.id,r.code)}
  function names(r){return [...new Set((r.repairWork||[]).map(w=>w.completedBy||w.completedByEmail).filter(Boolean))].join(', ')}
@@ -24,12 +25,12 @@
    label.append(box,document.createTextNode(' '+repairCode(row.code)));
    box.onchange=()=>{if(box.checked)labelCodes.add(row.code);else labelCodes.delete(row.code);count()};
    card.type='button';card.className='link';card.textContent='Scheda prodotto';card.onclick=()=>showGarment(row.code);
-   const item=document.createElement('div');item.append(label,card);panel.querySelector('.tools').append(item);
+   const item=document.createElement('div');item.dataset.sewingSearchCode=row.code;item.append(label,card);panel.querySelector('.tools').append(item);
   }
   if(userCan('products_manage')){
    const add=document.createElement('button');add.type='button';add.className='btn secondary';add.textContent='Nuovo prodotto';add.onclick=()=>newGarment();print.before(add);
   }
-  panel.querySelector('[data-all]').onclick=()=>{rows.forEach((r,i)=>{labelCodes.add(r.code);boxes[i].checked=true});count()};
+  panel.querySelector('[data-all]').onclick=()=>{rows.forEach((r,i)=>{if(matchesCode(r.code)){labelCodes.add(r.code);boxes[i].checked=true}});count()};
   panel.querySelector('[data-clear]').onclick=()=>{labelCodes.clear();boxes.forEach(box=>box.checked=false);count()};
   print.onclick=()=>openLabelEditor([...labelCodes]);count();container.before(panel);
  }
@@ -47,21 +48,49 @@
  function decorate(){
   if(page!=='Riparazioni'||repairProductCode||repairLotId===null)return;
   const l=db.lots.find(l=>l.id===Number(repairLotId));if(!l)return;
-  if(lotId!==l.id){selected.clear();lotId=l.id}
+  if(lotId!==l.id){selected.clear();searchQuery='';lotId=l.id}
   selected=new Set([...selected].filter(c=>l.rows.some(r=>r.code===c&&eligible(l,r))));
   document.querySelectorAll('[data-sewing-bulk]').forEach(e=>e.remove());
   const summary=document.querySelector('#app .sewing-products');
   if(summary&&userCan('lots_work')){const head=document.createElement('th');head.dataset.sewingBulk='';head.textContent='Seleziona';summary.querySelector('thead tr').prepend(head);for(const row of summary.querySelectorAll('tbody tr')){const b=row.querySelector('.sewing-open'),m=b?.getAttribute('onclick').match(/decodeURIComponent\('([^']*)'\)/);if(!m)continue;const code=decodeURIComponent(m[1]),r=l.rows.find(r=>r.code===code),cell=document.createElement('td');cell.dataset.sewingBulk='';if(r&&eligible(l,r)){const box=document.createElement('input');box.type='checkbox';box.setAttribute('aria-label','Seleziona capo '+repairCode(code));box.checked=selected.has(code);box.style='width:24px;height:24px';box.onchange=()=>{box.checked?selected.add(code):selected.delete(code);decorate()};cell.append(box)}else cell.textContent='—';row.prepend(cell)}}
   const cards=[...document.querySelectorAll('#app .repair-card,#app .floor-product-card')];
-  for(const card of cards){const b=card.querySelector('button[onclick*="repairProductDetail("]');if(!b)continue;const m=b.getAttribute('onclick').match(/decodeURIComponent\('([^']*)'\)/);if(!m)continue;const code=decodeURIComponent(m[1]),r=l.rows.find(r=>r.code===code);if(!r)continue;
+  for(const card of cards){const b=card.querySelector('button[onclick*="repairProductDetail("]');if(!b)continue;const m=b.getAttribute('onclick').match(/decodeURIComponent\('([^']*)'\)/);if(!m)continue;const code=decodeURIComponent(m[1]),r=l.rows.find(r=>r.code===code);if(!r)continue;card.dataset.sewingSearchCode=code;
    const el=document.createElement('div');el.dataset.sewingBulk='';const n=names(r);if(n){const p=document.createElement('p');p.textContent='Riparato da: '+n;el.append(p)}
    if(userCan('lots_work')&&eligible(l,r)){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.checked=selected.has(code);box.style='width:24px;height:24px;margin-right:10px';box.onchange=()=>{box.checked?selected.add(code):selected.delete(code);decorate()};label.append(box,document.createTextNode('Seleziona capo'));el.prepend(label)}card.prepend(el);
   }
   labelTools(l,summary||document.querySelector('#app .repair-cards,#app .floor-product-cards'));
+  // One search filters open cards, the summary and label choices together.
+  for(const row of summary?.querySelectorAll('tbody tr')||[]){
+   const action=row.querySelector('.sewing-open');
+   const match=action?.getAttribute('onclick')?.match(/decodeURIComponent\('([^']*)'\)/);
+   if(match)row.dataset.sewingSearchCode=decodeURIComponent(match[1]);
+  }
+  const search=document.createElement('section');search.dataset.sewingBulk='';search.className='panel';
+  search.style.cssText='padding:16px;margin-bottom:16px';
+  search.innerHTML='<label for="sewingCodeSearch">Cerca codice nel lotto</label><input id="sewingCodeSearch" type="search" autocomplete="off" placeholder="Scrivi o incolla il codice del capo" style="width:100%;box-sizing:border-box"><p id="sewingCodeSearchCount" role="status" style="margin:8px 0 0"></p>';
+  const first=document.querySelector('#app .repair-cards,#app .floor-product-cards,#app .sewing-products,#app section[data-sewing-bulk]');
+  if(first){
+   first.before(search);
+   const input=search.querySelector('input');input.value=searchQuery;
+   const applySearch=()=>{
+    const codes=new Set(),found=new Set();
+    document.querySelectorAll('#app [data-sewing-search-code]').forEach(el=>{
+     const code=el.dataset.sewingSearchCode;codes.add(code);
+     const visible=matchesCode(code);el.hidden=!visible;if(visible)found.add(code);
+    });
+    search.querySelector('p').textContent=found.size?found.size+' capi trovati su '+codes.size:'Nessun capo trovato con questo codice.';
+   };
+   input.oninput=()=>{searchQuery=input.value;selected.clear();labelCodes.clear();
+    document.querySelectorAll('#app [data-sewing-bulk] input[type="checkbox"]').forEach(box=>box.checked=false);
+    document.querySelectorAll('#app [data-print]').forEach(button=>{button.disabled=true;button.textContent='Stampa etichette selezionate (0)'});
+    applySearch();updateCount();
+   };
+   applySearch();
+  }
   if(!userCan('lots_work'))return;
   const bar=document.createElement('div');bar.dataset.sewingBulk='';bar.className='tools';bar.innerHTML='<button class="btn secondary" id="sewingSelectAll">Seleziona tutto</button><button class="btn secondary" id="sewingClear">Deseleziona tutto</button><button class="btn" id="sewingBulkOpen">Ripara selezionati</button><span id="sewingBulkCount" role="status"></span>';
   const container=summary?.querySelector('.sewing-detail-scroll')||document.querySelector('#app .repair-cards,#app .floor-product-cards');if(!container)return;container.before(bar);
-  $('#sewingSelectAll').onclick=()=>{selected=new Set(l.rows.filter(r=>eligible(l,r)).map(r=>r.code));decorate()};$('#sewingClear').onclick=()=>{selected.clear();decorate()};$('#sewingBulkOpen').onclick=open;updateCount();
+  $('#sewingSelectAll').onclick=()=>{selected=new Set(l.rows.filter(r=>eligible(l,r)&&matchesCode(r.code)).map(r=>r.code));decorate()};$('#sewingClear').onclick=()=>{selected.clear();decorate()};$('#sewingBulkOpen').onclick=open;updateCount();
  }
  function updateCount(){const count=$('#sewingBulkCount'),b=$('#sewingBulkOpen');if(count)count.textContent=selected.size+' capi selezionati';if(b)b.disabled=!selected.size||lotActionBusy}
  function open(){if(!lotMutationAllowed()||!userCan('lots_work')||!selected.size)return;show(`<h2>Ripara ${selected.size} capi selezionati</h2><p>Riparato da: <b>${esc(cloudUser.name||cloudUser.email)}</b></p><p>Lo stesso intervento sarà registrato sui capi indicati nel riepilogo qui sotto. Quantità e minuti sono <b>per singolo capo</b>. Viene chiusa solo l’attività scelta.</p><form id="sewingBulkForm"><label>Attività da completare<select name="kind">${kinds.map(k=>`<option value="${k}">${esc(repairKinds[k])}</option>`).join('')}</select></label><label>Tipo intervento<select name="type" required onchange="repairWorkDefaults(this.form)"><option value="">Seleziona…</option>${repairTypes().filter(t=>t.repairActive).map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label><label>Quantità per capo<input name="quantity" type="number" min="1" step="1" value="1" required oninput="repairWorkDefaults(this.form)"></label><label>Minuti per capo<input name="minutes" type="number" min="0" step="0.01" value="0" required></label><p id="repairWorkPrice" class="wide"></p><div id="sewingBulkPreview" class="wide" role="status"></div><label class="wide">Note per ogni capo<textarea name="notes" maxlength="500"></textarea></label><p class="wide" id="sewingBulkError" role="alert"></p><div class="wide"><button class="btn">Salva intervento sui selezionati</button><button type="button" class="btn secondary" onclick="document.querySelector('#modal').close()">Annulla</button></div></form>`);const codes=[...selected],id=lotId;const form=$('#sewingBulkForm');const l=db.lots.find(l=>l.id===id);form.elements.kind.value=kinds.find(k=>codes.some(c=>l.rows.some(r=>r.code===c&&eligible(l,r,k))))||'repair';form.addEventListener('change',()=>preview(form,id,codes));form.addEventListener('input',()=>preview(form,id,codes));form.onsubmit=e=>submit(e,id,form.sewingCodes||[]);preview(form,id,codes)}
