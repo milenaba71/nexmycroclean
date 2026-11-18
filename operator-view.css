@@ -127,3 +127,6 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-finished-lots{grid-column:1/-1;border:1px solid #a7d6b6;border-radius:16px;background:#f1faf4;padding:20px;margin-top:12px}
 .floor-finished-lots>summary{cursor:pointer;color:#14753b;font-size:22px;font-weight:800;padding:6px;min-height:44px;box-sizing:border-box}
 .floor-finished-lots[open]>summary{margin-bottom:18px}
+
+/* Supplied department images, displayed whole with their text labels. */
+.floor-department-icon{display:block;width:100px;height:100px;object-fit:contain;background:#fff;border-radius:10px;margin-bottom:12px}.floor-home-card.phase-wash{min-height:300px}.floor-fold-department .floor-department-icon{width:100px;height:110px;margin:0}.floor-fold-departments{align-items:stretch}@media(max-width:600px){.floor-department-icon{width:76px;height:76px}.floor-home-card.phase-wash{min-height:260px}.floor-fold-department .floor-department-icon{width:85px;height:95px}}
