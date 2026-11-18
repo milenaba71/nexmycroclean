@@ -27,14 +27,18 @@ Q.decorate=function(){if(!current||!cloudUser)return;let host=window.floor?.acti
 const beforeDetail=detail;detail=function(...args){const result=beforeDetail.apply(this,args);Q.decorate();return result};
 if(window.floor){const beforeFloor=window.floor.decorate;window.floor.decorate=function(...args){const result=beforeFloor.apply(this,args);Q.decorate();return result}};
 // Check before mutating the local lot, so a normal quality hold does not stop the save queue.
+async function qualityScanBlocked(code,message){
+ if(window.floor?.active&&window.floor.screen==='lot'&&window.floor.scanBlocked)await window.floor.scanBlocked(code,message);
+ return message;
+}
 const beforeQualityScan=checkedProcess;
 checkedProcess=async function(code){
  if(stage==='Uscita'&&current?.rows.some(r=>r.code===code&&r.state!=='Uscito')){
   const id=current.id;
   try{await cloudFlush();const q=await Q.rpc('read',{lot_id:id});
    if(current?.id!==id||stage!=='Uscita')return 'Schermata cambiata: scansione non registrata.';
-   if(q.enabled&&!q.released.includes(code))return 'Uscita bloccata: apri Controllo qualità e registra un esito conforme per questo capo.';
-  }catch(e){return err(e)}
+   if(q.enabled&&!q.released.includes(code))return await qualityScanBlocked(code,'Manca un controllo qualità conforme per questo capo. Apri Controllo qualità nel lotto, registra il controllo eseguito e poi ripeti la scansione in Uscita.');
+  }catch(e){return await qualityScanBlocked(code,err(e))}
  }
  return beforeQualityScan.apply(this,arguments);
 };
