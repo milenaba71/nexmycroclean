@@ -103,3 +103,17 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-wash-department{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;min-height:230px;padding:24px;border:2px solid #cbdce5;border-top:7px solid #087fa5;border-radius:18px;background:#f0f9fc;color:#20374c;text-align:left;cursor:pointer}
 .floor-wash-department h2{font-size:28px;margin:0 0 8px}.floor-wash-department>strong{font-size:48px;color:#087fa5;line-height:1}.floor-wash-department>span{font-size:16px}.floor-wash-department small{font-size:14px;color:#53627b}.floor-wash-department.selected{border-color:#087fa5;background:#dff3fa;box-shadow:0 0 0 2px #087fa5}.floor-wash-department:hover{background:#dff3fa}.floor-wash-department:focus-visible{outline:3px solid #1d4ed8;outline-offset:4px}.floor-department-open{font-weight:700;margin-top:10px}
 @media(max-width:760px){.floor-wash-departments{grid-template-columns:1fr}.floor-wash-department{min-height:180px}}
+
+/* Matching, touch-friendly actions in the lot product list. */
+#floorProducts .floor-products-table .floor-list-actions .floor-button{
+ display:flex;align-items:center;justify-content:center;box-sizing:border-box;
+ width:100%;height:56px;min-height:56px;padding:8px 10px;margin:0;
+ border:1px solid #c5d5e9;border-radius:12px;font-size:14px;line-height:1.25;
+ font-weight:700;text-align:center;box-shadow:0 1px 2px #172c490a;
+ transition:background-color .15s,border-color .15s;
+}
+#floorProducts .floor-products-table .floor-list-actions .floor-button+.floor-button{margin-top:8px}
+#floorProducts .floor-list-actions .floor-product-notes{background:#edf4ff;color:#234f87;border-color:#c5d7f0}
+#floorProducts .floor-list-actions .floor-product-notes:hover{background:#dfeaff;border-color:#9bb9e0}
+#floorProducts .floor-list-actions .floor-product-remove{background:#fff0f1;color:#a32d42;border-color:#edc7ce}
+#floorProducts .floor-list-actions .floor-product-remove:hover{background:#ffe2e6;border-color:#dca3af}
