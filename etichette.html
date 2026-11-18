@@ -752,6 +752,7 @@ var GRID_COLS = [
   {key:'posizione', lab:'Posizione', col:'posizione'},
   {key:'personalizzazione', lab:'Data personalizzazione', col:'data_personalizzazione'},
   {key:'matricola', lab:'Matricola', col:'matricola'},
+  {key:'esterna', lab:'Esterna', col:'esterna'},
   {key:'iniziali', lab:'Iniziali', col:'iniziali'},
   {key:'lotto', lab:'Lotto', col:'lotto'},
   {key:'note', lab:'Note', col:'note'}
@@ -761,12 +762,12 @@ var GRID_READ = {
   azienda:['azienda','AZIENDA'], reparto:['reparto','REPARTO'], taglia:['taglia','TAGLIA'],
   tipo:['tipo','TIPO'], data:['created_at','DATA'], armadio:['armadio','ARMADIO'],
   personalizzazione:['data_personalizzazione','DATA DI PERSONALIZZAZIONE','data di personalizzazione'],
-  posizione:['posizione','POSIZIONE'], matricola:['matricola','MATRICOLA'],
+  esterna:['esterna','ESTERNA'], posizione:['posizione','POSIZIONE'], matricola:['matricola','MATRICOLA'],
   iniziali:['iniziali','INIZIALI'], lotto:['lotto','LOTTO'], note:['note','NOTE']
 };
 var GRID_WRITE = { codice:'codice', nome:'fullname', azienda:'azienda', reparto:'reparto',
   taglia:'taglia', tipo:'tipo', data:'created_at', armadio:'armadio', posizione:'posizione',
-  personalizzazione:'data_personalizzazione', matricola:'matricola', iniziali:'iniziali', lotto:'lotto', note:'note' };
+  esterna:'esterna', personalizzazione:'data_personalizzazione', matricola:'matricola', iniziali:'iniziali', lotto:'lotto', note:'note' };
 
 function buildGrid(){
   var wrap=document.getElementById('gridWrap');
@@ -1156,6 +1157,6 @@ updateFormatoUI();
 refreshPresetSelect();
 </script>
 <script>
-try { var transferred=sessionStorage.getItem('mycro-label-transfer');if(transferred){ sessionStorage.removeItem('mycro-label-transfer');ROWS=JSON.parse(transferred);CSVROWS=ROWS.slice();MODE='data';['armadio','posizione','dataPe'].forEach(function(key){var field=FIELDS.find(function(f){return f.key===key;});if(ROWS.some(function(row){return fieldValue(field,row)!=='';}))document.getElementById('f_'+key).checked=true;});document.getElementById('drop').style.display='none';render(); }}catch(e){console.error('Impossibile caricare i prodotti',e)}
+try { var transferred=sessionStorage.getItem('mycro-label-transfer');if(transferred){ sessionStorage.removeItem('mycro-label-transfer');ROWS=JSON.parse(transferred);CSVROWS=ROWS.slice();MODE='data';['armadio','posizione','dataPe','esterna','matricola'].forEach(function(key){var field=FIELDS.find(function(f){return f.key===key;});if(ROWS.some(function(row){return fieldValue(field,row)!=='';}))document.getElementById('f_'+key).checked=true;});document.getElementById('drop').style.display='none';render(); }}catch(e){console.error('Impossibile caricare i prodotti',e)}
 </script></body>
 <link rel="stylesheet" href="button-theme.css?v=20261110-2"><script src="button-theme.js?v=20261110-2"></script></html>
