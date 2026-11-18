@@ -36,8 +36,8 @@
  }
  const sewingGo=go;
  go=function(destination){
-  if(destination==='Etichette'&&window.floor?.active&&floor.screen==='repair'){
-   show('<h2>Editor etichette</h2><button type="button" class="btn secondary" onclick="this.closest(&quot;dialog&quot;).close()">Torna al cucito</button><iframe title="Editor etichette Mycroclean" src="etichette.html?v=20261118-product-fields" style="width:100%;height:75vh;border:0"></iframe>');
+  if(destination==='Etichette'&&window.floor?.active&&(floor.screen==='repair'||userCan('products_manage'))){
+   show('<h2>Editor etichette</h2><button type="button" class="btn secondary" onclick="this.closest(&quot;dialog&quot;).close()">Torna al reparto</button><iframe title="Editor etichette Mycroclean" src="etichette.html?v=20261118-product-fields" style="width:100%;height:75vh;border:0"></iframe>');
    const modal=document.getElementById('modal'),width=modal.style.width,max=modal.style.maxWidth;
    modal.style.width='96vw';modal.style.maxWidth='1400px';
    modal.addEventListener('close',()=>{modal.style.width=width;modal.style.maxWidth=max},{once:true});
