@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const tasks=[{id:'a',title:'Piegatura',items:[{lotId:1}]},{id:'b',title:'Cucito',items:[{lotId:2}]}];
+const lots=[{id:1,client:'ST'},{id:2,client:'MEMC'}];
+const c={cloudUser:{role:'admin'},prodDate:'2026-11-19',prodQuery:'',prod:{operators:[{email:'a'}],plan:{allocations:[{taskId:'a',email:'a',segments:[{date:'2026-11-19',start:480,end:540},{date:'2026-11-20',start:480,end:540}],machineSpans:[{start:480,end:800}]},{taskId:'b',email:'a',segments:[{date:'2026-11-19',start:600,end:630}]}]}},pVisibleTasks:()=>tasks,pLots:t=>lots.filter(l=>t.items.some(i=>i.lotId===l.id)),pTaskName:t=>t.title,lotno:l=>'L.'+l.id,pMember:e=>e,pConfirmedPlanState:s=>s,PC:{daySlots:()=>({slots:[{start:480,end:720},{start:780,end:1020}]})},pDraw:()=>{},pLoads:()=>{},pAction:()=>{},document:{querySelectorAll:()=>[]},esc:String,pFriendlyDate:String,pMinutes:n=>n+' min'};
+vm.createContext(c);vm.runInContext(fs.readFileSync('planning-filters.js','utf8'),c);
+let r=c.pDailyLoads()[0];assert.equal(r.total,90);assert.equal(r.available,480);assert.equal(r.remaining,390);
+vm.runInContext("planClientFilter='ST'",c);assert(c.pFilterMatch(tasks[0]));assert(!c.pFilterMatch(tasks[1]));r=c.pDailyLoads()[0];assert.equal(r.filtered,60);assert.equal(r.total,90);
+vm.runInContext("planLotFilter='2'",c);assert(!c.pFilterMatch(tasks[0]));assert(!c.pFilterMatch(tasks[1]));
+c.cloudUser.role='operator';assert.equal(c.pDailyLoadsTable(),'');assert.equal(c.pDailyLoads().length,0);assert(!c.pCanViewLoads());c.cloudUser.isSuperAdmin=true;assert(c.pCanViewLoads());
+console.log('PASS: combined operator/lot/client filters; per-day labor excludes breaks, machine spans and other dates; total versus filtered hours; admin-only workload table.');
