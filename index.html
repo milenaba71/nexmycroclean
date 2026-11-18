@@ -45,11 +45,16 @@ function clientView(){$('#app').innerHTML=heading('Clienti','Dotazioni assegnate
   const nav=document.querySelector('#nav');if(!nav)return;
   const label=b=>b.textContent.replace(/^[^A-Za-zÀ-ÿ]+/,'').trim();
   const entries=[...nav.children],help=entries.find(b=>label(b)==='Istruzioni'),users=entries.find(b=>label(b)==='Utenti');
-  if(help)nav.appendChild(help);
-  if(users)nav.appendChild(users);
+  if(users&&nav.lastElementChild!==users)nav.appendChild(users);
+  if(help&&help!==users){
+   if(users&&help.nextElementSibling!==users)nav.insertBefore(help,users);
+   else if(!users&&nav.lastElementChild!==help)nav.appendChild(help);
+  }
  }
  render=function(...args){const result=previousRender.apply(this,args);orderOfficeMenu();return result};
  orderOfficeMenu();
+ const menu=document.querySelector('#nav');
+ if(menu)new MutationObserver(orderOfficeMenu).observe(menu,{childList:true});
 })();
 </script><script src="mask-stock.js?v=20261112-supplier-ddt"></script><link rel="stylesheet" href="button-theme.css?v=20261117-sewing-compact"><script src="button-theme.js?v=20261110-2"></script></html>
 
