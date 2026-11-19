@@ -12,13 +12,21 @@ function cartDeliveryKey(cart){
 function cartDeliveryOrder(a,b){return cartDeliveryKey(a).localeCompare(cartDeliveryKey(b))||String(a.id||a.batchId||'').localeCompare(String(b.id||b.batchId||''))}
 function taskDeliveryKey(task){const lots=(task.items||[]).map(i=>db.lots.find(l=>String(l.id)===String(i.lotId))).filter(Boolean);return lots.length?lots.map(lotDeliveryKey).sort()[0]:task.due||'9999'}
 function foldingDepartment(row,state){
+ // Use the same product processing destination as planning, before wash-machine hints.
+ const product=typeof db!=='undefined'?(db.garments||[]).find(g=>g.id===row.code):null;
+ if(product&&typeof productProcessingDepartment==='function'){
+  const destination=productProcessingDepartment(product);
+  if(['water','site','clean'].includes(destination))return destination;
+  if(destination==='sewing')return 'unknown';
+ }
  const batch=(state?.batches||[]).find(b=>b.id===row.washBatchId);
  let kind=batch?.machine_kind;
  if(!kind){const kinds=[...new Set((state?.links||[]).filter(l=>l.processing_id===row.processingId).map(l=>(state.types||[]).find(t=>t.id===l.program_id)?.machineKind).filter(Boolean))];if(kinds.length===1)kind=kinds[0];}
  if(kind==='water')return 'water';
- if(kind==='decon'||kind==='dry')return 'clean';
+ if(kind==='decon')return 'clean';
+ if(kind==='dry')return 'unknown';
  const name=String(row.processingName||'').toLowerCase();
- if(/decontamin|clean room|secco/.test(name))return 'clean';
+ if(/decontamin|clean room/.test(name))return 'clean';
  if(/acqua/.test(name)||row.requiresDrying)return 'water';
  return 'unknown';
 }

@@ -9,7 +9,7 @@ assert.equal(ctx.cartDeliveryOrder({lotId:1},{lotId:2})<0,true);
 const state={batches:[{id:'water',machine_kind:'water'},{id:'clean',machine_kind:'decon'},{id:'dry',machine_kind:'dry'}],links:[{processing_id:'P1',program_id:'T1'}],types:[{id:'T1',machineKind:'water'}]};
 assert.equal(ctx.foldingDepartment({washBatchId:'water',processingName:'Decontaminazione'},state),'water');
 assert.equal(ctx.foldingDepartment({washBatchId:'clean'},state),'clean');
-assert.equal(ctx.foldingDepartment({washBatchId:'dry'},state),'clean');
+assert.equal(ctx.foldingDepartment({washBatchId:'dry'},state),'unknown');
 assert.equal(ctx.foldingDepartment({processingId:'P1'},state),'water');
 assert.equal(ctx.foldingDepartment({processingName:'02 Lavaggio e decontaminazione'},{}),'clean');
 assert.equal(ctx.foldingDepartment({processingName:'23 Lavaggio ad acqua'},{}),'water');
@@ -18,3 +18,15 @@ const mixed={rows:[{code:'A',washBatchId:'water'},{code:'B',washBatchId:'clean'}
 const source=fs.readFileSync('operator-view.js','utf8');vm.runInContext(source.slice(source.indexOf('function foldScope('),source.indexOf('F.selectFoldDepartment=')),ctx);
 assert.equal(ctx.foldScope(mixed).rows.map(r=>r.code).join(','),'B');ctx.F.foldDepartment='water';assert.equal(ctx.foldScope(mixed).rows.map(r=>r.code).join(','),'A');ctx.F.phase='out';assert.equal(ctx.foldScope(mixed).rows.length,3);assert.equal(mixed.rows.length,3);
 console.log('Delivery order, changed due dates, mixed carts and folding departments: passed');
+
+// Product processing settings must override the machine (including dry cleaning).
+vm.runInContext(fs.readFileSync('product-barcodes.js','utf8').split('function addProductProcessingFields')[0],ctx);
+ctx.db.garments=[{id:'W',type:'PANTALONE',raw:{}},{id:'S',type:'PANTALONE',raw:{'REPARTO PIEGATURA':'Cantieri'}},{id:'C',type:'TUTA',raw:{}}];
+assert.equal(ctx.foldingDepartment({code:'W',washBatchId:'dry'},state),'water');
+assert.equal(ctx.foldingDepartment({code:'S',washBatchId:'dry'},state),'site');
+assert.equal(ctx.foldingDepartment({code:'C',washBatchId:'water'},state),'clean');
+ctx.F.phase='fold';ctx.F.foldDepartment='site';
+const split={rows:ctx.db.garments.map(g=>({code:g.id,washBatchId:'dry'}))};
+assert.equal(ctx.foldScope(split).rows.map(r=>r.code).join(','),'S');
+assert.equal(split.rows.length,3);
+console.log('Product settings and Cantieri mixed-lot filtering: passed');

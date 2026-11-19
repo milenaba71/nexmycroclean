@@ -1,7 +1,7 @@
 /* The same department image follows its label across floor and planning views. */
 (function(){
-const assets={maintenance:'assets/reparto-guasti-manutenzioni.jpeg',water:'assets/reparto-piegatura-acqua.png',decon:'assets/reparto-clean-room-operatore.jpeg',sewing:'assets/reparto-cucito-operatore.jpeg',dry:'assets/reparto-secco.svg',out:'assets/reparto-uscita-operatore.jpeg'};
-function kind(text){if(/\bguasti?\b|\bmanutenzion[ei]\b/i.test(text))return 'maintenance';if(/\buscita\b/i.test(text))return 'out';if(/\bcucito\b|\briparazioni?\b/i.test(text))return 'sewing';if(/\bsecco\b/i.test(text))return 'dry';if(/\bacqua\b/i.test(text))return 'water';if(/\bdec[k]?\b|\bdecontaminazione\b|\bclean[\s-]*room\b/i.test(text))return 'decon';return null}
+const assets={site:'assets/reparto-cantieri.jpeg',maintenance:'assets/reparto-guasti-manutenzioni.jpeg',water:'assets/reparto-piegatura-acqua.png',decon:'assets/reparto-clean-room-operatore.jpeg',sewing:'assets/reparto-cucito-operatore.jpeg',dry:'assets/reparto-secco.svg',out:'assets/reparto-uscita-operatore.jpeg'};
+function kind(text){if(/\bcantieri\b/i.test(text))return 'site';if(/\bguasti?\b|\bmanutenzion[ei]\b/i.test(text))return 'maintenance';if(/\buscita\b/i.test(text))return 'out';if(/\bcucito\b|\briparazioni?\b/i.test(text))return 'sewing';if(/\bsecco\b/i.test(text))return 'dry';if(/\bacqua\b/i.test(text))return 'water';if(/\bdec[k]?\b|\bdecontaminazione\b|\bclean[\s-]*room\b/i.test(text))return 'decon';return null}
 function decorate(){for(const el of document.querySelectorAll('#app h1,#app h2,#app .phase-label,#app .floor-tabs button,#app .floor-person>span')){
  const key=kind(el.textContent),existing=el.querySelector('[data-department-symbol]');
  if(!key){existing?.remove();continue}

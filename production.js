@@ -127,7 +127,7 @@ function pLotPlanWork(state,lots){
  state.types=[...state.types];
  const products=new Map(db.garments.map(g=>[g.id,g]));
  const water=state.stations.find(s=>s.id==='017c9179-a256-4f21-b618-8bb410413887')||state.stations.find(s=>s.name.toLowerCase()==='reparto acqua');
- const site=state.stations.find(s=>['piegatura cantieri','cantieri'].includes(s.name.toLowerCase()));
+ const site=state.stations.find(s=>['piegatura cantieri','cantieri','reparto cantieri'].includes(s.name.toLowerCase()));
  const fold=state.types.find(t=>t.id==='fold');
  for(const [key,station,name] of [['water',water,'Piegatura in reparto acqua'],['site',site,'Piegatura cantieri']]){
   if(fold&&station&&!state.types.some(t=>t.id==='lot-fold-'+key))state.types.push({...fold,id:'lot-fold-'+key,station:station.id,name});
