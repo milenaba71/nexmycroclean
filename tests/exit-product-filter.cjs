@@ -8,3 +8,18 @@ assert.deepEqual(select('exit:missing'),['missing1','missing2']);assert.equal(se
 assert.equal(context.F.productRowStatus(rows[18]),'Da uscire · Scarto da restituire al cliente');assert.equal(context.F.productRowStatus(rows[0]),'Uscito');
 context.F.phase='fold';assert.deepEqual(select('state:In lavorazione'),['missing1','missing2']);
 console.log('PASS: 18 exited, 2 missing customer returns; retired excluded; exit statuses and folding filters');
+
+// A successful exit redraw must update counters without reopening missing details.
+context.current={rows};
+vm.runInContext(source.slice(source.indexOf('function exitSummary()'),source.indexOf('function exitSummary()')+source.slice(source.indexOf('function exitSummary()')).indexOf('\n')),context);
+context.F.phase='out';
+let summary=vm.runInContext('exitSummary()',context);
+assert.match(summary,/<strong>18<\/strong><span>CARICATI/);
+assert.ok(!summary.includes('<details'));
+assert.ok(summary.includes('floor.showMissingProducts()'));
+rows[18].state='Uscito';
+summary=vm.runInContext('exitSummary()',context);
+assert.match(summary,/<strong>19<\/strong><span>CARICATI/);
+assert.match(summary,/Mostra i mancanti \(1\)/);
+assert.ok(!summary.includes('<details'));
+console.log('PASS continuous exit: counters advance; missing list only opens on request');
