@@ -72,6 +72,9 @@ const styleWash=document.createElement('style');styleWash.textContent='.wash-car
 // Background polling must not replace the page, selectors or open activity details.
 let washPollBusy=false;
 async function washPoll(){
+ // Exit scans validate each garment directly; machine polling must not contend with saves.
+ if(current&&stage==='Uscita')return;
+
  if(washPollBusy||washBusy||washLoading||!cloudUser||lotBusy()||cloudBusy||cloudQueue.length||$('#modal').open||document.hidden||!(current||page==='Produzione'))return;
  washPollBusy=true;
  try{
