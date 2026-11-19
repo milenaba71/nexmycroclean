@@ -157,3 +157,13 @@ body.floor-mode{background:#f2f4f8}body.floor-mode>aside,body.floor-mode header:
 .floor-lot-choice .floor-delivery-box.is-unset{background:#f1f4f8;border-color:#d0d8e4;border-left-color:#7b899e;box-shadow:none}
 .floor-lot-choice .floor-delivery-box.is-unset small,.floor-lot-choice .floor-delivery-box.is-unset strong{color:#46546a}
 @media(max-width:600px){.floor-lot-choice .floor-delivery-box{padding:12px 16px}.floor-lot-choice .floor-delivery-box strong{font-size:22px}}
+
+/* Exit result and saved counter sit together immediately above the scanner. */
+.floor-feedback-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.floor-feedback-heading>strong{font-size:clamp(26px,4vw,38px);line-height:1.2}
+.floor-feedback-count{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border:1px solid currentColor;border-radius:12px}
+.floor-feedback-count>b{font-size:clamp(26px,4vw,38px);line-height:1.2}
+.floor-feedback-count>span{font-size:13px;font-weight:800}
+#floorScanOutcome .floor-feedback{padding:14px 18px;margin:8px 0}
+#floorScanOutcome .floor-feedback p{font-size:16px;margin:6px 0}
+#floorScanOutcome .floor-feedback>b{font-size:15px}

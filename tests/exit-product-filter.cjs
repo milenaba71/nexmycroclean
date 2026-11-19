@@ -23,3 +23,14 @@ assert.match(summary,/<strong>19<\/strong><span>CARICATI/);
 assert.match(summary,/Mostra i mancanti \(1\)/);
 assert.ok(!summary.includes('<details'));
 console.log('PASS continuous exit: counters advance; missing list only opens on request');
+context.esc=s=>String(s??'');
+vm.runInContext(source.slice(source.indexOf('function feedbackMarkup()'),source.indexOf('function asideFor(')),context);
+context.F.feedback={tone:'done',title:'FATTO',message:'Uscita registrata.'};
+let feedback=vm.runInContext('feedbackMarkup()',context);
+assert.match(feedback,/FATTO/);assert.match(feedback,/19 \/ 20/);assert.match(feedback,/CARICATI/);
+rows[19].state='Uscito';
+feedback=vm.runInContext('feedbackMarkup()',context);assert.match(feedback,/20 \/ 20/);
+// Re-reading the same saved garment must not increment the total again.
+assert.match(vm.runInContext('feedbackMarkup()',context),/20 \/ 20/);
+context.F.phase='fold';assert.ok(!vm.runInContext('feedbackMarkup()',context).includes('CARICATI'));
+console.log('PASS exit feedback: live saved count next to FATTO, retired excluded, repeat scans do not inflate count');
