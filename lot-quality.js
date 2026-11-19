@@ -77,7 +77,7 @@ const beforeQualityScan=checkedProcess;
 checkedProcess=async function(code){
  if(stage==='Uscita'&&current?.rows.some(r=>r.code===code&&r.state!=='Uscito')){
   const id=current.id;
-  try{await cloudFlush();const q=await Q.rpc('read',{lot_id:id,scan_code:code});
+  try{await cloudFlush();const q=await Q.rpc('read',{lot_id:id});
    if(current?.id!==id||stage!=='Uscita')return 'Schermata cambiata: scansione non registrata.';
    if(q.enabled&&!q.eligible.includes(code))return await qualityScanBlocked(code,'Il capo non è pronto per l’uscita: completa lavorazione, piegatura e interventi aperti. La conformità già registrata resta salvata.');
    if(q.enabled&&!q.released.includes(code))return await qualityScanBlocked(code,'Questo capo non è ancora autorizzato all’uscita: controlla anche lavorazioni e segnalazioni aperte. Premi HO CAPITO per aprire il controllo qualità del lotto. Registra il controllo eseguito con esito conforme, poi ripeti la scansione in Uscita.',id);
