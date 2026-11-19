@@ -1,5 +1,5 @@
 {
-  "updated": "18/11/2026",
+  "updated": "19/11/2026",
   "version": "2026.11.18",
   "sections": [
     {
@@ -74,12 +74,12 @@
       "id": "qualita",
       "title": "Controllo qualità e uscita",
       "steps": [
-        "Prima della consegna completa cicli, piegatura e interventi necessari. Apri Controllo qualità. Se il controllo è attivo, serve un esito conforme valido per i capi da far uscire.",
-        "Compila pulizia, asciugatura, integrità, identificazione e confezionamento, il numero di capi realmente controllati e l’esito. Non applicabile è previsto solo per asciugatura e confezionamento. Premi Registra controllo.",
-        "Conforme autorizza i capi pronti presenti al controllo. Aggiunte o modifiche richiedono una nuova verifica. Non conforme blocca nuove uscite: descrivi il problema e registra un nuovo controllo dopo la risoluzione.",
-        "Apri Uscita e scansiona i capi pronti autorizzati. Verifica lo stato Uscito. La scansione in uscita non aggiunge un lavaggio.",
-        "I mancanti sono i capi del lotto non ancora usciti, inclusi quelli ancora in lavorazione, con le esclusioni previste per dismissioni. Non sono automaticamente smarriti. Il verde del lotto indica completamento delle righe, non soltanto fine lavaggio.",
-        "Il controllo registrato non certifica risultati microbiologici o particellari. Se necessario indica il riferimento al documento di prova esterno."
+        "Prima della consegna completa lavorazione, piegatura e interventi necessari. Apri Controllo qualità e seleziona il codice del capo effettivamente controllato.",
+        "Controlla un capo iniziale per lotto e compila tutti gli esiti della checklist. Se conforme, Registra controllo salva la conformità e chiude la finestra: continua le scansioni in Uscita.",
+        "Se il primo capo è non conforme, descrivi il motivo e registra altri due capi distinti. Il massimo è tre campioni per lotto; nei lotti più piccoli si controllano i capi disponibili.",
+        "Sistema i capi non conformi e ricontrolla gli stessi codici: non servono nuovi campioni oltre i tre. Il lotto resta bloccato finché i campioni richiesti non risultano conformi. Lo storico conserva anche gli esiti precedenti.",
+        "La normale conclusione delle lavorazioni e le uscite non richiedono un nuovo campione. Capi aggiunti, rilavorati o con identità modificata richiedono una nuova verifica sugli stessi campioni. Restano necessari tutti i requisiti di lavorazione e l’assenza di interventi aperti.",
+        "Controlli registrati permette di consultare campioni, esiti, operatore e note. La scheda non certifica risultati microbiologici o particellari."
       ]
     },
     {
