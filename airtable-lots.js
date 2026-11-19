@@ -1,5 +1,14 @@
 /* Order links belong to each laundry lot, independently of product production references. */
 function lotOrderLabel(l){return [l.airtableOrderCode,l.airtableCustomerOrder].filter(Boolean).join(' · ')||l.airtableOrderId||''}
+// Display the Airtable order number separately from the customer's reference.
+function lotOrderSummary(l){
+ if(!l?.airtableOrderId)return '';
+ const order=typeof airtableOrders!=='undefined'?airtableOrders.find(o=>o.id===l.airtableOrderId):null;
+ const code=l.airtableOrderCode||order?.code;
+ const customer=l.airtableCustomerOrder||order?.customerOrder;
+ return 'Ordine Airtable: '+(code||'numero non disponibile')+(customer?' · Ordine cliente: '+customer:'');
+}
+function lotOrderMarkup(l){const text=lotOrderSummary(l);return text?'<span class="lot-order-reference" style="display:block;overflow-wrap:anywhere">'+esc(text)+'</span>':''}
 let airtableLotDialogRequest=0,airtableLotCreating=false;
 const newLotBeforeOrders=newLot;
 newLot=async function(orderId=''){
@@ -19,7 +28,7 @@ newLot=async function(orderId=''){
   if(orderId&&!c){note.textContent='Prima abbina il cliente dell’ordine in Ordini clienti → Abbina clienti.';return}
   if(c){client.value=c.name;client.dispatchEvent(new Event('change'));if(order.due)form.elements.due.value=order.due}
   const update=()=>{let id=clientByName(client.value)?.id,old=select.value;let choices=airtableOrders.filter(o=>airtableOrderClientId(o)===id);select.innerHTML='<option value="">Nessun ordine associato</option>'+choices.map(o=>`<option value="${o.id}">${esc(o.code)} · ${esc(o.customerOrder||'')} · ${esc(o.status||'')}</option>`).join('');select.value=choices.some(o=>o.id===old)?old:'';select.disabled=false;select.dispatchEvent(new Event('change'));note.textContent=choices.length?'Scegli l’ordine del cliente. Puoi suddividerlo in più lotti.':'Nessun ordine abbinato a questo cliente. Controlla Abbina clienti nella sezione Ordini clienti.'};
-  update();client.addEventListener('change',update);if(orderId){select.value=orderId;select.dispatchEvent(new Event('change'))}submit.disabled=false;
+  select.addEventListener('change',()=>{const selected=airtableOrders.find(o=>o.id===select.value);form.elements.due.readOnly=!!selected;if(selected)form.elements.due.value=(selected.due||'').slice(0,10)});update();client.addEventListener('change',update);if(orderId){select.value=orderId;select.dispatchEvent(new Event('change'))}submit.disabled=false;
  }catch(error){if(form.isConnected){select.innerHTML='<option value="">Ordini non disponibili</option>';note.textContent=error.message+(orderId?' Riprova prima di creare il lotto.':' Puoi creare un lotto senza ordine.');submit.disabled=!!orderId}}
 };
 const createLotBeforeOrders=createLot;
@@ -36,5 +45,5 @@ createLot=async function(e){
   created=true;$('#modal').close();cloudAccept(await cloudRequest(),false);openLot(data.lot.id);cloudDecorate();notify('Lotto creato e collegato a '+o.code);
  }catch(error){notify(created?'Lotto creato. Ricarica la pagina per visualizzarlo.':error.message);if(button&&!created)button.disabled=false}finally{airtableLotCreating=false}
 };
-const detailBeforeOrders=detail;detail=function(){detailBeforeOrders();if(!current?.airtableOrderId)return;let p=document.createElement('div');p.className='notice';p.id='lotAirtableOrder';let b=document.createElement('button');b.className='link';b.textContent='Ordine cliente: '+lotOrderLabel(current);let id=current.airtableOrderId;b.onclick=async()=>{try{await loadAirtableOrders(true);showAirtableOrder(id)}catch(e){notify(e.message)}};p.append(b);$('#app').prepend(p)};
+const detailBeforeOrders=detail;detail=function(){detailBeforeOrders();if(!current?.airtableOrderId)return;let p=document.createElement('div');p.className='notice';p.id='lotAirtableOrder';let b=document.createElement('button');b.className='link';b.textContent=lotOrderSummary(current);let id=current.airtableOrderId;b.onclick=async()=>{try{await loadAirtableOrders(true);showAirtableOrder(id)}catch(e){notify(e.message)}};p.append(b);$('#app').prepend(p)};
 const showAirtableOrderBeforeLots=showAirtableOrder;showAirtableOrder=function(id){showAirtableOrderBeforeLots(id);let o=airtableOrders.find(o=>o.id===id);if(!o)return;let section=document.createElement('section'),lots=db.lots.filter(l=>l.airtableOrderId===id);section.className='wide';section.innerHTML=`<h3>${lots.length} lotti collegati</h3>${lots.map(l=>`<p><button class="link" data-order-lot="${l.id}">${lotno(l)}</button> · ${lotStatus(l)}${l.archived?' · Storico':''} · ${l.rows.length} entrati · ${l.rows.filter(r=>r.state==='Uscito').length} usciti</p>`).join('')||'<p>Nessun lotto ancora aperto per questo ordine.</p>'}${lotWritable()?'<button type="button" class="btn" id="newLotFromOrder">＋ Apri lotto per questo ordine</button>':''}`;$('#modal h2').after(section);section.querySelectorAll('[data-order-lot]').forEach(b=>b.onclick=()=>{$('#modal').close();page='Lotti';openLot(+b.dataset.orderLot)});section.querySelector('#newLotFromOrder')?.addEventListener('click',()=>newLot(id))};

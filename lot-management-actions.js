@@ -21,6 +21,7 @@
   const signature=[current.id,!!current.archived,canArchive,canDelete].join('|');if(bar.dataset.signature===signature)return;bar.dataset.signature=signature;bar.replaceChildren();
   const id=current.id;
   function add(label,action,danger){const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=label;b.style.background=danger?'#c8232c':'#193c66';b.style.color='white';b.onclick=()=>{if(lotBusy()||washBusy||dryBusy||prodBusy)return notify('Attendi la registrazione in corso.');action()};bar.append(b)}
+  if(canArchive&&!current.archived)add('Modifica dati lotto',()=>editLotDetails(),false);
   if(canArchive)add(current.archived?'Ripristina lotto':'Archivia lotto',()=>current.archived?restoreArchivedLot(id):archiveLot(id),false);
   if(canDelete)add('Elimina lotto',()=>planningDeleteDialog('delete_lot',id),true);
  };
