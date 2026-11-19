@@ -189,7 +189,7 @@ F.drawLotResults=function(){
  <span class="floor-lot-identity"><small>REPARTO</small><strong>${esc(l.departmentName||'Reparto non indicato')}</strong></span>
  <span class="floor-lot-identity floor-lot-client"><small>CLIENTE</small><strong>${esc(l.client||'Cliente non indicato')}</strong></span>
  <span>${esc(lotno(l))}</span>${lotOrderMarkup(l)}${F.phase==='entry'?`<span class="floor-lot-state">${lotSignal(l).label}</span><span class="floor-lot-arrival">Arrivo: ${esc(l.date?lotDate(l.date):'Data non indicata')}</span>`:''}
- <span>${F.phase==='fold'?foldRows(l).length+' da piegare · '+labelsPending(l).length+' da etichettare':l.rows.length+(l.rows.length===1?' capo nel lotto':' capi nel lotto')} · ${esc(deliveryKey(l)==='9999'?'Consegna da definire':'Consegna '+lotDeliveryDate(deliveryKey(l)))}</span>${typeof pAssignmentPlaceholder==='function'?pAssignmentPlaceholder(l.id):''}<b>Apri →</b></button>`;
+ <span>${F.phase==='fold'?foldRows(l).length+' da piegare · '+labelsPending(l).length+' da etichettare':l.rows.length+(l.rows.length===1?' capo nel lotto':' capi nel lotto')}</span><span class="floor-delivery-box${deliveryKey(l)==='9999'?' is-unset':''}"><small>CONSEGNA</small><strong>${esc(deliveryKey(l)==='9999'?'Da definire':lotDeliveryDate(deliveryKey(l)))}</strong></span>${typeof pAssignmentPlaceholder==='function'?pAssignmentPlaceholder(l.id):''}<b>Apri →</b></button>`;
  const finished=F.phase==='entry'?lots.filter(l=>lotSignal(l).key==='finished'):[];
  const active=F.phase==='entry'?lots.filter(l=>lotSignal(l).key!=='finished'):lots;
  host.innerHTML=active.map(card).join('')||'<div class="floor-empty">'+(words.length?'Nessun lotto attivo corrisponde alla ricerca.':'Nessun lotto in attesa per questa fase.')+'</div>';
