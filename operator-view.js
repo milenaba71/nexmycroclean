@@ -30,7 +30,7 @@ F.office=function(){if(busy())return notify('Attendi la registrazione in corso.'
 F.refresh=async function(){if(F.loading||busy())return;const request=++F.request,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);F.loading=true;F.error='';try{await cloudFlush();const snap=await cloudBootDeadline(cloudRequest(),controller.signal);cloudAccept(snap,false);await cloudBootDeadline(Promise.all([pRpc('read'),washRpc('read'),dryRpc('read')]),controller.signal);}catch(e){F.error=pError(e)}finally{clearTimeout(timer);F.loading=false;if(F.active&&request===F.request){if(F.screen==='lot')F.decorate();else F.draw()}}};
 F.draw=function(){if(!F.active||!cloudUser)return;if(F.screen==='ddt')return window.DdtReturns?.view();if(F.screen==='mask')return window.MaskStock?.view();if(F.screen==='lot')return F.decorate();if(F.screen==='maintenance')return drawMaintenance();if(F.screen==='chat')return F.drawChat();if(F.screen==='machines')return drawMachines();if(F.screen==='water')return drawWater();if(F.screen==='lots')return drawLots();if(F.screen==='work')return drawWork();if(F.screen==='instructions')return;if(F.screen==='repairs')return drawRepairOverview();if(F.screen==='repair')return repairProductCode?drawRepairProduct(repairLotId,repairProductCode):drawRepairLot(repairLotId);
  const lots=db.lots.filter(l=>!l.archived&&(!l.rows.length||openRows(l).length));const batches=washState?.batches||[],dry=dryState?.carts||[];
- const counts=[lots.length,activeWashCarts().filter(b=>b.state!=='running').length+dry.filter(c=>!c.cycle||c.cycle.state==='blocked').length,lots.reduce((n,l)=>n+foldRows(l).length,0),lots.filter(readyForDispatch).reduce((n,l)=>n+openRows(l).length,0),db.lots.filter(l=>!l.archived).reduce((n,l)=>n+pendingRows(l).length,0)];
+ const counts=[lots.length,activeWashCarts().filter(b=>b.state!=='running').length+dry.filter(c=>!c.cycle||c.cycle.state==='blocked').length,lots.reduce((n,l)=>n+foldRows(l).length,0),lots.reduce((n,l)=>n+dispatchReadyRows(l).length,0),db.lots.filter(l=>!l.archived).reduce((n,l)=>n+pendingRows(l).length,0)];
  shell(`<div class="floor-home-grid">${[['entry','1','Entrata','lotti aperti','floor.list(\'entry\')'],['wash','2','Lavaggio','carrelli in attesa','floor.machines()'],['fold','3','Piegatura','capi da piegare','floor.list(\'fold\')'],['out','4','Uscita','capi pronti','floor.list(\'out\')'],['repair','5','Reparto cucito','capi da riparare o etichettare','floor.repairs()']].map(([phase,n,title,unit,fn],i)=>`<button class="floor-home-card phase-${phase}" onclick="${fn}">${['entry','fold','repair','out','wash'].includes(phase)?'<span class="floor-fold-icon-label '+(['entry','repair'].includes(phase)?'floor-control-entry-label':'')+'"><img src="'+({wash:'assets/reparto-lavaggio-operatore.jpeg',entry:'assets/reparto-controllo-entrata.jpeg',fold:'assets/reparto-piegatura-operatore.jpeg',repair:'assets/reparto-cucito-operatore.jpeg',out:'assets/reparto-uscita-operatore.jpeg'}[phase])+'" alt="" width="96" height="64"><span>'+({wash:'Lavaggio',entry:'Controllo entrata',fold:'Piegatura',repair:'Reparto cucito',out:'Uscita'}[phase])+'</span></span>':['entry','wash','repair'].includes(phase)?'<img class="floor-department-icon '+(phase==='entry'?'floor-entry-icon':'')+'" src="'+({entry:'assets/reparto-entrata.jpeg',wash:'assets/reparto-lavaggio-operatore.jpeg',fold:'assets/reparto-piegatura-operatore.jpeg',repair:'assets/reparto-cucito-operatore.jpeg'}[phase])+'" alt="" width="100" height="100">':'<span class="floor-step">'+n+'</span>'}${['entry','fold','repair','out','wash'].includes(phase)?'':'<h2>'+title+'</h2>'}<strong>${i===1&&(!washState||!dryState)?'—':counts[i]}</strong><span>${unit}</span><span class="floor-card-link">Apri →</span></button>`).join('')}<button type="button" class="floor-home-card phase-repair" onclick="floor.maintenance()"><span class="floor-fold-icon-label floor-maintenance-icon-label"><img src="assets/reparto-guasti-manutenzioni.jpeg" alt="" width="96" height="64"><span>Guasti e manutenzioni</span></span><strong>${prod?(prod.tickets||[]).filter(t=>t.status!=='closed').length:'—'}</strong><span>segnalazioni aperte</span><span class="floor-card-link">Apri →</span></button><button type="button" class="floor-home-card floor-chat-card" onclick="floor.chat()"><span class="chatta-home-icon">${chatIcon()}</span><h2>Chatta<span data-chat-count></span></h2><span class="chatta-description">Scrivi a uno o più utenti<br>Tagga con @nome</span><span class="floor-card-link">Apri chat →</span></button><button class="floor-home-card phase-entry" onclick="floor.ddt()"><span class="floor-step">DDT</span><h2>DDT fornitori</h2><span>Conta e registra i rientri manuali</span><span class="floor-card-link">Apri →</span></button><button class="floor-home-card phase-entry" onclick="floor.mask()"><span class="floor-step">MASK</span><h2>Mascherine</h2><span>Carica gli imbustati · Scarica 250 pezzi</span><span class="floor-card-link">Apri →</span></button></div>${F.error?`<div class="floor-warning" role="alert">Dati da aggiornare: ${esc(F.error)} ${button('Riprova','floor.refresh()')}</div>`:''}<p class="floor-updated">${F.loading?'Aggiornamento in corso…':'Dati condivisi del reparto. Verifica sempre il lotto prima di lavorare.'} ${button('Aggiorna','floor.refresh()')}</p>`,'Il tuo lavoro, da qui','entry');
 };
 F.list=function(phase){if(busy())return notify('Attendi la registrazione in corso.');F.phase=phase;F.screen='lots';F.feedback=null;current=null;page='Reparto';setMode(true);drawLots()};
@@ -58,7 +58,7 @@ async function openPhaseRfid() {
  const valid=()=>F.active && F.screen==='lot' && F.phase===phase && current?.id===lotId &&
    !current.archived && stage===(phase==='fold'?'Lavorazione':'Uscita') && userCan('lots_work');
  if(!valid()) return;
- if(phase==='out'&&!readyForDispatch(current)) return notify('Completa tutti i capi prima di registrare l’uscita del lotto.');
+ if(phase==='out'&&!readyForDispatch(current)) return notify('Nessun capo pronto per l’uscita: completa almeno un capo.');
  if(phase==='out'){
    try{
      const quality=await window.LotQuality.rpc('read',{lot_id:lotId});
@@ -117,7 +117,7 @@ async function openPhaseRfid() {
        if(seen.has(id)||['Uscito','Dismesso'].includes(row.state)||(phase==='fold'&&row.foldedAt)){
          issues.push(epc+' · già elaborato o dismesso');continue;
        }
-       if(phase==='out'&&!readyForDispatch(current)) throw Error('Il lotto ha ancora capi da completare.');
+       if(phase==='out'&&!readyForDispatch(current)) throw Error('Nessun capo pronto per l’uscita. I capi in attesa restano nel lotto.');
        productsHydrate(rows);productRemote.pinned=[id];
        const error=await checkedProcess(id);
        if(error){issues.push(epc+' · '+error);continue;}
@@ -134,10 +134,10 @@ async function openPhaseRfid() {
  };
 }
 
-function readyForDispatch(lot){
- const rows=openRows(lot);
- return rows.length>0&&rows.every(r=>lotReady(r)&&r.completed&&!pendingFlags(r).length&&(!r.requiresDrying||r.dryState==='done'));
+function dispatchReadyRows(lot){
+ return openRows(lot).filter(r=>lotReady(r)&&r.completed&&!pendingFlags(r).length&&(!r.requiresDrying||r.dryState==='done'));
 }
+function readyForDispatch(lot){return dispatchReadyRows(lot).length>0;}
 function labelsPending(lot){return openRows(lot).filter(r=>r.relabel)}
 function foldingLabels(lot){
  const rows=labelsPending(foldScope(lot));
@@ -198,7 +198,7 @@ F.drawLotResults=function(){
   $('#floorFinishedLots').ontoggle=function(){if(!words.length)F.finishedLotsOpen=this.open};
  }
 };
-F.openLot=async function(id,phase){if(!db.lots.some(l=>l.id===Number(id)))return notify('Lotto non disponibile. Aggiorna i dati.');if(busy())return notify('Attendi la registrazione in corso.');if(phase==='out'&&!readyForDispatch(db.lots.find(l=>l.id===Number(id))))return notify('Il lotto ha ancora capi da completare.');if(F.productsLot!==Number(id)||F.phase!==phase){F.productsLot=Number(id);F.productQuery='';F.productStatus='';F.productPage=1}F.phase=phase;F.screen='lot';F.feedback=null;setMode(true);openLot(Number(id));if(!current)return;lotSetStage({entry:'Entrata',fold:'Lavorazione',out:'Uscita',repair:'Riparazioni'}[phase]);await F.refresh();F.focus()};
+F.openLot=async function(id,phase){if(!db.lots.some(l=>l.id===Number(id)))return notify('Lotto non disponibile. Aggiorna i dati.');if(busy())return notify('Attendi la registrazione in corso.');if(phase==='out'&&!readyForDispatch(db.lots.find(l=>l.id===Number(id))))return notify('Nessun capo pronto per l’uscita. I capi in attesa restano nel lotto.');if(F.productsLot!==Number(id)||F.phase!==phase){F.productsLot=Number(id);F.productQuery='';F.productStatus='';F.productPage=1}F.phase=phase;F.screen='lot';F.feedback=null;setMode(true);openLot(Number(id));if(!current)return;lotSetStage({entry:'Entrata',fold:'Lavorazione',out:'Uscita',repair:'Riparazioni'}[phase]);await F.refresh();F.focus()};
 F.newLot=async function(){if(busy()||F.creatingLot)return notify('Attendi la registrazione in corso.');if(!userCan('lots_create'))return notify('Non hai il permesso di creare lotti.');try{await newLot()}catch(e){notify(e.message)}};
 const floorCreateLot=createLot;createLot=async function(e){if(!F.active)return floorCreateLot(e);if(!userCan('lots_create')){e.preventDefault();return notify('Non hai il permesso di creare lotti.')}if(F.creatingLot){e.preventDefault();return}F.creatingLot=true;try{return await floorCreateLot(e)}finally{F.creatingLot=false;if(F.active&&F.screen==='lot')F.decorate()}};
 const floorOpenCreatedLot=openLot;openLot=function(id){if(F.active&&F.creatingLot){F.screen='lot';F.phase='entry';F.feedback=null;F.productQuery='';F.productPage=1;F.productsLot=Number(id);F.productsOpen=false;}return floorOpenCreatedLot(id)};
