@@ -5,7 +5,8 @@ const c={current:{rows:[row]},db:{garments:[{id:row.code,rental:false}]},userCan
 vm.createContext(c);
 vm.runInContext(fs.readFileSync('garment-lifecycle.js','utf8').match(/^function assetArg\(x\).*$/m)[0],c);
 const discard=fs.readFileSync('discard.js','utf8');vm.runInContext(discard.slice(discard.indexOf('const customerDiscardNote=')),c);
-const op=fs.readFileSync('operator-view.js','utf8');vm.runInContext(`(function(){const F={},arg=v=>assetArg(v);${op.match(/^F.flags=function.*$/m)[0]}globalThis.floor=F;})();`,c);
+const op=fs.readFileSync('operator-view.js','utf8');vm.runInContext(`(function(){const F={},arg=v=>assetArg(v);${op.slice(op.indexOf('function floorCustomerDiscardOption'),op.indexOf('F.flag=async'))}globalThis.floor=F;})();`,c);
+c.customerDiscardOption=()=>{throw Error('arg is not defined (old cached helper)')};
 assert.equal(c.arg,undefined); // Match the real script boundary, which previously broke all openings.
 for(const rental of [false,true,undefined]){
  c.db.garments[0].rental=rental;c.floor.flags(row.code);
@@ -18,3 +19,11 @@ vm.runInContext(fs.readFileSync('lot-workflow.js','utf8').match(/^function editL
 c.floor.flags(row.code);const notes=html.match(/onclick="([^"]+)"[^>]*>Note del capo/)[1];vm.runInContext(notes,c);assert(html.includes('Nota esistente'));assert(html.includes('Salva note'));
 c.current.archived=true;c.floor.flags(row.code);assert(html.includes('disabled>Note del capo'));
 console.log('PASS: shared dialog opens across ownership types; special codes, notes editor and read-only permissions preserved');
+// Folding stays visible with a reason instead of disappearing for completed/blocked rows.
+vm.runInContext(`(function(){const F={phase:'fold'},arg=v=>assetArg(v),attr=esc;${op.slice(op.indexOf('function foldListedButton'),op.indexOf('F.drawProducts=function'))}globalThis.foldButton=foldListedButton;})();`,c);
+c.current.archived=false;c.current.id=42;
+assert(!c.foldButton({code:'Q01056',washed:true,state:'In lavorazione'}).includes('disabled'));
+for(const [r,reason] of [[{foldedAt:'2026-11-19'},'Piegatura già confermata'],[{washed:false},'Attendi il lavaggio'],[{requiresDrying:true,dryState:'running'},'Attendi l’asciugatura'],[{state:'Uscito'},'Capo già uscito']]){
+ const out=c.foldButton({code:'Q01056',washed:true,...r});assert(out.includes('Conferma piegatura'));assert(out.includes('disabled'));assert(out.includes(reason));
+}
+console.log('PASS: folding action retained with explicit readiness reason');
