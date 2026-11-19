@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('operator-view.js','utf8');
+const context={F:{phase:'out'},lotReady:r=>r.completed&&!r.repair,lotRowStatus:r=>r.state};vm.createContext(context);
+vm.runInContext(source.slice(source.indexOf('F.productRowStatus=function'),source.indexOf('F.productStatusControl=function')),context);
+const rows=[...Array.from({length:18},(_,i)=>({code:'out'+i,state:'Uscito',completed:true})),{code:'missing1',state:'In lavorazione',completed:true,discardForReturn:true},{code:'missing2',state:'In lavorazione',completed:true,discardForReturn:true},{code:'retired',state:'Dismesso'}];
+const select=status=>{context.F.productStatus=status;return rows.filter(context.F.matchesProductStatus).map(r=>r.code)};
+assert.deepEqual(select('exit:missing'),['missing1','missing2']);assert.equal(select('exit:out').length,18);assert.deepEqual(select('exit:retired'),['retired']);assert.equal(select('exit:working').length,0);
+assert.equal(context.F.productRowStatus(rows[18]),'Da uscire · Scarto da restituire al cliente');assert.equal(context.F.productRowStatus(rows[0]),'Uscito');
+context.F.phase='fold';assert.deepEqual(select('state:In lavorazione'),['missing1','missing2']);
+console.log('PASS: 18 exited, 2 missing customer returns; retired excluded; exit statuses and folding filters');
