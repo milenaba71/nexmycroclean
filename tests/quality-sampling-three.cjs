@@ -47,4 +47,17 @@ assert.equal(await scopedReady(45,{...rows[0],discard:true,discardForReturn:true
 assert.equal(await scopedReady(44,{...rows[0],discard:true,discardForReturn:true}),false);
 assert.equal(await scopedReady(45,{...rows[0],discard:true,discardForReturn:true,repair:true}),false);
 assert.equal(await scopedReady(45,{...rows[1],discard:true,discardForReturn:true}),false);
+await pg.exec(fs.readFileSync('sql/quality-scan-read.sql','utf8'));
+const fullRead=await call('read');
+for(const code of ['1','2','3','4','unknown']){
+ const compact=await call('read',{scan_code:code});
+ assert.equal(compact.enabled,fullRead.enabled);
+ assert.deepEqual(compact.eligible,fullRead.eligible.filter(x=>x===code));
+ assert.deepEqual(compact.released,fullRead.released.filter(x=>x===code));
+ assert.equal(compact.rows,undefined);assert.equal(compact.checks,undefined);
+}
+await assert.rejects(()=>call('read',{scan_code:''}),/INVALID_BARCODE/);
+await assert.rejects(()=>call('read',{lot_id:999,scan_code:'1'}),/LOT_NOT_FOUND/);
+await assert.rejects(()=>update([{...rows[0],state:'Uscito'},...rows.slice(1)]),/QUALITY_RELEASE_REQUIRED/);
+console.log('PASS compact scan matches full quality status; unknown rejected; final exit guard remains active');
 console.log('PASS: bounded distinct samples, first failure expansion, corrections, repeat exits, legacy releases, readiness, rewash/identity invalidation, concurrent writes and permissions');await pg.close();})().catch(e=>{console.error(e);process.exit(1)});
