@@ -17,22 +17,22 @@
   if(!job&&(!washChoice||!selectedProcessing()))return notify('Scegli prima il percorso e il lavaggio.');
   const types=catalogRows('type').filter(t=>t.active);if(!types.length)return notify('Inserisci prima un tipo prodotto nelle anagrafiche.');
   const dialog=document.getElementById('modal');dialog.style.maxWidth='620px';
-  show('<h2>Nuovi prodotti nel lotto</h2><p><b>'+esc(lotno(lot))+'</b><br>'+esc(lot.client)+' · '+esc(lot.departmentName||'Reparto non indicato')+'</p><form id="entryProductForm" style="display:block"><label style="display:grid;gap:8px">Tipo di capo<select id="entryProductType" required><option value="">Scegli il tipo…</option>'+types.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>').join('')+'</select></label><label style="display:grid;gap:8px;margin-top:14px">Quanti capi?<input id="entryProductQuantity" type="number" min="1" max="100" step="1" value="1" required></label><p>Un barcode diverso per ogni capo. Tutti i prodotti vengono aggiunti al lotto con lo stesso tipo, cliente, reparto e percorso. Fino a 100 capi per operazione.</p><p id="entryProductError" role="status" aria-live="polite"></p><div class="tools"><button class="btn" type="submit" id="entryProductSave">Crea prodotti e aggiungi al lotto</button><button class="btn secondary" type="button" id="entryProductCancel">Annulla</button></div></form>');
-  const select=document.getElementById('entryProductType'),quantity=document.getElementById('entryProductQuantity'),form=document.getElementById('entryProductForm'),err=document.getElementById('entryProductError'),save=document.getElementById('entryProductSave');
-  if(job){select.value=job.type_id;quantity.value=job.items.length;select.disabled=quantity.disabled=true;err.textContent=(job.saved?.length||0)+' di '+job.items.length+' capi già inseriti. Premi Riprendi per completare senza duplicati.';save.textContent='Riprendi inserimento'}
+  show('<h2>Nuovi prodotti nel lotto</h2><p><b>'+esc(lotno(lot))+'</b><br>'+esc(lot.client)+' · '+esc(lot.departmentName||'Reparto non indicato')+'</p><form id="entryProductForm" style="display:block"><label style="display:grid;gap:8px">Tipo di capo<select id="entryProductType" required><option value="">Scegli il tipo…</option>'+types.map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>').join('')+'</select></label><label style="display:grid;gap:8px;margin-top:14px">Proprietà<select id="entryProductOwnership" data-native-select required><option value="">Scegli la proprietà…</option><option value="client">Proprietà cliente</option><option value="rental">Mycroclean · Noleggio</option></select></label><label style="display:grid;gap:8px;margin-top:14px">Quanti capi?<input id="entryProductQuantity" type="number" min="1" max="100" step="1" value="1" required></label><p>Un barcode diverso per ogni capo. Tutti i prodotti vengono aggiunti al lotto con lo stesso tipo, proprietà, cliente, reparto e percorso. Tutti saranno segnati come Da etichettare. Fino a 100 capi per operazione.</p><p id="entryProductError" role="status" aria-live="polite"></p><div class="tools"><button class="btn" type="submit" id="entryProductSave">Crea prodotti e aggiungi al lotto</button><button class="btn secondary" type="button" id="entryProductCancel">Annulla</button></div></form>');
+  const ownership=document.getElementById('entryProductOwnership'),select=document.getElementById('entryProductType'),quantity=document.getElementById('entryProductQuantity'),form=document.getElementById('entryProductForm'),err=document.getElementById('entryProductError'),save=document.getElementById('entryProductSave');
+  if(job){const rental=job.items[0]?.rental;if(typeof rental==='boolean')ownership.value=rental?'rental':'client';else{ownership.add(new Option('Da definire · inserimento precedente','legacy'));ownership.value='legacy'}ownership.disabled=true;select.value=job.type_id;quantity.value=job.items.length;select.disabled=quantity.disabled=true;err.textContent=(job.saved?.length||0)+' di '+job.items.length+' capi già inseriti. Premi Riprendi per completare senza duplicati.';save.textContent='Riprendi inserimento'}
   const guard=e=>{if(E.saving)e.preventDefault()};dialog.addEventListener('cancel',guard);dialog.addEventListener('close',()=>dialog.removeEventListener('cancel',guard),{once:true});
   document.getElementById('entryProductCancel').onclick=()=>{if(!E.saving)dialog.close()};
   form.onsubmit=async e=>{
    e.preventDefault();if(E.saving)return;
    if(current?.id!==lot.id||stage!=='Entrata')return notify('Riapri il lotto in Entrata.');
    if(!job){
-    const n=Number(quantity.value);if(!select.value||!Number.isInteger(n)||n<1||n>100){err.textContent='Scegli il tipo e una quantità intera da 1 a 100.';return}
-    const pair=washChoiceParts(),base={lot_id:lot.id,type_id:select.value,program_id:pair?.[0]||null,machine_id:pair?.[1]||null,processing_id:pair?null:selectedProcessing()?.id};
+    const n=Number(quantity.value);if(!select.value||!['client','rental'].includes(ownership.value)||!Number.isInteger(n)||n<1||n>100){err.textContent='Scegli il tipo, la proprietà e una quantità intera da 1 a 100.';return}
+    const pair=washChoiceParts(),base={lot_id:lot.id,type_id:select.value,rental:ownership.value==='rental',program_id:pair?.[0]||null,machine_id:pair?.[1]||null,processing_id:pair?null:selectedProcessing()?.id};
     job={type_id:select.value,items:Array.from({length:n},()=>({...base,request_id:crypto.randomUUID()})),saved:[]};
    }
    const persist=()=>sessionStorage.setItem(storeKey,JSON.stringify(job));
    try{persist()}catch{return notify('Impossibile conservare il salvataggio nel browser. Abilita la memoria del sito e riprova.')}
-   E.saving=true;lotActionBusy=true;select.disabled=quantity.disabled=true;form.querySelectorAll('button').forEach(b=>b.disabled=true);
+   E.saving=true;lotActionBusy=true;ownership.disabled=select.disabled=quantity.disabled=true;form.querySelectorAll('button').forEach(b=>b.disabled=true);
    let lastData=null;
    try{
     err.textContent='Preparazione del salvataggio…';await E.deadline(cloudFlush());
@@ -46,7 +46,7 @@
     }
     const codes=[...job.saved];sessionStorage.removeItem(storeKey);
     detail();
-    show('<h2>'+codes.length+' prodotti aggiunti al lotto</h2><p>'+esc(types.find(t=>t.id===job.type_id)?.name||'')+' · '+esc(lotno(lot))+'</p><p>Barcode creati: '+codes.map(esc).join(', ')+'</p><div class="tools"><button type="button" class="btn" id="entryProductLabel">Crea tutte le etichette</button><button type="button" class="btn secondary" id="entryProductDone">Chiudi</button></div>');
+    show('<h2>'+codes.length+' prodotti aggiunti al lotto</h2><p>'+esc(types.find(t=>t.id===job.type_id)?.name||'')+' · '+esc(lotno(lot))+'</p><p>Tutti i capi sono segnati come <b>Da etichettare</b>.</p><p>Barcode creati: '+codes.map(esc).join(', ')+'</p><div class="tools"><button type="button" class="btn" id="entryProductLabel">Crea tutte le etichette</button><button type="button" class="btn secondary" id="entryProductDone">Chiudi</button></div>');
     document.getElementById('entryProductLabel').onclick=()=>{dialog.close();openLabelEditor(codes)};
     document.getElementById('entryProductDone').onclick=()=>{dialog.close();document.getElementById('scan')?.focus()};
     void E.deadline(washRpc('read',{lotId:lot.id}),15000).then(()=>{if(current?.id===lot.id)washRender()}).catch(()=>notify('Prodotti salvati. Premi Aggiorna per ricaricare i carrelli.'));

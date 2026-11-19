@@ -22,7 +22,7 @@
         "Controlla l’esito prima di leggere il capo successivo. Dopo la registrazione il campo scansione torna pronto, salvo finestre o controlli in corso. Le note delle segnalazioni compaiono sotto Stato e segnalazioni.",
         "Per annotazioni generali usa Note del lotto e Salva note. In Elenco capi del lotto apri Segnalazioni e note sul singolo capo per riparazione, etichettatura, verifica, rilavaggio o valutazione dello scarto.",
         "Se un codice non è conosciuto, controlla i dati nella procedura proposta e scegli correttamente proprietà cliente o noleggio. Non creare un secondo prodotto per aggirare un errore di lettura.",
-        "+ Nuovi prodotti permette di creare da 1 a 100 capi dello stesso tipo, ciascuno con un barcode distinto, nel lotto e percorso scelti. In caso di inserimento interrotto usa Riprendi inserimento e controlla i capi già salvati."
+        "+ Nuovi prodotti permette di creare da 1 a 100 capi dello stesso tipo: scegli Proprietà cliente oppure Mycroclean · Noleggio. Tutti i capi ricevono barcode distinti e la segnalazione Da etichettare. In caso di interruzione usa Riprendi inserimento: i capi già salvati non vengono duplicati."
       ]
     },
     {
