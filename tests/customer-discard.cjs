@@ -1,5 +1,6 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-const source=fs.readFileSync('discard.js','utf8'),ctx={arg:JSON.stringify};vm.createContext(ctx);
+const source=fs.readFileSync('discard.js','utf8'),ctx={};vm.createContext(ctx);
+vm.runInContext(fs.readFileSync('garment-lifecycle.js','utf8').match(/^function assetArg\(x\).*$/m)[0],ctx);
 vm.runInContext(source.slice(source.indexOf('const customerDiscardNote=')),ctx);
 const row={code:'A',state:'Entrato',notes:'Tasca danneggiata',washBatchId:'W',washed:true};
 for(const rental of [true,null,undefined]){

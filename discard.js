@@ -18,5 +18,5 @@ function setCustomerDiscardReturn(row,garment,value){
 function customerDiscardOption(row,garment,writable){
  const owned=garment?.rental===false;
  const reason=owned?'':garment?.rental===true?'Non disponibile per capi a noleggio.':'Imposta prima Proprietà cliente nella scheda prodotto.';
- return `<label><input type="checkbox" data-floor-flag="discardForReturn" ${row.discardForReturn?'checked':''} ${writable&&owned?'':'disabled'} onchange="floor.flag(${arg(row.code)},'discardForReturn',this.checked)"> Scarto · da restituire al cliente</label>${reason?`<p class="muted">${reason}</p>`:''}`;
+ return `<label><input type="checkbox" data-floor-flag="discardForReturn" ${row.discardForReturn?'checked':''} ${writable&&owned?'':'disabled'} onchange="floor.flag(${assetArg(row.code)},'discardForReturn',this.checked)"> Scarto · da restituire al cliente</label>${reason?`<p class="muted">${reason}</p>`:''}`;
 }
