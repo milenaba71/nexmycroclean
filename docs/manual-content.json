@@ -17,6 +17,7 @@
       "title": "Entrata, note e nuovi prodotti",
       "steps": [
         "Apri Entrata e scegli il lotto oppure Apri nuovo lotto, se abilitato. Compila i dati richiesti e controlla cliente e reparto.",
+        "Nell’elenco dei lotti in Entrata, ogni riquadro mostra Arrivo (la data di ingresso registrata nel lotto) e Consegna. Se la data di arrivo manca, compare Data non indicata.",
         "Prima scegli il percorso e il tipo di lavaggio nel campo Lavaggio e macchina. Poi scansiona il codice. La registrazione non è consentita senza un percorso valido.",
         "Controlla l’esito prima di leggere il capo successivo. Dopo la registrazione il campo scansione torna pronto, salvo finestre o controlli in corso. Le note delle segnalazioni compaiono sotto Stato e segnalazioni.",
         "Per annotazioni generali usa Note del lotto e Salva note. In Elenco capi del lotto apri Segnalazioni e note sul singolo capo per riparazione, etichettatura, verifica, rilavaggio o valutazione dello scarto.",
