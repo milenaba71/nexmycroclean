@@ -143,7 +143,7 @@ function foldingLabels(lot){
  const rows=labelsPending(foldScope(lot));
  if(!rows.length)return '<p>Nessun capo da etichettare.</p>';
  const products=new Map(db.garments.map(g=>[g.id,g]));
- return '<details class="floor-missing" open><summary>Da etichettare · '+rows.length+'</summary>'+rows.map(r=>{
+ return '<details class="floor-missing"><summary>Da etichettare · '+rows.length+'</summary>'+rows.map(r=>{
   const garment=products.get(r.code);
   return '<div>'+productCodeLink(r.code)+'<span>'+esc(garment?.type||'Tipo non indicato')+'</span><small>'+esc(garment?.name||'')+'</small></div>';
  }).join('')+'</details>';
