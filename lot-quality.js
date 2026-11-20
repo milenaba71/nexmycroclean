@@ -157,7 +157,7 @@ Q.reportHtml=function(data,mode){
  <h2>6. Registro operazioni del lotto</h2>${table(['Data / ora','Operazione','Codice','Operatore'],(l.events||[]).map(e=>[e.time||e.at||'—',e.action,e.code||'—',e.actor||'—']))}` }
  <footer>Mycroclean · ${text(lotno(l))} · Report generato dai dati salvati su Supabase. Conservare il PDF con la documentazione amministrativa del periodo.</footer></html>`;
 };
-Q.report=async function(id,mode){const popup=window.open('about:blank','_blank');if(!popup)return notify('Consenti l’apertura della finestra per visualizzare il report.');popup.opener=null;popup.document.body.textContent='Preparazione del report…';try{await cloudFlush();const data=await Q.rpc('report',{lot_id:id});if(popup.closed)return;popup.document.open();popup.document.write(Q.reportHtml(data,mode));popup.document.close()}catch(e){if(!popup.closed)popup.document.body.textContent='Report non disponibile: '+err(e);notify(err(e))}};
+Q.report=async function(id,mode){if(window.floor?.active&&mode!=='repairs')return window.printLotSummary(id,true);const popup=window.open('about:blank','_blank');if(!popup)return notify('Consenti l’apertura della finestra per visualizzare il report.');popup.opener=null;popup.document.body.textContent='Preparazione del report…';try{await cloudFlush();const data=await Q.rpc('report',{lot_id:id});if(popup.closed)return;popup.document.open();popup.document.write(Q.reportHtml(data,mode));popup.document.close()}catch(e){if(!popup.closed)popup.document.body.textContent='Report non disponibile: '+err(e);notify(err(e))}};
 Q.decorate();
 })();
 

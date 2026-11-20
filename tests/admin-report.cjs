@@ -8,3 +8,14 @@ let h=ctx.Q.reportHtml(data);assert.match(h,/green">1<\/span> <b>Prodotti usciti
 data.lot.rows=[{code:'2',state:'Entrato',repair:true,replacement:true,rewashPending:true}];h=ctx.Q.reportHtml(data);assert.match(h,/zero">0<\/span> <b>Prodotti usciti/);assert(!h.includes('qty green'));assert(!h.includes('Toppa'));
 assert.match(ctx.Q.reportHtml(data,'repairs'),/Report reparto cucito del lotto/);
 console.log('PASS: exited-only quantities, recorded interventions, executed replacements, rewashes, pending exclusions, escaping, sewing report preserved');
+
+// Department administration uses the full, refreshed lot summary; sewing stays separate.
+(async()=>{
+ const calls=[];let opened=0;
+ ctx.window={floor:{active:true},printLotSummary:async(...args)=>{calls.push(args);return 'full-summary'},open:()=>{opened++;return null}};ctx.notify=()=>{};
+ vm.runInContext(source.split('\n').find(line=>line.startsWith('Q.report=async')),ctx);
+ assert.equal(await ctx.Q.report(45),'full-summary');assert.deepEqual(calls,[[45,true]]);assert.equal(opened,0);
+ await ctx.Q.report(45,'repairs');assert.equal(opened,1);assert.equal(calls.length,1);
+ ctx.window.floor.active=false;await ctx.Q.report(45);assert.equal(opened,2);assert.equal(calls.length,1);
+ console.log('PASS: department full summary, sewing and office report routing preserved');
+})().catch(e=>{console.error(e);process.exitCode=1});
