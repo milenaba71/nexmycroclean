@@ -1,4 +1,4 @@
-function userCan(cap){if(!cloudUser)return false;if(cap==='planning_delete'&&cloudUser.role!=='admin')return false;if(cloudUser.isSuperAdmin)return true;return cloudUser.permissions?cloudUser.permissions[cap]===true:cloudUser.role==='admin'||cloudUser.role==='operator'&&['lots_work','lots_create','production_execute','tickets_manage'].includes(cap)}
+function userCan(cap){if(!cloudUser)return false;if(cap==='assistant_edit')return cloudUser.isSuperAdmin===true||cloudUser.permissions?.assistant_edit===true;if(cap==='planning_delete'&&cloudUser.role!=='admin')return false;if(cloudUser.isSuperAdmin)return true;return cloudUser.permissions?cloudUser.permissions[cap]===true:cloudUser.role==='admin'||cloudUser.role==='operator'&&['lots_work','lots_create','production_execute','tickets_manage'].includes(cap)}
 let cloudRevision=0,cloudUser=null,cloudBase=null,cloudBusy=false,cloudStopped=false,cloudQueue=[],cloudLocalBackup=null;
 const cloudEntities=['garments','clientRecords','processing','lots'];
 const clone=x=>JSON.parse(JSON.stringify(x));

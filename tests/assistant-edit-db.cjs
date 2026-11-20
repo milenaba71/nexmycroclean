@@ -1,0 +1,63 @@
+const fs=require('fs'),assert=require('node:assert/strict');
+const {PGlite}=require(process.env.PGLITE_PATH||'@electric-sql/pglite');
+(async()=>{
+ const db=new PGlite();
+ await db.exec(`create role anon;create role authenticated;create schema auth;create schema laundry_private;
+ create function auth.uid() returns uuid language sql as $$select '00000000-0000-0000-0000-000000000001'::uuid$$;
+ create table auth.users(id uuid,email text);
+ insert into auth.users values(auth.uid(),'test@example.test');
+ create table public.laundry_members(email text primary key,name text,role text,active boolean);
+ insert into public.laundry_members values('test@example.test','Test','operator',true);
+ create table laundry_private.user_permissions(email text,profile text,permissions jsonb,revision bigint default 1,updated_at timestamptz,primary key(email));
+ insert into laundry_private.user_permissions values('test@example.test','operator','{"products_manage":true,"lots_work":true}',1,now());
+ create table laundry_private.laundry_super_admin(email text);
+ create table public.laundry_meta(id boolean,revision bigint);insert into laundry_meta values(true,1);
+ create table public.laundry_products(id text,data jsonb);create table public.laundry_lots(id bigint,data jsonb);
+ create table public.laundry_audit(actor_email text,actor_id text,action text,details jsonb);
+ create table laundry_private.assistant_daily_usage(user_id uuid,usage_day date,used integer,primary key(user_id,usage_day));
+ create function laundry_private.laundry_authenticated(a text,p jsonb) returns jsonb language plpgsql as $$
+ begin
+ if a='save' then update public.laundry_lots set data=p#>'{changes,lots,0}' where id=(p#>>'{changes,lots,0,id}')::bigint;update public.laundry_meta set revision=revision+1;end if;
+ return jsonb_build_object('user',jsonb_build_object('email','test@example.test','name','Test','role',(select role from public.laundry_members where email='test@example.test'))||laundry_private.permission_set('test@example.test'));
+ end $$;
+ create function laundry_private.product_save_authenticated(p jsonb) returns jsonb language plpgsql as $$begin
+ update public.laundry_products set data=(p->'product')||jsonb_build_object('id',p->>'original_id') where id=p->>'original_id';update public.laundry_meta set revision=revision+1;return '{}';end $$;`);
+ await db.exec(fs.readFileSync(process.env.ASSISTANT_ORIGINAL_SQL||'tests/fixtures/assistant-permission-baseline.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261120164102_assistant_edit_permission.sql','utf8'));
+ const scalar=async sql=>(await db.query(sql)).rows[0].v;
+ assert.equal(await scalar(`select laundry_private.permission_set('test@example.test')#>'{permissions,assistant_edit}' v`),false);
+ await db.exec(`update laundry_members set role='admin'; update laundry_private.user_permissions set profile='admin';`);
+ assert.equal(await scalar(`select laundry_private.permission_set('test@example.test')#>'{permissions,assistant_edit}' v`),false,'admin is not automatically enabled');
+ await db.exec(`update laundry_members set role='operator'; update laundry_private.user_permissions set profile='operator';`);
+ const product={id:'X',barcode:'BAR-X',size:'M',color:'Blu',name:'Persona',raw:{NOTE:'prima',ALTRO:'conservato'},history:[{action:'prima'}],wash:5};
+ const lot={id:56,colli:1,rows:[{code:'X',state:'Entrato'}],events:[],notes:'prima'};
+ await db.query('insert into laundry_products values ($1,$2)',['X',JSON.stringify(product)]);
+ await db.query('insert into laundry_lots values (56,$1)',[JSON.stringify(lot)]);
+ async function rpc(action,p){return (await db.query('select public.laundry_assistant_edit($1,$2) v',[action,JSON.stringify(p)])).rows[0].v}
+ let plan={entity:'product',target:'BAR-X',field:'size',value:'XL'};
+ await assert.rejects(rpc('preview',plan),/PERMISSION_DENIED/);
+ await db.exec(`update laundry_private.user_permissions set permissions=permissions||'{"assistant_edit":true}'`);
+ let preview=await rpc('preview',plan);assert.equal(preview.before,'M');assert.equal(preview.target,'X');
+ assert.equal(await scalar(`select data->>'size' v from laundry_products`),'M','preview does not save');
+ await assert.rejects(rpc('commit',preview),/CONFIRMATION_REQUIRED/);
+ await assert.rejects(rpc('commit',{...preview,version:'wrong',confirmed:true}),/ASSISTANT_EDIT_CONFLICT/);
+ await db.exec(`update laundry_private.user_permissions set permissions=permissions||'{"assistant_edit":false}'`);
+ await assert.rejects(rpc('commit',{...preview,confirmed:true}),/PERMISSION_DENIED/);
+ await db.exec(`update laundry_private.user_permissions set permissions=permissions||'{"assistant_edit":true,"products_manage":false}'`);
+ await assert.rejects(rpc('preview',plan),/PERMISSION_DENIED/);
+ await db.exec(`update laundry_private.user_permissions set permissions=permissions||'{"products_manage":true}'`);
+ assert.equal((await rpc('commit',{...preview,confirmed:true})).saved,true);
+ const saved=await scalar('select data v from laundry_products');assert.equal(saved.size,'XL');assert.equal(saved.raw.TAGLIA,'XL');assert.deepEqual(saved.history,product.history);assert.equal(saved.raw.ALTRO,'conservato');assert.equal(saved.wash,5);
+ await assert.rejects(rpc('preview',{...plan,field:'client',value:'ALTRO'}),/UNSUPPORTED_FIELD/);
+ await assert.rejects(rpc('preview',{...plan,field:'size',value:3}),/INVALID_VALUE/);
+ plan={entity:'lot',target:'56',field:'colli',value:3};preview=await rpc('preview',plan);
+ assert.equal((await rpc('commit',{...preview,confirmed:true})).saved,true);
+ assert.deepEqual((await scalar('select data v from laundry_lots')).rows,lot.rows);
+ await assert.rejects(rpc('preview',{...plan,value:0}),/INVALID_COLLI/);
+ await assert.rejects(rpc('preview',{...plan,field:'due',value:'2026-02-30'}),/date|range/i);
+ await db.exec(`update laundry_lots set data=data||'{"airtableOrderId":"record"}'`);
+ await assert.rejects(rpc('preview',{...plan,field:'due',value:'2026-12-01'}),/AIRTABLE_DELIVERY_MANAGED/);
+ assert.equal(await scalar(`select (public.laundry_assistant_quota(false)->>'canEdit')::boolean v`),true);
+ console.log('PASS: opt-in, preview, confirmation, revoked/underlying permissions, conflicts, product/lot preservation, validation, Airtable dates, quota');
+ await db.close();
+})().catch(e=>{console.error(e);process.exit(1)});
