@@ -176,7 +176,7 @@ F.drawWorkedFolding=function(){
  const words=lotSearchText(F.workedFoldQuery||'').trim().split(/\s+/).filter(Boolean);
  const all=F.workedFoldRows||[],lots=all.filter(x=>words.every(w=>x.text.includes(w))).map(x=>x.lot);
  $('#workedFoldCount').textContent=lots.length+' lotti trovati su '+all.length;
- host.innerHTML=lots.map(l=>`<button class="floor-lot-choice phase-fold" onclick="floor.openLot(${Number(l.id)},'fold')"><span>${esc(lotno(l))}</span>${lotOrderMarkup(l)}<strong>${esc(l.client)}</strong><span>${esc(l.departmentName||'Reparto non indicato')}</span><span>Piegatura completata · ${l.rows.length} capi nel lotto</span><b>Apri lotto →</b></button>`).join('')||'<p class="floor-empty">'+(words.length?'Nessun lotto lavorato corrisponde alla ricerca.':'Nessun lotto già lavorato.')+'</p>';
+ host.innerHTML=lots.map(l=>`<button class="floor-lot-choice phase-fold" onclick="floor.openLot(${Number(l.id)},'fold')"><span>${esc(lotno(l))}</span>${lotOrderMarkup(l)}<strong>${esc(l.client)}</strong><span>${esc(l.departmentName||'Reparto non indicato')}</span>${String(l.notes||'').trim()?`<span class="lot-list-notes"><b>Note del lotto</b><span>${esc(l.notes)}</span></span>`:''}<span>Piegatura completata · ${l.rows.length} capi nel lotto</span><b>Apri lotto →</b></button>`).join('')||'<p class="floor-empty">'+(words.length?'Nessun lotto lavorato corrisponde alla ricerca.':'Nessun lotto già lavorato.')+'</p>';
 };
 F.searchLots=function(value){F.lotQuery=value;F.drawLotResults()};
 F.clearLotSearch=function(){F.lotQuery='';const input=$('#floorLotSearch');if(input)input.value='';F.drawLotResults();input?.focus()};
@@ -187,7 +187,7 @@ F.drawLotResults=function(){
  $('#floorLotSearchCount').textContent=lots.length+' lotti trovati su '+all.length;
  const card=l=>`<button data-floor-lot-id="${Number(l.id)}" class="floor-lot-choice phase-${F.phase} ${F.phase==='entry'?'floor-lot-'+lotSignal(l).key:''}" onclick="floor.openLot(${Number(l.id)},'${F.phase}')">
  <span class="floor-lot-identity"><small>REPARTO</small><strong>${esc(l.departmentName||'Reparto non indicato')}</strong></span>
- <span class="floor-lot-identity floor-lot-client"><small>CLIENTE</small><strong>${esc(l.client||'Cliente non indicato')}</strong></span>
+ <span class="floor-lot-identity floor-lot-client"><small>CLIENTE</small><strong>${esc(l.client||'Cliente non indicato')}</strong></span>${String(l.notes||'').trim()?`<span class="lot-list-notes"><b>Note del lotto</b><span>${esc(l.notes)}</span></span>`:''}
  <span>${esc(lotno(l))}</span>${lotOrderMarkup(l)}${F.phase==='entry'?`<span class="floor-lot-state">${lotSignal(l).label}</span><span class="floor-lot-arrival">Arrivo: ${esc(l.date?lotDate(l.date):'Data non indicata')}</span>`:''}
  <span>${F.phase==='fold'?foldRows(l).length+' da piegare · '+labelsPending(l).length+' da etichettare':l.rows.length+(l.rows.length===1?' capo nel lotto':' capi nel lotto')}</span><span class="floor-delivery-box${deliveryKey(l)==='9999'?' is-unset':''}"><small>CONSEGNA</small><strong>${esc(deliveryKey(l)==='9999'?'Da definire':lotDeliveryDate(deliveryKey(l)))}</strong></span>${typeof pAssignmentPlaceholder==='function'?pAssignmentPlaceholder(l.id):''}<b>Apri →</b></button>`;
  const finished=F.phase==='entry'?lots.filter(l=>lotSignal(l).key==='finished'):[];
