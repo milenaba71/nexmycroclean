@@ -388,6 +388,9 @@ F.filterWater=function(value){
  });
  const clear=document.getElementById('waterSearchClear');if(clear)clear.disabled=!value;
 };
+function washQueueSearchMarkup(){
+ return '<section class="floor-lot-search" style="margin:0 0 24px;padding:20px;background:white;border:1px solid #dce3ef;border-radius:16px"><label for="waterLotSearch"><b>Cerca lotto</b></label><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px"><input id="waterLotSearch" type="search" placeholder="Numero lotto, cliente o reparto…" value="'+attr(F.waterQuery||'')+'" oninput="floor.filterWater(this.value)" style="flex:1;min-width:180px;font-size:18px;padding:14px"><button id="waterSearchClear" type="button" class="floor-button secondary">Mostra tutti</button></div><small>Filtra i carrelli da lavare e da asciugare. Le macchine restano sempre visibili.</small></section>';
+}
 function drawWater(){
  if(!waterVisible()){shell('<p class="floor-empty">Non risulti assegnato al Reparto acqua. Chiedi al responsabile di verificare la postazione e le variazioni giornaliere.</p>','Reparto acqua','wash');return}
  const machines=(prod?.machines||[]).filter(m=>['water','dryer'].includes(m.kind));
@@ -405,7 +408,7 @@ function drawWater(){
   return '<article class="floor-machine '+status.tone+' phase-'+(isDry?'dry':'wash')+'"><span class="floor-machine-phase">'+(isDry?'ESSICCATOIO':'LAVATRICE AD ACQUA')+'</span><h2>'+esc(m.name)+'</h2><strong><i aria-hidden="true"></i>'+esc(status.title)+'</strong><p>'+esc(status.detail)+'</p>'+cycles.join('')+'</article>';
  }
  const free=machines.filter(m=>machineInfo(m).tone==='free'),other=machines.filter(m=>machineInfo(m).tone!=='free');
- const search='<section class="floor-lot-search" style="margin:0 0 24px;padding:20px;background:white;border:1px solid #dce3ef;border-radius:16px"><label for="waterLotSearch"><b>Cerca lotto</b></label><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px"><input id="waterLotSearch" type="search" placeholder="Numero lotto, cliente o reparto…" value="'+attr(F.waterQuery||'')+'" oninput="floor.filterWater(this.value)" style="flex:1;min-width:180px;font-size:18px;padding:14px"><button id="waterSearchClear" type="button" class="floor-button secondary">Mostra tutti</button></div><small>Filtra i carrelli da lavare e da asciugare. Le macchine restano sempre visibili.</small></section>';
+ const search=washQueueSearchMarkup();
  shell(search+'<section data-water-queue class="water-queue floor-carts phase-wash"><h2>Carrelli da lavare · <span data-water-count>'+waiting.length+'</span></h2><div class="wash-carts">'+waiting.map(b=>'<div data-water-search="'+attr(waterCartSearch(washLoadMembers(b).map(m=>m.lot_id)))+'">'+WashLoads.card(b)+'</div>').join('')+'</div><p data-water-empty hidden>Nessun carrello da lavare corrisponde alla ricerca.</p>'+WashLoads.toolbar(waiting)+'</section>'+
  '<section data-water-queue class="water-queue floor-carts phase-dry"><h2>Carrelli da asciugare · <span data-water-count>'+dryWaiting.length+'</span></h2><div class="wash-carts">'+dryWaiting.map(c=>'<div data-water-search="'+attr(waterCartSearch([c.lotId]))+'">'+dryCard(c)+'</div>').join('')+'</div><p data-water-empty hidden>Nessun carrello da asciugare corrisponde alla ricerca.</p></section>'+
  '<h2>Macchine libere · '+free.length+'</h2><div class="floor-machines">'+(free.map(machineCard).join('')||'<p>Nessuna macchina libera.</p>')+'</div>'+
@@ -413,7 +416,7 @@ function drawWater(){
  '<div class="floor-water-toolbar">'+(userCan('production_execute')?button('Avvia macchina','WaterStart.open()','primary'):'')+button('Tutti i lavaggi · acqua, secco e decontaminazione','floor.machines()')+button('Aggiorna','floor.refresh()')+'</div>'+
  '<section class="floor-water-people"><h2>Operatori del reparto acqua · oggi</h2>'+ (roster.map(({op,slots})=>'<span><b>'+esc(pMember(op.email))+'</b> · '+slots.map(s=>PC.clock(s.start)+'–'+PC.clock(s.end)).join(' / ')+'</span>').join('')||'<p>Nessun operatore con turno valido assegnato oggi al reparto acqua.</p>')+'</section>'+
  (F.error?'<p class="floor-warning" role="alert">'+esc(F.error)+'</p>':''),'Reparto acqua','wash');
- document.getElementById('waterSearchClear').onclick=()=>{const input=document.getElementById('waterLotSearch');input.value='';F.filterWater('');input.focus()};
+ if(document.getElementById('waterSearchClear'))document.getElementById('waterSearchClear').onclick=()=>{const input=document.getElementById('waterLotSearch');input.value='';F.filterWater('');input.focus()};
  F.filterWater(F.waterQuery||'');
  document.querySelectorAll('#app button[onclick*="delete_batch"]').forEach(b=>b.hidden=true);
 }
@@ -428,15 +431,15 @@ function drawMachines(){
  let detail='';
  if(selected){
   const carts=activeWashCarts(kind),machines=(prod?.machines||[]).filter(m=>m.kind===kind||(kind==='water'&&m.kind==='dryer'));
-  detail='<section class="floor-carts phase-wash"><h2>'+selected[1]+' · Carrelli</h2><div class="wash-carts">'+(carts.map(washCard).join('')||'<p>Nessun carrello in attesa o in corso.</p>')+'</div></section>'+
-   (kind==='water'?'<section class="floor-carts phase-dry"><h2>Asciugatura · dopo il lavaggio ad acqua</h2>'+ (dryers.map(dryCard).join('')||'<p>Nessun carrello da asciugare.</p>')+'</section>':'')+
+  detail=washQueueSearchMarkup()+'<section data-water-queue class="water-queue floor-carts phase-wash"><h2>'+selected[1]+' · Carrelli · <span data-water-count>'+carts.length+'</span></h2><div class="wash-carts">'+carts.map(b=>'<div data-water-search="'+attr(waterCartSearch(washLoadMembers(b).map(m=>m.lot_id)))+'">'+WashLoads.card(b)+'</div>').join('')+'</div><p data-water-empty hidden>Nessun carrello corrisponde alla ricerca.</p>'+WashLoads.toolbar(carts)+'</section>'+
+   (kind==='water'?'<section data-water-queue class="water-queue floor-carts phase-dry"><h2>Asciugatura · <span data-water-count>'+dryers.length+'</span></h2><div class="wash-carts">'+dryers.map(c=>'<div data-water-search="'+attr(waterCartSearch([c.lotId]))+'">'+dryCard(c)+'</div>').join('')+'</div><p data-water-empty hidden>Nessun carrello corrisponde alla ricerca.</p></section>':'')+
    '<h2>Macchine del reparto</h2><div class="floor-machines">'+(machines.map(m=>{const status=machineInfo(m);return '<article class="floor-machine '+status.tone+' phase-'+(m.kind==='dryer'?'dry':'wash')+'"><span class="floor-machine-phase">'+(m.kind==='dryer'?'ASCIUGATURA':selected[1])+'</span><h2>'+esc(m.name)+'</h2><strong><i aria-hidden="true"></i>'+esc(status.title)+'</strong><p>'+esc(status.detail)+'</p></article>'}).join('')||'<p>Nessuna macchina configurata per questo reparto.</p>')+'</div>';
  }
  shell('<p class="floor-lead">Scegli il reparto. I carrelli sono suddivisi in base al programma di lavaggio assegnato.</p>'+tiles+detail+
   '<div class="tools">'+button('Aggiorna','floor.refresh()')+'</div>'+
   (selected?'<p class="floor-explain">I pulsanti registrano l’avvio: non comandano la macchina reale.</p>':'')+
   (F.error?'<p role="alert">'+esc(F.error)+'</p>':''),'Lavaggio','wash');
- document.getElementById('waterSearchClear').onclick=()=>{const input=document.getElementById('waterLotSearch');input.value='';F.filterWater('');input.focus()};
+ if(document.getElementById('waterSearchClear'))document.getElementById('waterSearchClear').onclick=()=>{const input=document.getElementById('waterLotSearch');input.value='';F.filterWater('');input.focus()};
  F.filterWater(F.waterQuery||'');
  document.querySelectorAll('#app button[onclick*="delete_batch"]').forEach(b=>b.hidden=true);
  if(!userCan('production_execute'))document.querySelectorAll('#app button[onclick^="washStartDialog"],#app button[onclick^="washInterrupt"]').forEach(b=>b.disabled=true);
