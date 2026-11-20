@@ -9,7 +9,7 @@ function washMessage(e){return ({INVALID_PROGRAM_LINK:'Collega il programma alla
 async function washRpc(action,payload={}){let {data,error}=await appSupabase.rpc('laundry_wash_batches',{p_action:action,p_payload:payload});if(error)throw Error(washMessage(error));if(data?.batches){washState=data;washError='';washSyncChoices()}return data}
 async function washRefresh(){if(washLoading||!cloudUser)return;washLoading=true;try{await cloudFlush();await washRpc('read',{lotId:current?.id});cloudAccept(await cloudRequest(),false);washRender();if(current&&$('#lotRows')){renderLotRows();let summaryPanel=$('#lotTypeCounts')?.closest('.panel');if(summaryPanel)summaryPanel.outerHTML=lotTypeSummary(current);}}catch(e){washError=washMessage(e);washRender()}finally{washLoading=false}}
 const entryBeforeWashBatches=entryProcessing;
-entryProcessing=function(){let opts=washOptions(),nonWash=ensureProcessing().filter(p=>p.active&&!p.wash);return `<div class="tools" style="align-items:end"><label style="display:grid;gap:8px;flex:1;min-width:0">Lavaggio e macchina *<select id="entryProcessing" aria-label="Lavaggio e macchina" onchange="washSelect(this.value)" ${lotWritable()?'':'disabled'}><option value="">${washState?'Scegli programma e macchina…':'Caricamento macchine…'}</option>${opts.map(o=>`<option value="${esc(o.key)}" ${washChoice===o.key?'selected':''}>${esc(o.t.name)} · ${esc(o.m.name)}${washMachineBusy(o.m.id)?' · In coda · Macchina occupata':''}${!o.m.capacity?' · Capacità da definire':''}${!o.t.value?' · Durata da definire':''}</option>`).join('')}${nonWash.map(p=>`<option value="plain:${esc(p.id)}" ${washChoice==='plain:'+p.id?'selected':''}>${esc(p.name)} · Senza macchina</option>`).join('')}</select></label><button type="button" class="link" onclick="washRefresh()">Aggiorna</button>${userCan('production_manage')?'<button type="button" class="link" onclick="washLinkDialog()">Configura collegamenti</button>':''}</div>`};
+entryProcessing=function(){let opts=washOptions(),nonWash=ensureProcessing().filter(p=>p.active&&!p.wash);return `<div class="tools" style="align-items:end"><label style="display:grid;gap:8px;flex:1;min-width:0">Lavaggio e macchina *<select id="entryProcessing" aria-label="Lavaggio e macchina" onchange="washSelect(this.value)" ${lotWritable()?'':'disabled'}><option value="">${washState?'Scegli programma e macchina…':'Caricamento macchine…'}</option>${opts.map(o=>`<option value="${esc(o.key)}" ${washChoice===o.key?'selected':''}>${esc(o.t.name)} · ${esc(o.m.name)}${washMachineBusy(o.m.id)?' · In coda · Macchina occupata':''}${!o.m.capacity?' · Capacità da definire':''}${!o.t.value?' · Durata da definire':''}</option>`).join('')}${nonWash.map(p=>`<option value="plain:${esc(p.id)}" ${washChoice==='plain:'+p.id?'selected':''}>${esc(p.name)} · Senza macchina</option>`).join('')}</select></label><button type="button" class="btn secondary" onclick="washUpdateSelectedRoute()" ${lotWritable()&&!washBusy?'':'disabled'}>Aggiorna</button><button type="button" class="link" onclick="washRefresh()">Ricarica elenco</button>${userCan('production_manage')?'<button type="button" class="link" onclick="washLinkDialog()">Configura collegamenti</button>':''}</div>`};
 function washSelect(value){if(lotBusy()||washBusy){notify('Attendi le scansioni in corso.');return}if(value.includes('|')&&!washOptions().some(o=>o.key===value)){washSyncChoices();notify('Macchina non disponibile. Scegli macchina e programma.');return}washChoice=value;let o=washOptions().find(o=>o.key===value);chosenProcessing=o?.processingId||(value.startsWith('plain:')?value.slice(6):'');if(current){current.entryProcessingId=chosenProcessing;current.entryWashChoice=value;save()}washRender();$('#scan')?.focus()}
 const selectedBeforeWashBatches=selectedProcessing;
 selectedProcessing=function(){let pair=washChoiceParts();if(pair){let o=washOptions().find(o=>o.t.id===pair[0]&&o.m.id===pair[1]);return ensureProcessing().find(p=>p.id===o?.processingId&&p.active)}return selectedBeforeWashBatches()};
@@ -203,4 +203,29 @@ async function endMachineCycle(phase,id,start){
   await dryAfterChange();
   notify(washing?'Lavaggio terminato. Carrello disponibile per la fase successiva.':'Asciugatura terminata. Puoi iniziare la piegatura.');
  }catch(e){notify(e.message)}finally{washBusy=dryBusy=false}
+}
+
+// Apply the chosen entry route atomically to the selected garments.
+async function washUpdateSelectedRoute(){
+ if(!lotMutationAllowed()||washBusy)return;
+ const lotId=current?.id,codes=selected(),choice=washChoice;
+ if(stage!=='Entrata'||!lotId)return;
+ if(!codes.length)return notify('Seleziona i capi da aggiornare oppure premi Seleziona tutto il lotto.');
+ if(!choice)return notify('Scegli il nuovo percorso prima di aggiornare.');
+ const option=washOptions().find(o=>o.key===choice);
+ const plain=choice.startsWith('plain:')&&ensureProcessing().find(p=>p.id===choice.slice(6)&&p.active&&!p.wash);
+ if(!option&&!plain)return notify('Percorso non disponibile: ricarica l’elenco e scegli di nuovo.');
+ washBusy=true;
+ try{
+  await cloudFlush();
+  if(current?.id!==lotId||stage!=='Entrata')throw Error('Schermata cambiata: percorso non aggiornato.');
+  const payload={lotId,codes,revision:cloudRevision,...(option?{programId:option.t.id,machineId:option.m.id}:{processingId:plain.id})};
+  const result=await washRpc('update_route',payload);
+  cloudAccept(result,false);
+  notify(result.routeUpdated+' capi aggiornati al percorso '+(plain?.name||option.t.name)+'.');
+  try{await washRpc('read',{lotId})}catch(e){washError='Percorso salvato. Ricarica l’elenco dei carrelli.'}
+  detail();
+ }catch(e){
+  notify(({ROUTE_CONFLICT:'Il lotto è stato aggiornato da un altro utente. Ricarica l’elenco e riprova.',ROUTE_ALREADY_STARTED:'Nessun capo aggiornato: nella selezione ci sono capi già avviati, lavorati o usciti. Seleziona solo quelli ancora in entrata.',SELECT_PRODUCTS:'Seleziona almeno un capo.',PRODUCT_NOT_IN_LOT:'La selezione non è più valida. Ricarica il lotto.'})[e.message]||washMessage(e));
+ }finally{washBusy=false;washRender()}
 }
