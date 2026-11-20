@@ -140,11 +140,11 @@
   <div class="grp">
     <label>Layout</label>
     <select id="presetSel" title="Layout salvati"><option value="">— layout —</option></select>
-    <button class="ghost" id="btnSavePreset" title="Salva il layout attuale">💾</button>
+    <button class="ghost" id="btnSavePreset" title="Salva sul server per tutti gli utenti abilitati">Salva layout condiviso</button>
     <button class="ghost" id="btnDelPreset" title="Elimina il layout selezionato">🗑</button>
     <button class="ghost" id="btnExportLayout" title="Esporta i layout in un file">⬇️ Esporta</button>
     <button class="ghost" id="btnImportLayout" title="Carica i layout da un file">⬆️ Carica</button>
-    <input type="file" id="layoutInput" accept=".json,application/json" style="display:none">
+    <button class="ghost" id="btnReloadLayouts">Aggiorna dal server</button><button class="ghost" id="btnLegacyLayouts" hidden>Recupera vecchi layout locali</button><span id="labelCloudStatus" role="status" aria-live="polite">Caricamento layout condivisi…</span><input type="file" id="layoutInput" accept=".json,application/json" style="display:none">
   </div>
   <span class="a4only" style="font-size:12px">Margine A4: 1 cm · Stampa al 100%</span><button id="btnPrint">🖨️ Stampa</button>
   <button class="ghost" id="btnNew">📂 Altro file</button>
@@ -220,33 +220,18 @@ var DEFAULT_LAYOUT = {};
 FIELDS.forEach(function(f){ DEFAULT_LAYOUT[f.key] = {x:f.x, y:f.y}; });
 var LAYOUT = loadLayout();
 
-function loadLayout(){
-  try{
-    var s = localStorage.getItem(LS_KEY);
-    if(s){
-      var o = JSON.parse(s) || {}, m = {};
-      // mantieni TUTTE le chiavi salvate (inclusi i testi liberi ft_*)
-      for(var k in o){ if(o[k] && typeof o[k].x==='number') m[k]=o[k]; }
-      FIELDS.forEach(function(f){ if(!m[f.key]) m[f.key]={x:f.x, y:f.y}; });
-      return m;
-    }
-  }catch(e){}
-  return JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
-}
-function saveLayout(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(LAYOUT)); }catch(e){} }
-
-// ===== testi liberi =====
+function loadLayout(){ return JSON.parse(JSON.stringify(DEFAULT_LAYOUT)); }
+function saveLayout(){ if(window.LabelCloud) LabelCloud.dirty(); }
+// Draft changes stay in memory until saved to the shared server.
 var FT_KEY = 'myc_etichetta_freetexts_v1';
-var FREETEXTS = loadFT();
-function loadFT(){ try{ var s=localStorage.getItem(FT_KEY); if(s) return JSON.parse(s)||[]; }catch(e){} return []; }
-function saveFT(){ try{ localStorage.setItem(FT_KEY, JSON.stringify(FREETEXTS)); }catch(e){} }
+var FREETEXTS = [];
+function saveFT(){ saveLayout(); }
 function ftById(key){ for(var i=0;i<FREETEXTS.length;i++){ if('ft_'+FREETEXTS[i].id===key) return FREETEXTS[i]; } return null; }
 
 // ===== layout salvati (preset) =====
 var PRESETS_KEY = 'myc_etichetta_presets_v1';
-function loadPresets(){ try{ var s=localStorage.getItem(PRESETS_KEY); if(s) return JSON.parse(s)||{}; }catch(e){} return {}; }
-function savePresets(p){ try{ localStorage.setItem(PRESETS_KEY, JSON.stringify(p)); return true; }
-  catch(e){ alert('Spazio insufficiente per salvare il layout (il logo potrebbe essere troppo grande).'); return false; } }
+function loadPresets(){ return window.LabelCloud?LabelCloud.presets():{}; }
+async function savePresets(p){ return LabelCloud.save(p); }
 function gatherFields(){ var o={}; FIELDS.forEach(function(f){ var cb=document.getElementById('f_'+f.key); o[f.key]=cb?cb.checked:false; }); return o; }
 function currentPreset(){
   return {
@@ -1043,7 +1028,7 @@ async function pdfPagesToImages(pdf, scale){
 function handleImg(f){
   if(!f) return;
   var reader=new FileReader();
-  reader.onload=function(e){ LOGO=e.target.result; document.getElementById('logoName').textContent=f.name;
+  reader.onload=function(e){ LOGO=e.target.result; saveLayout(); document.getElementById('logoName').textContent=f.name;
     document.getElementById('f_logo').checked=true; render(); };
   reader.readAsDataURL(f);
 }
@@ -1082,22 +1067,22 @@ document.getElementById('btnEdit').addEventListener('click', function(){
   EDIT=!EDIT; document.body.classList.toggle('editing',EDIT); this.classList.toggle('on',EDIT);
   this.textContent=EDIT?'✅ Fine modifica':'✏️ Sposta/ridimensiona'; render();
 });
-document.getElementById('btnSavePreset').addEventListener('click', function(){
+document.getElementById('btnSavePreset').addEventListener('click', async function(){
   var cur=document.getElementById('presetSel').value;
   var name=prompt('Nome del layout da salvare:', cur||'');
   if(name===null) return; name=name.trim(); if(!name) return;
-  var presets=loadPresets(); presets[name]=currentPreset();
-  if(savePresets(presets)){ refreshPresetSelect(name); alert('Layout "'+name+'" salvato.'); }
+  var presets=loadPresets(); Object.defineProperty(presets,name,{value:currentPreset(),enumerable:true,configurable:true,writable:true});
+  if(await savePresets(presets)){ refreshPresetSelect(name); alert('Layout "'+name+'" salvato sul server e condiviso.'); }
 });
 document.getElementById('presetSel').addEventListener('change', function(){
   if(!this.value) return;
   applyPreset(loadPresets()[this.value]);
 });
-document.getElementById('btnDelPreset').addEventListener('click', function(){
+document.getElementById('btnDelPreset').addEventListener('click', async function(){
   var name=document.getElementById('presetSel').value;
   if(!name){ alert('Seleziona prima un layout da eliminare.'); return; }
-  if(!confirm('Eliminare il layout "'+name+'"?')) return;
-  var presets=loadPresets(); delete presets[name]; savePresets(presets);
+  if(!confirm('Eliminare il layout condiviso "'+name+'" per tutti gli utenti?')) return;
+  var presets=loadPresets(); delete presets[name]; if(!await savePresets(presets)) return;
   refreshPresetSelect(''); document.getElementById('presetSel').value='';
 });
 // --- esporta / carica layout su file ---
@@ -1118,18 +1103,18 @@ document.getElementById('btnImportLayout').addEventListener('click', function(){
 document.getElementById('layoutInput').addEventListener('change', function(){
   var f=this.files[0]; if(!f) return;
   var reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=async function(e){
     try{
       var data=JSON.parse(e.target.result);
       var presets=loadPresets(), added=0;
       if(data.presets && typeof data.presets==='object'){
-        for(var k in data.presets){ presets[k]=data.presets[k]; added++; }
-        savePresets(presets);
+        for(var k of Object.keys(data.presets)){ Object.defineProperty(presets,k,{value:data.presets[k],enumerable:true,configurable:true,writable:true}); added++; }
       }
-      refreshPresetSelect();
       if(data.current){ applyPreset(data.current); }
       else if(data.layout){ applyPreset(data); } // file che contiene direttamente un layout
-      alert('Layout caricati: '+added+' aggiunti all elenco'+(data.current||data.layout?' e applicato il layout del file.':'.'));
+      if(!await savePresets(presets)) return;
+      refreshPresetSelect();
+      alert('Layout salvati sul server: '+added+' aggiunti all elenco'+(data.current||data.layout?' e applicato il layout del file.':'.'));
     }catch(err){ alert('File non valido: '+err.message); }
   };
   reader.readAsText(f,'UTF-8');
@@ -1158,5 +1143,5 @@ refreshPresetSelect();
 </script>
 <script>
 try { var transferred=sessionStorage.getItem('mycro-label-transfer');if(transferred){ sessionStorage.removeItem('mycro-label-transfer');ROWS=JSON.parse(transferred);CSVROWS=ROWS.slice();MODE='data';['armadio','posizione','dataPe','esterna','matricola'].forEach(function(key){var field=FIELDS.find(function(f){return f.key===key;});if(ROWS.some(function(row){return fieldValue(field,row)!=='';}))document.getElementById('f_'+key).checked=true;});document.getElementById('drop').style.display='none';render(); }}catch(e){console.error('Impossibile caricare i prodotti',e)}
-</script></body>
+</script><script src="label-layout-cloud.js?v=20261120-1"></script></body>
 <link rel="stylesheet" href="button-theme.css?v=20261110-2"><script src="button-theme.js?v=20261110-2"></script></html>

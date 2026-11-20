@@ -164,3 +164,8 @@ La tabella Produzione include lavaggio ad acqua, lavaggio e decontaminazione, la
 
 ### Asciugatura dopo il lavaggio ad acqua
 I carrelli ad acqua, al termine del lavaggio, diventano Da asciugare. Nella sezione Carrelli da asciugare (Produzione e lotto) l'operatore abilitato alla postazione del programma di asciugatura preme Avvia asciugatura, sceglie programma ed essiccatoio. La piegatura si sblocca alla fine prevista dell'asciugatura; il blocco è applicato anche dal database. Lavaggio e decontaminazione e lavaggio a secco passano direttamente alla piegatura. Dettagli in `docs/asciugatura-dopo-lavaggio-acqua.md`; migrazione `sql/dryer_phase.sql`.
+
+### Layout etichette condivisi
+L’editor carica i modelli dal server tramite `laundry_label_layouts`, riservata agli utenti attivi con `products_manage`. “Salva layout condiviso” conserva posizioni, dimensioni, campi visibili, testi, logo e formato; le modifiche in corso restano in memoria fino al salvataggio. Nessun layout nuovo viene scritto nel browser. Una revisione condivisa impedisce sovrascritture da sessioni obsolete; “Aggiorna dal server” ricarica i modelli dopo conferma per eventuali modifiche non salvate. La cancellazione di un modello è condivisa.
+
+“Recupera vecchi layout locali” compare sui browser che contengono i vecchi dati: li copia sul server senza sostituire modelli omonimi e li rimuove dal browser solo dopo conferma del server. L’esportazione JSON rimane una copia manuale facoltativa. Prodotti importati e righe da stampare non sono inclusi nel salvataggio dei modelli. Migrazione: `sql/shared_label_layouts.sql`. Verifica: `node tests/shared-label-layouts.cjs`.
