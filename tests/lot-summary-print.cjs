@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),path=require('path');
 const root=path.resolve(__dirname,'..');
 const read=n=>fs.readFileSync(path.join(root,n),'utf8');
-const ctx={console,document:{head:{insertAdjacentHTML(){}}},detail(){},esc:v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'),db:{garments:[{id:'P1',type:'TUTA',name:'Operatore',size:'L',dept:'Reparto'}],repairs:[]},lotno:l=>'L.'+l.id,repairDate:v=>v,repairCall:(id,code)=>id+',"'+code+'"',lotReady:()=>true};ctx.window=ctx;vm.createContext(ctx);
+const ctx={console,document:{head:{insertAdjacentHTML(){}}},detail(){},esc:v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'),db:{garments:[{id:'P1',type:'TUTA',name:'Operatore',size:'L',dept:'Reparto'}],repairs:[]},lotno:l=>'L.'+l.id,repairDate:v=>v,repairCall:(id,code)=>id+',"'+code+'"',lotReady:()=>true};ctx.page='Reparto';ctx.productCodeLink=(code,label)=>ctx.esc(label||code);ctx.userCan=()=>false;ctx.window=ctx;vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root,'lot-summary.js'),'utf8'),ctx);
 const costs=fs.readFileSync(path.join(root,'repair-costs.js'),'utf8');vm.runInContext(costs.slice(costs.indexOf('function euro3'),costs.indexOf('function repairTypesView')),ctx);
 vm.runInContext('const baseSummary=lotTypeSummary;lotTypeSummary=lot=>baseSummary(lot)+repairTotalsPanel(lot)',ctx);
@@ -14,3 +14,14 @@ for(const html of [yes,no]){for(const text of ['Toppa','Anna','2,500 €','lot-s
 assert.equal(JSON.stringify(lot),before);assert(ctx.lotTypeSummary(lot).includes('printLotSummary(7,false)'));assert(ctx.lotTypeSummary(lot).includes('printLotSummary(7,true)'));
 assert(ctx.lotSummaryPrintHtml({...lot,rows:[]},false).includes('Registra i primi prodotti'));
 console.log('PASS: notes omitted from HTML, totals and operators retained, four section colors, escaped text, no data mutation, empty lot');
+
+(async()=>{
+ const live=ctx.db,alerts=[],status={textContent:''},frame={isConnected:true,hidden:true};let writes='';
+ ctx.cloudFlush=async()=>{};ctx.LotQuality={rpc:async(action,args)=>{assert.equal(action,'report');assert.equal(args.lot_id,7);return {lot,products:[{id:'P1',type:'CAMICE',name:'Dati aggiornati'}]}}};
+ ctx.notify=m=>alerts.push(m);ctx.open=()=>null;ctx.show=()=>{};ctx.document.getElementById=id=>id==='lotReportFrame'?frame:status;
+ await ctx.printLotSummary(7,true);assert.equal(frame.hidden,false);assert(frame.srcdoc.includes('CAMICE'));assert(frame.srcdoc.includes('Dati aggiornati'));assert.equal(ctx.db,live);assert.equal(alerts.length,0);
+ ctx.open=()=>({closed:false,document:{body:{},open(){},write(h){writes=h},close(){}}});
+ await ctx.printLotSummary(7,false);assert(writes.includes('Riepilogo per tipo di prodotto'));assert(!writes.includes('NOTA LOTTO'));assert.equal(ctx.db,live);
+ ctx.open=()=>null;ctx.LotQuality.rpc=async()=>{throw Error('Errore prova')};await ctx.printLotSummary(7);assert(status.textContent.includes('Errore prova'));assert.equal(ctx.db,live);
+ console.log('PASS: popup blocked fallback, targeted lot data, refreshed products, app state retained, visible errors');
+})().catch(e=>{console.error(e);process.exitCode=1});
