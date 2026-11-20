@@ -23,7 +23,7 @@ checkedProcess=async function(code){
   await cloudFlush();
   // Known lot rows already have their product data. Fetch the full snapshot only
   // when another station changed the shared revision; save still checks it.
-  const known=phase!=='Entrata'&&current?.rows.some(r=>r.code===resolveBarcode(code))&&db.garments.some(g=>g.id===resolveBarcode(code));
+  const known=(phase==='Entrata'||current?.rows.some(r=>r.code===resolveBarcode(code)))&&db.garments.some(g=>g.id===resolveBarcode(code));
   const version=known?await cloudRequest('version',{}):null;
   if(!version||version.revision!==cloudRevision)cloudAccept(await cloudRequest(),false);
  }catch(e){return e.message;}

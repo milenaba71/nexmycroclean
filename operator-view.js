@@ -290,6 +290,24 @@ function entryPendingSummary(rows){
   (badges.join('')||'<span>Nessun intervento aperto</span>')+'</div>';
 }
 F.entryPendingSummary=entryPendingSummary;
+function entryCompletedCounts(lot){
+ let labels=0,rewashes=0,repairMinutes=0;
+ const positive=n=>Math.max(0,Number(n)||0);
+ const legacyLabels=new Set((lot?.events||[]).filter(e=>/^(Intervento completato|Completata:).*etichett/i.test(e.action||'')).map(e=>String(e.code)));
+ for(const row of lot?.rows||[]){
+   const work=row.repairWork||[],labelWork=work.filter(w=>w.kind==='relabel');
+   labels+=labelWork.length?labelWork.reduce((n,w)=>n+positive(w.quantity),0):(legacyLabels.has(String(row.code))?1:0);
+   rewashes+=positive(row.rewashCycles);
+   repairMinutes+=work.filter(w=>w.kind==='repair').reduce((n,w)=>n+positive(w.minutesHundredths),0)/100;
+ }
+ return {labels,rewashes,repairMinutes};
+}
+function entryCompletedSummary(lot){
+ const counts=entryCompletedCounts(lot),format=n=>n.toLocaleString('it-IT',{maximumFractionDigits:2});
+ return '<div class="floor-entry-completed" aria-label="Lavorazioni eseguite nel lotto">'+
+ [['Etichette fatte',counts.labels],['Rilavaggi eseguiti',counts.rewashes],['Minuti di riparazione',counts.repairMinutes]].map(([label,n])=>'<div><strong>'+format(n)+'</strong><span>'+label+'</span></div>').join('')+'</div>';
+}
+
 F.entryTypeSummary=function(){
  const existing=$('#floorEntryTypes');
  if(!F.active||F.screen!=='lot'||F.phase!=='entry'||!current){existing?.remove();return}
@@ -300,7 +318,7 @@ F.entryTypeSummary=function(){
  F.entryCountLot=current.id;F.entryCountLatest=latest;
  const {total,groups}=entryTypeCounts(current,db.garments);
  const html='<div class="floor-entry-total">Capi entrati nel lotto <strong>'+total+'</strong></div><div class="floor-entry-types">'+(groups.map(g=>'<span><b>'+g.count+'</b> '+esc(g.label)+'</span>').join('')||'<span>Nessun capo acquisito</span>')+'</div>';
- const summary=html+entryPendingSummary(current.rows);
+ const summary=html+entryCompletedSummary(current)+entryPendingSummary(current.rows);
  if(host.innerHTML!==summary)host.innerHTML=summary;
 };
 
