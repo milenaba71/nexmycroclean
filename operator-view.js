@@ -27,7 +27,21 @@ F.decorateMask=function(){if(!F.active||F.screen!=='mask')return;const app=$('#a
 F.decorateDdt=function(){if(!F.active||F.screen!=='ddt')return;const app=$('#app');app.classList.remove('floor-lot','floor-repairs');app.querySelector('.heading')?.remove();const header=document.createElement('div');header.id='floorDdtHeader';header.innerHTML=top('DDT fornitori · Rientri','entry')+'<p>Conta i pezzi ricevuti, scegli fornitore e DDT, poi premi Registra rientro.</p><button class="floor-button" onclick="DdtReturns.load()">Aggiorna elenco DDT</button>';app.prepend(header)};
 F.back=function(){if(busy())return notify('Attendi la registrazione in corso.');if(F.screen==='repair'){if(repairProductCode)repairDetail(repairLotId);else F.repairs()}else if(F.screen==='lot')F.list(F.phase);else if(F.screen==='machines'&&F.machineDepartment)F.machines();else F.home()};
 F.office=function(){if(busy())return notify('Attendi la registrazione in corso.');setMode(false);current=null;go('Dashboard')};
-F.refresh=async function(){if(F.loading||busy())return;const request=++F.request,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);F.loading=true;F.error='';try{await cloudFlush();const snap=await cloudBootDeadline(cloudRequest(),controller.signal);cloudAccept(snap,false);await cloudBootDeadline(Promise.all([pRpc('read'),washRpc('read'),dryRpc('read')]),controller.signal);}catch(e){F.error=pError(e)}finally{clearTimeout(timer);F.loading=false;if(F.active&&request===F.request){if(F.screen==='lot')F.decorate();else F.draw()}}};
+F.refresh=async function(background=false){
+ if(F.loading||busy()||(background&&(document.hidden||cloudCheckingVersion||!cloudViewCanRefresh())))return;
+ const request=++F.request,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+ F.loading=true;F.error='';
+ try{
+  await cloudFlush();
+  let needsSnapshot=true;
+  if(background){
+   const version=await cloudBootDeadline(cloudRequest('version',{}),controller.signal);
+   needsSnapshot=version.revision!==cloudRevision||version.user.role!==cloudUser?.role;
+  }
+  if(needsSnapshot){const snap=await cloudBootDeadline(cloudRequest(),controller.signal);cloudAccept(snap,false)}
+  await cloudBootDeadline(Promise.all([pRpc('read'),washRpc('read'),dryRpc('read')]),controller.signal);
+ }catch(e){F.error=pError(e)}finally{clearTimeout(timer);F.loading=false;if(F.active&&request===F.request){if(F.screen==='lot')F.decorate();else F.draw()}}
+};
 F.draw=function(){if(!F.active||!cloudUser)return;if(F.screen==='ddt')return window.DdtReturns?.view();if(F.screen==='mask')return window.MaskStock?.view();if(F.screen==='lot')return F.decorate();if(F.screen==='maintenance')return drawMaintenance();if(F.screen==='chat')return F.drawChat();if(F.screen==='machines')return drawMachines();if(F.screen==='water')return drawWater();if(F.screen==='lots')return drawLots();if(F.screen==='work')return drawWork();if(F.screen==='instructions')return;if(F.screen==='repairs')return drawRepairOverview();if(F.screen==='repair')return repairProductCode?drawRepairProduct(repairLotId,repairProductCode):drawRepairLot(repairLotId);
  const lots=db.lots.filter(l=>!l.archived&&(!l.rows.length||openRows(l).length));const batches=washState?.batches||[],dry=dryState?.carts||[];
  const counts=[lots.length,activeWashCarts().filter(b=>b.state!=='running').length+dry.filter(c=>!c.cycle||c.cycle.state==='blocked').length,lots.reduce((n,l)=>n+foldRows(l).length,0),lots.reduce((n,l)=>n+dispatchReadyRows(l).length,0),db.lots.filter(l=>!l.archived).reduce((n,l)=>n+pendingRows(l).length,0)];
@@ -574,5 +588,5 @@ const oldAccept=cloudAccept;let firstUser=null;cloudAccept=function(result,redra
 const oldLogin=standaloneLogin;standaloneLogin=function(...args){setMode(false);firstUser=null;F.request++;return oldLogin(...args)};
 const oldGo=go;go=function(destination){if(F.active){if(destination==='Mascherine · Confezionamento')return F.mask();if(destination==='DDT fornitori · Airtable')return F.ddt();if(destination==='Riparazioni')return F.repairs();if(destination==='Istruzioni')return F.instructions();if(destination==='Produzione')return F.work();if(destination==='Lotti')return F.list(F.phase);if(destination!=='Reparto')return F.home()}return oldGo(destination)};
 document.addEventListener('pointerdown',e=>{if(F.active&&F.screen==='lot'&&!e.target.closest('input,select,textarea,button,a,summary,dialog,.floor-products-table,[contenteditable]'))setTimeout(F.focus,0)});
-setInterval(()=>{if(F.active&&['machines','work'].includes(F.screen)&&!$('#modal').open&&!busy())void F.refresh()},15000);
+setInterval(()=>{if(F.active&&['machines','work'].includes(F.screen)&&!$('#modal').open&&!busy())void F.refresh(true)},15000);
 })();

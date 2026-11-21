@@ -1,0 +1,23 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('operator-view.js','utf8');
+const ctx={F:{active:true,screen:'machines',loading:false,request:0,draw(){},decorate(){}},busy:()=>false,document:{hidden:false},cloudCheckingVersion:false,cloudViewCanRefresh:()=>true,cloudRevision:1,cloudUser:{role:'operator'},AbortController,setTimeout,clearTimeout,cloudFlush:async()=>{},cloudBootDeadline:p=>p,pError:e=>e.message};
+let snapshots=0,versions=0,reads=0,revision=1,release;
+ctx.cloudRequest=async action=>{if(action==='version'){versions++;return {revision,user:{role:'operator'}}}snapshots++;return {revision}};
+ctx.cloudAccept=r=>ctx.cloudRevision=r.revision;
+ctx.pRpc=ctx.washRpc=ctx.dryRpc=async()=>{reads++};
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('F.refresh=async'),source.indexOf('\nF.draw=')),ctx);
+(async()=>{
+ await ctx.F.refresh(true);assert.equal(snapshots,0);assert.equal(reads,3);
+ revision=2;await ctx.F.refresh(true);assert.equal(snapshots,1);assert.equal(ctx.cloudRevision,2);
+ await ctx.F.refresh();assert.equal(snapshots,2);assert.equal(versions,2);
+ const before=reads;
+ ctx.document.hidden=true;await ctx.F.refresh(true);assert.equal(reads,before);
+ ctx.document.hidden=false;ctx.cloudCheckingVersion=true;await ctx.F.refresh(true);assert.equal(reads,before);
+ ctx.cloudCheckingVersion=false;ctx.cloudViewCanRefresh=()=>false;await ctx.F.refresh(true);assert.equal(reads,before);
+ ctx.cloudViewCanRefresh=()=>true;ctx.cloudRequest=()=>new Promise(r=>release=r);
+ const pending=ctx.F.refresh(true);await new Promise(setImmediate);await ctx.F.refresh(true);assert.equal(ctx.F.loading,true);release({revision:2,user:{role:'operator'}});await pending;assert.equal(reads,before+3);
+ ctx.cloudRequest=async()=>{throw Error('offline')};await ctx.F.refresh(true);assert.equal(ctx.F.loading,false);assert.equal(ctx.F.error,'offline');
+ const cloud=fs.readFileSync('cloud.js','utf8');let calls=0;
+ const c={window:{floor:{loading:true}},cloudCheckingVersion:false,cloudViewCanRefresh:()=>true,cloudRequest:()=>calls++};vm.createContext(c);vm.runInContext(cloud.slice(cloud.indexOf('async function cloudCheckView'),cloud.indexOf("document.addEventListener('visibilitychange'")),c);await c.cloudCheckView();assert.equal(calls,0);
+ console.log('PASS: unchanged/changed revision, explicit refresh, hidden/editing/busy screens, overlap prevention, error recovery, cloud overlap');
+})().catch(e=>{console.error(e);process.exitCode=1});

@@ -48,7 +48,7 @@ function cloudViewCanRefresh(){
   !$('#modal').open&&(!field?.matches('input,textarea,select,[contenteditable="true"]')||(field.id==='scan'&&!field.value));
 }
 async function cloudCheckView(){
- if(cloudCheckingVersion||!cloudViewCanRefresh())return;
+ if(cloudCheckingVersion||window.floor?.loading||!cloudViewCanRefresh())return;
  const revision=cloudRevision,session=cloudUser.email,lot=current?.id,view=page,phase=stage,attempt=cloudBootAttempt;
  const sameView=()=>cloudViewCanRefresh()&&attempt===cloudBootAttempt&&cloudUser.email===session&&cloudRevision===revision&&current?.id===lot&&page===view&&stage===phase;
  cloudCheckingVersion=true;
