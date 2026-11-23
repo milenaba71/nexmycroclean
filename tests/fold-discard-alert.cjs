@@ -13,6 +13,6 @@ vm.runInContext(s.split('\n').find(l=>l.startsWith('const oldChecked=')),ctx);
  ctx.current.rows=[{code:'A',discardForReturn:true}];alerts.length=0;
  assert.equal(await ctx.checkedProcess('A'),null);assert.equal(oldCalls,1);assert.equal(alerts.length,1);assert.equal(alerts[0][0],'ATTENZIONE SCARTO');assert.equal(alerts[0][4],true);
  ctx.stage='Uscita';alerts.length=0;await ctx.checkedProcess('A');assert.equal(alerts.length,0);
- ctx.stage='Lavorazione';ctx.current.rows=[{code:'A'}];ctx.db.garments=[{id:'A'}];await ctx.checkedProcess('A');assert.equal(alerts.length,0);
+ ctx.stage='Lavorazione';ctx.current.rows=[{code:'A'}];ctx.db.garments=[{id:'A'}];await ctx.checkedProcess('A');assert.equal(alerts.length,0);assert.equal(ctx.F.feedback,null);
  console.log('PASS: discard warning, customer return confirmation, normal garments and exit unchanged');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const s=fs.readFileSync('operator-view.js','utf8');
+const ctx={current:{rows:[{code:'A',washBatchId:'w'},{code:'B',foldedAt:'today'},{code:'C',state:'Uscito'},{code:'D',state:'Dismesso'},{code:'E',completed:true}]},foldScope:l=>l};
+vm.createContext(ctx);
+vm.runInContext(s.slice(s.indexOf('function foldCounterMarkup(){'),s.indexOf('function feedbackMarkup(){')),ctx);
+assert.match(ctx.foldCounterMarkup(),/3 \/ 4/);
+ctx.current.rows[0].foldedAt='saved';
+assert.match(ctx.foldCounterMarkup(),/4 \/ 4/);
+assert.doesNotMatch(ctx.foldCounterMarkup(),/FATTO/);
+ctx.foldScope=l=>({rows:[l.rows[0]]});
+assert.match(ctx.foldCounterMarkup(),/1 \/ 1/);
+console.log('PASS: saved folding totals, dismissed exclusions, department scope, no success popup');

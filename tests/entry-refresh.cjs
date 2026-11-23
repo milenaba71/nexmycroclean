@@ -12,5 +12,6 @@ const mismatch=fs.readFileSync('lot-mismatch-alert.js','utf8');
  status='returned';assert.match(await ctx.checkedProcess('A'),/reso dal cliente/);assert.equal(processed,121);
  status='active';ctx.lotMismatchInfo=()=>({reason:'Altro cliente'});assert.equal(await ctx.checkedProcess('A'),'Altro cliente');assert.equal(processed,121);
  ctx.lotMismatchInfo=()=>null;ctx.db.garments=[];await ctx.checkedProcess('NEW');assert.equal(reads,2);
- console.log('PASS 120 scans without full pre-scan reload, changed revision refreshed, returned/wrong-client blocked, unknown code refreshed');
+ ctx.stage='Lavorazione';ctx.current.rows=[{code:'A'}];ctx.db.garments=[{id:'A'}];const beforeFold=reads;for(let i=0;i<130;i++)assert.equal(await ctx.checkedProcess('A'),null);assert.equal(reads,beforeFold);revision++;await ctx.checkedProcess('A');assert.equal(reads,beforeFold+1);status='returned';assert.match(await ctx.checkedProcess('A'),/reso dal cliente/);
+ console.log('PASS folding: 130 scans without full reload, remote changes refreshed and returned products blocked;  120 scans without full pre-scan reload, changed revision refreshed, returned/wrong-client blocked, unknown code refreshed');
 })().catch(e=>{console.error(e);process.exitCode=1});

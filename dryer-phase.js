@@ -44,8 +44,8 @@ const pTaskCardBeforeDrying=pTaskCard;pTaskCard=function(t,...args){let html=pTa
  let at=html.lastIndexOf('</article>');return at<0?html+extra:html.slice(0,at)+extra+html.slice(at)};
 // Background polling updates only the drying sections and timers.
 async function dryPoll(){
- // Exit scans validate each garment directly; machine polling must not contend with saves.
- if(current&&stage==='Uscita')return;
+ // Fold/exit scans validate on the server; background machine reads must not contend with saves.
+ if(current&&['Uscita','Lavorazione'].includes(stage))return;
 if(dryBusy||!cloudUser||lotBusy()||cloudBusy||cloudQueue.length||$('#modal').open||document.hidden||!(current||page==='Produzione'))return;let before=JSON.stringify(dryState?.carts||[]);try{await dryRpc('read')}catch(e){dryError=washMessage(e);return}if(before!==JSON.stringify(dryState.carts)){dryRenderAll();let host=$('#dryCarts')||$('#productionDryCarts');if(current&&host&&!$('#dryUpdates')){let message=document.createElement('div');message.id='dryUpdates';message.className='notice';message.innerHTML='Asciugatura aggiornata. <button class="link" onclick="washApplyUpdates()">Mostra aggiornamenti</button>';host.append(message)}}else for(let card of document.querySelectorAll('[data-dry-batch]')){let c=dryState.carts.find(c=>c.batchId===card.dataset.dryBatch),timer=card.querySelector('[data-dry-timer]');if(c&&timer)timer.innerHTML=dryStatus(c)}}
 setInterval(()=>{void dryPoll()},15000);
 const styleDry=document.createElement('style');styleDry.textContent='.dry-cart{border-left-color:#d08a00}.dry-cart.running{border-left-color:#315caa}.dry-cart.blocked{border-left-color:#c73c32}.dry-cart.estimated{border-left-color:#36866c}#dryCarts h2,#productionDryCarts h2{font-size:18px;margin-top:0}#dryCarts p{font-size:13px}.dry-task-carts{border-top:1px solid #dce3f1;margin-top:10px;padding-top:10px}.dry-task-carts .btn{max-width:100%;white-space:normal}@media(max-width:760px){.dry-task-carts .btn{width:100%}}';document.head.appendChild(styleDry);
