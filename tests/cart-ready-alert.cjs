@@ -1,0 +1,15 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const s=fs.readFileSync('wash-batches.js','utf8'),shown=[];
+const b={id:'new',lot_id:1,program_id:'p',machine_id:'m',state:'ready',capacity:30,quantity:1,cart_number:42};
+const ctx={stage:'Entrata',current:{id:1},washState:{batches:[{...b,id:'old',quantity:30},b]},washNoticeSeen:new Set(),washChoiceParts:()=>['p','m'],washCanOperate:()=>true,washQueueWaiting:()=>false,$:()=>({open:false}),show:x=>shown.push(x),esc:String,lotno:()=>1,db:{lots:[]}};
+vm.createContext(ctx);vm.runInContext(s.slice(s.indexOf('function washCartNumberMarkup('),s.indexOf('function washCard(')),ctx);
+vm.runInContext(s.split('\n').find(l=>l.startsWith('function washPopupReady(')),ctx);
+ctx.washPopupReady();assert.equal(shown.length,0);
+for(let n=1;n<30;n++){b.quantity=n;ctx.washPopupReady('new')}assert.equal(shown.length,0);
+b.quantity=30;ctx.washPopupReady('new');assert.equal(shown.length,1);assert.match(shown[0],/N° 42/);
+for(let i=0;i<100;i++)ctx.washPopupReady('new');assert.equal(shown.length,1);
+ctx.washNoticeSeen.clear();ctx.stage='Lavorazione';ctx.washPopupReady('new');assert.equal(shown.length,1);
+ctx.stage='Entrata';ctx.current.id=2;ctx.washPopupReady('new');assert.equal(shown.length,1);
+ctx.current.id=1;ctx.washChoiceParts=()=>['other','m'];ctx.washPopupReady('new');assert.equal(shown.length,1);
+ctx.washLoadMembers=()=>[b,{cart_number:43}];assert.match(ctx.washCartNumberMarkup(b),/N° 42 · N° 43/);
+console.log('PASS: capacity threshold once, no old/other-lot/other-program/folding alerts; persistent numbers and combined loads');
