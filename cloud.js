@@ -11,7 +11,58 @@ function cloudDecorate(){let s=$('#cloudState');if(!s){s=document.createElement(
 function cloudRole(r){return {admin:'Amministratore',operator:'Operatore',viewer:'Sola lettura'}[r]||r}
 function cloudDelta(snapshot){let changes={};for(let k of cloudEntities){let old=new Map((cloudBase[k]||[]).map(x=>[String(x.id),JSON.stringify(x)]));let rows=(snapshot[k]||[]).filter(x=>old.get(String(x.id))!==JSON.stringify(x));if(rows.length)changes[k]=rows}return changes}
 function save(){if(!cloudBase||cloudStopped)return;cloudQueue.push(clone(db));cloudStatus('Salvataggio in corso…');void cloudDrain()}
-async function cloudDrain(){if(cloudBusy||cloudStopped)return;cloudBusy=true;try{while(cloudQueue.length){let snapshot=cloudQueue.shift(),changes=cloudDelta(snapshot);if(!Object.keys(changes).length)continue;let result=await cloudRequest('save',{revision:cloudRevision,changes});cloudRevision=result.revision;cloudBase=snapshot}cloudStatus('✓ Salvato su Supabase')}catch(e){cloudStopped=true;cloudStatus('Modifiche non salvate',true);show(`<h2>Salvataggio non completato</h2><p>${esc(e.message)}</p><p>Conserva una copia delle modifiche prima di aggiornare i dati.</p><div class="tools"><button class="btn secondary" onclick="download(JSON.stringify(db,null,2),'mycroclean-recupero.json','application/json')">Scarica copia di recupero</button><button class="btn" onclick="location.reload()">Ricarica dati condivisi</button></div>`)}finally{cloudBusy=false}}
+// Rebase only independent edits. Conflicting values are never overwritten.
+function cloudMergeValue(base,local,remote){
+ const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ if(same(local,base))return remote;
+ if(same(remote,base)||same(local,remote))return local;
+ const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+ if(object(base)&&object(local)&&object(remote)){
+  const out={};
+  for(const key of new Set([...Object.keys(base),...Object.keys(local),...Object.keys(remote)])){
+   const value=cloudMergeValue(base[key],local[key],remote[key]);
+   if(value!==undefined)out[key]=value;
+  }
+  return out;
+ }
+ throw Error('Lo stesso dato è stato modificato nel frattempo. Conserva le modifiche e ricarica per verificarlo.');
+}
+function cloudRebaseSnapshot(base,local,remote){
+ const result=clone(remote);
+ for(const key of cloudEntities){
+  const before=new Map((base[key]||[]).map(x=>[String(x.id),x]));
+  const latest=new Map((remote[key]||[]).map(x=>[String(x.id),x]));
+  for(const row of local[key]||[]){
+   const id=String(row.id);
+   if(JSON.stringify(row)===JSON.stringify(before.get(id)))continue;
+   latest.set(id,cloudMergeValue(before.get(id),row,latest.get(id)));
+  }
+  result[key]=[...latest.values()];
+ }
+ return clone(result);
+}
+async function cloudSaveSnapshot(snapshot){
+ for(let attempt=0;;attempt++){
+  const changes=cloudDelta(snapshot);
+  if(!Object.keys(changes).length)return snapshot;
+  try{
+   const result=await cloudRequest('save',{revision:cloudRevision,changes});
+   cloudRevision=result.revision;
+   return snapshot;
+  }catch(e){
+   if(e.status!==409||attempt>=3)throw e;
+   const remote=await cloudRequest();
+   const next=cloudRebaseSnapshot(cloudBase,snapshot,remote.db);
+   const working=cloudRebaseSnapshot(cloudBase,db,remote.db);
+   const queued=cloudQueue.map(x=>cloudRebaseSnapshot(cloudBase,x,remote.db));
+   const lotId=current?.id;
+   snapshot=next;db=working;cloudQueue=queued;
+   cloudBase=clone(remote.db);cloudRevision=remote.revision;cloudUser=remote.user;
+   current=lotId?db.lots.find(l=>l.id===lotId)||null:null;
+  }
+ }
+}
+async function cloudDrain(){if(cloudBusy||cloudStopped)return;cloudBusy=true;try{while(cloudQueue.length){let snapshot=cloudQueue.shift();cloudBase=await cloudSaveSnapshot(snapshot)}cloudStatus('✓ Salvato su Supabase')}catch(e){cloudStopped=true;cloudStatus('Modifiche non salvate',true);show(`<h2>Salvataggio non completato</h2><p>${esc(e.message)}</p><p>Conserva una copia delle modifiche prima di aggiornare i dati.</p><div class="tools"><button class="btn secondary" onclick="download(JSON.stringify(db,null,2),'mycroclean-recupero.json','application/json')">Scarica copia di recupero</button><button class="btn" onclick="location.reload()">Ricarica dati condivisi</button></div>`)}finally{cloudBusy=false}}
 async function cloudFlush(){while(cloudBusy)await new Promise(r=>setTimeout(r,80));if(cloudStopped)throw Error('Il salvataggio è sospeso. Ricarica i dati.');if(cloudQueue.length){await cloudDrain();if(cloudStopped)throw Error('Il salvataggio non è completato.')}}
 async function cloudRefresh(){try{await cloudFlush();cloudAccept(await cloudRequest())}catch(e){notify(e.message)}}
 async function createLot(e){e.preventDefault();let button=e.submitter;if(button)button.disabled=true;try{await cloudFlush();let f=new FormData(e.target);let r=await cloudRequest('lot_create',{revision:cloudRevision,client:f.get('client'),colli:+f.get('colli'),due:f.get('due')});$('#modal').close();cloudAccept(await cloudRequest(),false);openLot(r.lot.id);cloudDecorate();notify('Lotto creato sul database: '+lotno(r.lot))}catch(err){notify(err.message);if(button)button.disabled=false}}

@@ -1,0 +1,22 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('cloud.js','utf8');
+const base={lots:[{id:1,notes:'',rows:[],entryWashChoice:'old'},{id:2,notes:'old'}],garments:[],clientRecords:[],processing:[]};
+const clone=x=>JSON.parse(JSON.stringify(x));
+const ctx={clone,cloudEntities:['garments','clientRecords','processing','lots'],cloudRevision:1,cloudBase:clone(base),db:clone(base),cloudQueue:[],current:{id:1}};
+vm.createContext(ctx);
+vm.runInContext(source.slice(source.indexOf('function cloudDelta('),source.indexOf('function save()')),ctx);
+vm.runInContext(source.slice(source.indexOf('function cloudMergeValue('),source.indexOf('async function cloudDrain(')),ctx);
+const local=clone(base);local.lots[0].entryWashChoice='new';
+const remote=clone(base);remote.lots[0].rows=[{code:'REMOTE'}];remote.lots[1].notes='colleague';
+const merged=ctx.cloudRebaseSnapshot(base,local,remote);
+assert.equal(merged.lots[0].entryWashChoice,'new');assert.equal(merged.lots[0].rows[0].code,'REMOTE');assert.equal(merged.lots[1].notes,'colleague');
+const conflicting=clone(remote);conflicting.lots[0].entryWashChoice='different';assert.throws(()=>ctx.cloudRebaseSnapshot(base,local,conflicting),/stesso dato/);
+const deleted=clone(remote);deleted.lots=deleted.lots.filter(l=>l.id!==1);assert.throws(()=>ctx.cloudRebaseSnapshot(base,local,deleted));
+const a=ctx.cloudRebaseSnapshot(base,local,remote),b=ctx.cloudRebaseSnapshot(base,local,remote);a.lots[1].notes='mutated';assert.equal(b.lots[1].notes,'colleague');
+(async()=>{
+ ctx.db=clone(local);ctx.db.lots[0].notes='typed while saving';ctx.cloudQueue=[clone(ctx.db)];let calls=0;
+ ctx.cloudRequest=async(action,p)=>{if(!action)return {db:clone(remote),revision:2,user:{}};calls++;if(calls===1)throw Object.assign(Error('conflict'),{status:409});assert.equal(p.revision,2);assert.equal(p.changes.lots.length,1);assert.equal(p.changes.lots[0].rows[0].code,'REMOTE');return {revision:3}};
+ const saved=await ctx.cloudSaveSnapshot(clone(local));assert.equal(calls,2);assert.equal(saved.lots[0].notes,'');assert.equal(ctx.db.lots[0].notes,'typed while saving');assert.equal(ctx.cloudQueue[0].lots[0].notes,'typed while saving');assert.equal(ctx.current,ctx.db.lots[0]);assert.equal(ctx.cloudRevision,3);
+ ctx.cloudRequest=async()=>{throw Object.assign(Error('forbidden'),{status:403})};await assert.rejects(()=>ctx.cloudSaveSnapshot(local),/forbidden/);
+ console.log('PASS: independent fields/lots merged, same-field/deletion conflicts blocked, queued edits preserved, baselines independent, non-conflict errors not retried');
+})().catch(e=>{console.error(e);process.exitCode=1});
