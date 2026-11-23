@@ -1,0 +1,16 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('operator-view.js','utf8');
+let allowed=true,busyFlag=false,draws=0,home=0,back=null,header=null,iframe=null,select={};
+const app={classList:{remove(){}},prepend(el){header=el;iframe={}}};
+const ctx={F:{active:true,screen:'lot',phase:'entry',home(){home++},openLot(id,phase){back={id,phase}}},current:{id:45},page:'Reparto',busy:()=>busyFlag,userCan:()=>allowed,notify:()=>{},setMode:()=>{},labelsView:()=>{draws++},top:()=>'<h1>Etichette</h1>',document:{createElement:()=>({})},$:q=>q==='#app'?app:q==='#floorLabelsHeader'?header:q==='#app iframe'?iframe:q.startsWith('#app button')?select:null};
+vm.createContext(ctx);
+vm.runInContext(source.slice(source.indexOf('F.labels=function'),source.indexOf('F.mask=function')),ctx);
+vm.runInContext(source.slice(source.indexOf('F.back=function'),source.indexOf('F.office=function')),ctx);
+ctx.F.labels();assert.equal(ctx.F.screen,'labels');assert.equal(ctx.current,null);assert.equal(ctx.page,'Etichette');assert.equal(draws,1);assert.equal(select.textContent,'← Torna al lotto');
+ctx.F.drawLabels();assert.equal(draws,1,'background render must preserve editor');
+ctx.F.back();assert.equal(back.id,45);assert.equal(back.phase,'entry');
+ctx.F.screen='lot';allowed=false;ctx.F.labels();assert.equal(ctx.F.screen,'lot');
+allowed=true;busyFlag=true;ctx.F.labels();assert.equal(ctx.F.screen,'lot');
+ctx.go=()=>{throw Error('office route reached')};ctx.F.labels=()=>{draws++};vm.runInContext(source.slice(source.indexOf('const oldGo=go;'),source.indexOf("document.addEventListener('pointerdown'")),ctx);ctx.go('Etichette');assert.equal(draws,2);assert.equal(home,0);
+const paging=fs.readFileSync('product-paging.js','utf8');const c={current:null,cloudUser:{},page:'Etichette',rentalPage:'Rent',custodyPage:'Custody',assetPage:'Assets'};vm.createContext(c);vm.runInContext(paging.slice(paging.indexOf('function productsScreenScope(){'),paging.indexOf('let productScreenRequest=')),c);assert.equal(c.productsScreenScope(),null);
+console.log('PASS: floor labels route, permission/busy gates, selected editor survives refresh, return to original lot, no full archive scope');

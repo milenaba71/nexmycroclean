@@ -3,7 +3,7 @@ const permissionProfiles={admin:'Amministratore',operator:'Operatore',basic:'Ope
 let permissionUsers=[];
 
 function permissionError(e){let msg=e.message||String(e);if(msg.includes('SUPER_ADMIN_ONLY'))return 'Solo il Super amministratore può modificare utenti, ruoli e permessi.';if(msg.includes('PERMISSION_DENIED'))return 'Non hai il permesso per questa operazione. Rivolgiti al Super amministratore.';return ({SUPER_ADMIN_PROTECTED:'L’unico Super amministratore è protetto: il suo ruolo e i suoi poteri non possono essere modificati.',ROLE_PERMISSION_LIMIT:'Per questi poteri occorre il profilo Amministratore.',REVISION_CONFLICT:'Permessi aggiornati da un’altra sessione. Chiudi e riapri la scheda.'})[msg]||msg}
-const usersBeforePermissions=usersView;usersView=async function(){await usersBeforePermissions();if(cloudUser?.isSuperAdmin){try{let {data,error}=await appSupabase.rpc('laundry_user_permissions',{p_action:'read'});if(error)throw Error(error.message);permissionUsers=data;document.querySelectorAll('#userList tbody tr').forEach(tr=>{let email=tr.children[1]?.textContent.trim(),u=permissionUsers.find(u=>u.email===email);if(!u)return;tr.children[2].textContent=u.profile==='super'?'Super amministratore':permissionProfiles[u.profile];if(u.profile!=='super'){let b=document.createElement('button');b.className='link';b.textContent='Ruolo e permessi';b.onclick=()=>userPermissionDialog(email);tr.lastElementChild.append(b)}})}catch(e){notify(permissionError(e))}}else{document.querySelectorAll('#userList button,#app .heading button').forEach(b=>b.disabled=true)}};
+const usersBeforePermissions=usersView;usersView=async function(){await usersBeforePermissions();if(cloudUser?.isSuperAdmin){try{let {data,error}=await appSupabase.rpc('laundry_user_permissions',{p_action:'read'});if(error)throw Error(error.message);permissionUsers=data;document.querySelectorAll('#userList tbody tr').forEach(tr=>{let email=tr.children[1]?.textContent.trim(),u=permissionUsers.find(u=>u.email===email);if(!u)return;tr.children[2].textContent=u.profile==='super'?'Super amministratore':permissionProfiles[u.profile];if(u.profile!=='super'){let b=document.createElement('button');b.className='link';b.textContent='Ruolo e permessi';b.onclick=()=>userPermissionDialog(email);tr.lastElementChild.append(b);let remove=document.createElement('button');remove.className='link';remove.style.color='#b42318';remove.textContent='Elimina utente';remove.onclick=()=>deleteUserDialog(email);tr.lastElementChild.append(remove)}})}catch(e){notify(permissionError(e))}}else{document.querySelectorAll('#userList button,#app .heading button').forEach(b=>b.disabled=true)}};
 const editUserBeforePermissions=editUser;editUser=function(...args){if(!cloudUser?.isSuperAdmin)return notify('Solo il Super amministratore può gestire gli utenti.');editUserBeforePermissions(...args)};
 function permissionCeiling(profile,key){return profile==='admin'||['operator','basic'].includes(profile)&&!['planning_delete','production_type_delete','products_delete'].includes(key)}
 function permissionDefault(profile,key){if(key==='assistant_edit')return false;return profile==='admin'&&!['production_type_delete','products_delete'].includes(key)||profile==='operator'&&['lots_work','lots_create','production_execute','tickets_manage'].includes(key)||profile==='basic'&&['lots_work','production_execute'].includes(key)}
@@ -25,3 +25,20 @@ let permissionDecorationQueued=false;new MutationObserver(()=>{if(permissionDeco
 const cloudDecorateBeforePermissions=cloudDecorate;cloudDecorate=function(){cloudDecorateBeforePermissions();userPermissionDecorate()};
 
 function userPermissionSelect(value){for(let input of document.querySelectorAll('#userPermissionChecks input'))if(!input.disabled)input.checked=value}
+
+function deleteUserDialog(email){
+ if(!cloudUser?.isSuperAdmin)return;
+ const user=permissionUsers.find(u=>u.email===email);
+ if(!user||user.profile==='super')return;
+ show(`<h2>Elimina utente</h2><p><b>${esc(user.name)}</b><br>${esc(email)}</p><p>L’utente verrà rimosso dall’elenco e non potrà più accedere. Le sessioni aperte saranno revocate. Lo storico delle sue lavorazioni rimarrà disponibile.</p><form id="deleteUserForm"><p class="wide" id="deleteUserError" role="alert"></p><div class="wide tools"><button type="submit" class="btn" style="background:#b42318">Elimina questo utente</button><button type="button" class="btn secondary" onclick="$('#modal').close()">Annulla</button></div></form>`);
+ $('#deleteUserForm').onsubmit=async e=>{
+  e.preventDefault();const button=e.submitter;if(button.disabled)return;button.disabled=true;
+  try{
+   await cloudFlush();
+   const {data,error}=await appSupabase.rpc('laundry_user_delete',{p_email:email});
+   if(error)throw Error(error.message);
+   if(!data?.ok)throw Error('Eliminazione non confermata.');
+   $('#modal').close();await usersView();notify('Utente eliminato. Storico delle lavorazioni conservato.');
+  }catch(error){$('#deleteUserError').textContent=permissionError(error);button.disabled=false;}
+ };
+}

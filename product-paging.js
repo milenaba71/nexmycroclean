@@ -7,7 +7,7 @@ appSupabase.rpc=function(name,args={},options){
  const ids=[...new Set([...productRemote.pinned,...(db?.garments||[]).slice(-500).map(g=>g.id)])].slice(0,1000);
  return productRpcOriginal('laundry_screen',{p_rpc:name,p_args:args,p_ids:ids,p_scope:productsScreenScope()},options);
 };
-async function productsRead(p={}){const {data,error}=await productRpcOriginal('laundry_products_query',{p});if(error)throw Error(String(error.message).includes('REVISION_CONFLICT')?'I dati sono cambiati. Aggiorna e riprova.':error.message);if(data.revision!==cloudRevision&&cloudBase)throw Error('I dati sono cambiati. Premi Aggiorna dati prima di continuare.');return data}
+async function productsRead(p={}){const {data,error}=await productRpcOriginal('laundry_products_query',{p});if(error)throw Error(String(error.message).includes('REVISION_CONFLICT')?'I dati sono cambiati. Aggiorna e riprova.':error.message);if(data.revision!==cloudRevision&&cloudBase&&!p.ids&&p.mode!=='lookup')throw Error('I dati sono cambiati. Premi Aggiorna dati prima di continuare.');return data}
 function productsHydrate(rows){
  const baseline=new Map((cloudBase?.garments||[]).map(g=>[g.id,JSON.stringify(g)]));const dirty=new Set(db.garments.filter(g=>baseline.has(g.id)&&JSON.stringify(g)!==baseline.get(g.id)).map(g=>g.id));
  const merge=items=>{let m=new Map((items||[]).map(g=>[g.id,g]));for(const g of rows){if(dirty.has(g.id))continue;m.set(g.id,clone(g));}return [...m.values()]};
@@ -18,7 +18,7 @@ function productsHydrate(rows){
 async function productsMetadata(){if(productRemote.metaRevision===cloudRevision)return productRemote.meta;const r=await productsRead({mode:'meta'});productRemote.meta=r;productRemote.metaRevision=r.revision;return r}
 async function productsCollect(params={}){const result=[];let revision;for(let offset=0;;offset+=1000){const r=await productsRead({...params,limit:1000,offset,...(revision===undefined?{}:{revision})});revision=r.revision;result.push(...r.rows);if(offset+r.rows.length>=r.total)break;if(!r.rows.length)throw Error('Risposta incompleta: riprova.')}return result}
 async function productsLoadScope(params={}){await cloudFlush();const key=JSON.stringify(params),revision=cloudRevision;if(productRemote.scopes.get(key)===revision)return;const rows=await productsCollect(params);if(cloudRevision!==revision)throw Error('Dati aggiornati da un collega. Riprova.');productsHydrate(rows);productRemote.scopes.set(key,revision)}
-async function productsLoadIds(ids){await cloudFlush();productRemote.pinned=ids.slice(0,500);const rows=[];for(let offset=0;offset<ids.length;offset+=1000){const r=await productsRead({ids:ids.slice(offset,offset+1000),limit:1000,revision:cloudRevision});rows.push(...r.rows)}productsHydrate(rows);return rows}
+async function productsLoadIds(ids){await cloudFlush();productRemote.pinned=ids.slice(0,500);const rows=[];let revision;for(let offset=0;offset<ids.length;offset+=1000){const r=await productsRead({ids:ids.slice(offset,offset+1000),limit:1000,...(revision===undefined?{}:{revision})});revision=r.revision;rows.push(...r.rows)}productsHydrate(rows);return rows}
 const productAcceptBeforePaging=cloudAccept;
 cloudAccept=function(result,redraw=true){if(result.db?.garments)result.db.garments=[...new Map(result.db.garments.map(g=>[g.id,g])).values()];productRemote.scopes.clear();productRemote.metaRevision=-1;return productAcceptBeforePaging(result,redraw)};
 function productRemoteParams(){return {query,prop,filters:clone(productFilters),rules:clone(productRules)}}
@@ -54,7 +54,9 @@ function productsScreenScope(){
  if(current||!cloudUser)return null;
  if(page==='Clienti'&&clientProfileId){const c=db.clientRecords.find(c=>c.id===clientProfileId);return c?{client:c.name}:null}
  if(page===rentalPage||page==='Dashboard')return {prop:'rent'};
- if(page===custodyPage||page===assetPage||page==='Etichette')return {};
+ // The label editor receives only selected rows through sessionStorage.
+ // Loading every product here delays printing and conflicts with ongoing scans.
+ if(page===custodyPage||page===assetPage)return {};
  return null;
 }
 let productScreenRequest=0;
