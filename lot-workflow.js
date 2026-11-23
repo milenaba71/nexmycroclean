@@ -61,7 +61,7 @@ function bindAutoScanner(input){
   const code=input.value;input.value='';enqueueBarcode(code);
  });
 }
-function enqueueBarcode(value){if(!current)return;if(!lotWritable())return notify('Utente in sola lettura.');let code=resolveBarcode(value);if(!code)return;scanQueue.push({code,lotId:current.id,phase:stage,processingId:chosenProcessing});renderScanFeedback();void drainBarcodeQueue()}
+function enqueueBarcode(value){if(!current)return;if(!lotWritable())return notify('Utente in sola lettura.');let code=resolveBarcode(value);if(!code)return;scanQueue.push({code,lotId:current.id,phase:stage,processingId:chosenProcessing});renderScanFeedback();return drainBarcodeQueue()}
 // Restore keyboard-scanner focus after the final DOM layout of a registered entry.
 function restoreEntryScanFocus(lotId){
  const focus=()=>{
