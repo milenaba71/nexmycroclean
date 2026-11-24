@@ -1,7 +1,9 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'../lot-workflow.js'),'utf8');
-const row={code:'P1',state:'Entrato'},events=[];const ctx={current:{rows:[row]},db:{garments:[{id:'P1'}]},lotMutationAllowed:()=>true,renderLotRows(){},productIsDiscard:g=>!!g?.discard,notify(){},log:(a,c)=>events.push([a,c]),detail(){}};vm.createContext(ctx);
+const row={code:'P1',state:'Entrato'},events=[];const ctx={current:{rows:[row]},db:{garments:[{id:'P1',rental:true}]},lotMutationAllowed:()=>true,renderLotRows(){},productIsDiscard:g=>!!g?.discard,notify(){},log:(a,c)=>events.push([a,c]),detail(){}};vm.createContext(ctx);
 vm.runInContext(src.slice(src.indexOf('function setRegisteredFlag('),src.indexOf('const lotFlagBeforeWorkflow')),ctx);
+for(const rental of [false,null,undefined]){ctx.db.garments[0].rental=rental;ctx.setRegisteredFlag('P1','discardReview',true);assert.equal(row.discardReview,undefined);assert.equal(row.verify,undefined);assert.equal(events.length,0)}
+ctx.db.garments[0].rental=true;
 ctx.setRegisteredFlag('P1','discardReview',true);assert.equal(row.verify,true);assert.equal(row.discardReview,true);assert.equal(row.discard,undefined);assert(events[0][0].includes('Scarto da verificare'));
 ctx.setRegisteredFlag('P1','discardReview',false);assert.equal(row.discardReview,false);assert.equal(row.verify,true); // Do not silently cancel a separate verification.
 ctx.setRegisteredFlag('P1','replacement',true);assert.equal(row.replacement,true);

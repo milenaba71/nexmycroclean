@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
 const row={code:`0001'"<&`,state:'Entrato',notes:'Nota esistente'};
 let html='';
-const c={current:{rows:[row]},db:{garments:[{id:row.code,rental:false}]},userCan:()=>true,show:s=>html=s,garmentLine:()=>'',flagLabels:{repair:'Riparazione',relabel:'Etichetta'},pendingFlags:()=>[],productIsDiscard:()=>false,button:(label,action,style,disabled='')=>`<button onclick="${action}" ${disabled}>${label}</button>`,esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),lotMutationAllowed:()=>true};
+const c={current:{rows:[row]},db:{garments:[{id:row.code,rental:false}]},userCan:()=>true,show:s=>html=s,garmentLine:()=>'',flagLabels:{repair:'Riparazione',relabel:'Etichetta',discardReview:'Scarto da verificare'},pendingFlags:()=>[],productIsDiscard:()=>false,button:(label,action,style,disabled='')=>`<button onclick="${action}" ${disabled}>${label}</button>`,esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),lotMutationAllowed:()=>true};
 vm.createContext(c);
 vm.runInContext(fs.readFileSync('garment-lifecycle.js','utf8').match(/^function assetArg\(x\).*$/m)[0],c);
 const discard=fs.readFileSync('discard.js','utf8');vm.runInContext(discard.slice(discard.indexOf('const customerDiscardNote=')),c);
@@ -10,6 +10,7 @@ c.customerDiscardOption=()=>{throw Error('arg is not defined (old cached helper)
 assert.equal(c.arg,undefined); // Match the real script boundary, which previously broke all openings.
 for(const rental of [false,true,undefined]){
  c.db.garments[0].rental=rental;c.floor.flags(row.code);
+ assert.equal(html.includes('data-floor-flag="discardReview"'),rental===true);
  assert(html.includes('Segnalazioni del capo'));assert(html.includes('Riparazione'));assert(html.includes('Note del capo'));
  let received;c.floor.flag=(...args)=>received=args;
  const handler=html.match(/onchange="([^"]+)"/)[1];vm.runInContext(`(function(){${handler}}).call({checked:true})`,c);
