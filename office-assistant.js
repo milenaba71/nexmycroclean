@@ -103,7 +103,7 @@
     if(plan.metric==='conversation'){
       const id=generation,active=()=>dialog.open&&id===generation&&allowed();
       target.textContent='Apertura chat aziendale…';
-      import('./assistant-memory.js?v=20261126-languages').then(()=>{if(active())return window.openCompanyAssistant(target,{active,showQuota})}).catch(()=>{if(active())target.textContent='Impossibile aprire la chat. Riprova.'});return;
+      import('./assistant-memory.js?v=20261126-voice').then(()=>{if(active())return window.openCompanyAssistant(target,{active,showQuota})}).catch(()=>{if(active())target.textContent='Impossibile aprire la chat. Riprova.'});return;
     }
     if(plan.metric==='maintenance'){
       const id=generation,active=()=>dialog.open&&id===generation&&allowed();
@@ -182,6 +182,8 @@
   const dialog=document.createElement('dialog');dialog.style.cssText='width:min(92vw,500px);max-height:80vh;overflow:auto;padding:18px;border:1px solid #ccd7e4;border-radius:12px';
   dialog.innerHTML='<h2>Chiedi al gestionale</h2><p>Apri la chat aziendale per parlare con l’IA e insegnarle procedure, oppure consulta i dati operativi del gestionale.</p><div data-examples></div><p data-quota aria-live="polite">Massimo 10 domande libere al giorno per utente abilitato.</p><label>Domanda<input type="text" maxlength="450" style="width:100%" placeholder="Quanti capi da riparare ha Marelli?"></label><small>La domanda viene interpretata da OpenAI. I conteggi restano nel gestionale; per analizzare manutenzioni, vengono inviate le relative note e i riepiloghi selezionati. Le modifiche richiedono abilitazione e conferma; nessun salvataggio automatico.</small><p><button class="btn" type="button" data-ask>Chiedi</button> <button class="btn secondary" type="button" data-close>Chiudi</button></p><div role="status"></div>';
   const target=dialog.querySelector('[role=status]'),input=dialog.querySelector('input'),ask=dialog.querySelector('[data-ask]');
+  let voiceBusy=false;
+  const voice=window.attachDictation?.(input,{isActive:()=>dialog.open&&allowed()&&(!ask.disabled||voiceBusy),onBusy:busy=>{voiceBusy=busy;ask.disabled=busy}});if(voice)input.closest('label').after(voice.element);
   const quotaLabel=dialog.querySelector('[data-quota]');
   function showQuota(remaining){
     if(Number.isInteger(remaining))quotaLabel.textContent='Domande libere rimaste oggi: '+remaining+' su 10. Rinnovo a mezzanotte (Italia).';
@@ -197,7 +199,7 @@
   let generation=0;
   for(const [question,metric] of examples) {
     const example=document.createElement('button');example.type='button';example.className='link';example.textContent=question;
-    example.onclick=()=>{if(!allowed())return;generation++;ask.disabled=false;input.value=question;answer({metric},target)};
+    example.onclick=()=>{if(!allowed())return;voice?.cancel();generation++;ask.disabled=false;input.value=question;answer({metric},target)};
     dialog.querySelector('[data-examples]').append(example);
   }
   ask.onclick=async()=>{
@@ -222,7 +224,7 @@
   };
   input.onkeydown=e=>{if(e.key==='Enter')ask.click()};
   dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-  dialog.onclose=()=>{generation++;ask.disabled=false;target.replaceChildren();input.value=''};
+  dialog.onclose=()=>{voice?.cancel();generation++;ask.disabled=false;target.replaceChildren();input.value=''};
   button.onclick=()=>{if(allowed()){dialog.showModal();quotaLabel.textContent='Massimo 10 domande libere al giorno per utente abilitato.';refreshQuota().catch(()=>{})}};
   function refresh(){button.hidden=!allowed();if(button.hidden&&dialog.open)dialog.close()}
   document.body.append(button,dialog);refresh();

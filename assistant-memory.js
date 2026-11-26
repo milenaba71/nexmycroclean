@@ -4,7 +4,7 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
  const btn=(text,fn)=>{const b=el('button',text);b.type='button';b.className='btn secondary';b.onclick=fn;return b};
  const label=(text,input)=>{const l=el('label',text);l.append(input);input.style.width='100%';return l};
  const errorText=e=>/KNOWLEDGE_CONFLICT/.test(e?.message||'')?'La regola è stata aggiornata. Il tuo testo resta qui: riapri la memoria per confrontare la versione attuale.':/FORBIDDEN|PERMISSION_DENIED|SUPER_ADMIN/.test(e?.message||'')?'Questa operazione richiede il Super amministratore.':e?.message||'Operazione non completata.';
- let canTrain=false,epoch=0,sending=false,saving=false;const history=[];
+ let canTrain=false,epoch=0,sending=false,saving=false,dictating=false;const history=[];
  const nav=el('div'),view=el('div'),chat=el('div'),thread=el('div'),input=el('textarea'),status=el('p');input.maxLength=2000;input.rows=3;input.dir='auto';input.placeholder='Scrivi la domanda nella tua lingua…';status.setAttribute('role','status');
  const teach=btn('Insegna all’IA',()=>edit());teach.hidden=true;
  const chatButton=btn('Chat aziendale',()=>{epoch++;view.replaceChildren(chat)}),memoryButton=btn('Memoria approvata',()=>list());
@@ -17,7 +17,7 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
   thread.append(box);
  }
  const send=btn('Invia',async()=>{
-  const question=input.value.trim();if(!question||sending||!active())return;sending=true;send.disabled=true;status.textContent='L’IA sta consultando la memoria approvata…';
+  const question=input.value.trim();if(!question||sending||dictating||!active())return;sending=true;send.disabled=true;status.textContent='L’IA sta consultando la memoria approvata…';
   try{
    const {data,error}=await appSupabase.functions.invoke('mycroclean-assistant',{body:{question,history:history.slice(-12)}});
    if(!active())return;
@@ -27,13 +27,14 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
    if(input.value.trim()===question)input.value='';status.textContent='Risposta ricevuta. Le regole permanenti cambiano solo con Approva e memorizza.';
   }catch(e){if(active())status.textContent=errorText(e)}finally{if(active()){sending=false;send.disabled=false}}
  });
- const clear=btn('Nuova conversazione',()=>{if(sending)return;history.length=0;thread.replaceChildren();input.value='';status.textContent='Conversazione azzerata. La memoria approvata resta salvata.'});
+ const clear=btn('Nuova conversazione',()=>{if(sending)return;voice?.cancel();history.length=0;thread.replaceChildren();input.value='';status.textContent='Conversazione azzerata. La memoria approvata resta salvata.'});
  chat.append(el('h3','La tua IA Mycroclean'),el('p','Scrivi nella tua lingua: l’IA la riconosce e risponde nella stessa lingua. Puoi usare armeno, rumeno, ucraino, russo, inglese, farsi e altre lingue. Consulta anche le procedure italiane approvate; se una frase non è chiara, chiede una precisazione.'),el('small','Le domande, il contesto recente e le regole pertinenti vengono inviati a OpenAI. Questa conversazione si azzera chiudendo il pannello; la memoria approvata resta nel gestionale.'),thread,label('Messaggio',input),send,clear,status);
+ const voice=window.attachDictation?.(input,{isActive:()=>!sending&&active()&&view.contains(chat),onBusy:busy=>{dictating=busy;send.disabled=busy||sending}});if(voice)input.closest('label').after(voice.element);
  input.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send.click()}};
  target.replaceChildren(nav,view);view.append(chat);
  async function rpc(action,p={}){const r=await appSupabase.rpc('laundry_assistant_knowledge',{p_action:action,p});if(r.error)throw r.error;return r.data}
  async function list(query=''){
-  if(saving)return;const id=++epoch;view.textContent='Caricamento memoria…';
+  if(saving)return;voice?.cancel();const id=++epoch;view.textContent='Caricamento memoria…';
   try{const data=await rpc('list',{query});if(!active()||id!==epoch)return;canTrain=data.canTrain;teach.hidden=!canTrain;
    const search=el('input');search.value=query;search.maxLength=120;const results=el('div');
    view.replaceChildren(el('h3','Memoria aziendale approvata'),el('p',data.total+' regole attive. Le regole approvate sono consultabili dagli utenti abilitati all’assistente.'),label('Cerca nelle regole',search),btn('Cerca',()=>list(search.value)),results);
@@ -43,7 +44,7 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
   }catch(e){if(active()&&id===epoch)view.replaceChildren(paragraph(errorText(e)),btn('Riprova',()=>list(query)))}
  }
  function edit(doc={}){
-  if(!canTrain||saving)return;const id=++epoch,draft={id:doc.id||crypto.randomUUID(),revision:doc.revision||0};
+  if(!canTrain||saving)return;voice?.cancel();const id=++epoch,draft={id:doc.id||crypto.randomUUID(),revision:doc.revision||0};
   const form=el('form'),title=el('input'),body=el('textarea'),source=el('input'),result=el('p');
   title.required=true;title.minLength=3;title.maxLength=120;title.value=doc.title||'';body.required=true;body.minLength=10;body.maxLength=4000;body.rows=10;body.value=doc.body||'';source.maxLength=300;source.value=doc.source||'';
   body.placeholder='Scrivi la procedura corretta: quando si applica, cosa fare, eccezioni ed eventuale verifica del responsabile.';

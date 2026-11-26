@@ -37,3 +37,14 @@ La chat usa gli accessi esistenti dell’assistente e la quota condivisa di 10 d
 La tabella privata è protetta da RLS e non consente lettura/scrittura diretta agli utenti API. Gli RPC verificano sessione e permessi; solo il Super amministratore può salvare/disattivare regole. Le modifiche bloccano soltanto la regola interessata, senza bloccare la riga globale della produzione. La funzione Edge recupera le fonti dal database con il token del chiamante e rifiuta riferimenti inventati; non accetta documenti forniti dal browser come fonti approvate.
 
 Verifiche automatiche: `assistant-memory-db.cjs`, `assistant-memory-edge.cjs`, `assistant-memory-ui.cjs`, più regressioni dell’assistente esistente. Non è stato eseguito un test manuale con l’account dell’operatore o un addestramento del modello.
+
+
+## Dettare domande e note di manutenzione
+
+Il pulsante **🎤 Detta** è sotto la domanda dell’assistente e della Chat aziendale e sotto i campi Problema / intervento effettuato, Causa verificata, Intervento effettuato e Ricambi utilizzati nei ticket di manutenzione. Scegliere la lingua parlata, consentire il microfono e premere **Ferma** al termine. La lingua della dettatura è distinta dal riconoscimento automatico della lingua nella chat: il servizio vocale del browser richiede una lingua selezionata.
+
+Il testo viene aggiunto a quello esistente, si può correggere dopo l’arresto e non viene mai inviato o salvato automaticamente. Durante la dettatura bisogna fermarsi prima di inviare o salvare. Si interrompe alla chiusura del pannello, al cambio schermata, passando a un’altra applicazione/scheda o dopo un minuto. Una sola dettatura può essere attiva. La chiusura conserva solo le parole già riconosciute nel campo aperto, senza salvare il modulo.
+
+La disponibilità delle lingue e della funzione dipende dal browser. In caso di incompatibilità o accesso negato, resta possibile digitare o usare la dettatura della tastiera del telefono. Il browser può inviare l’audio al proprio servizio di riconoscimento; il gestionale non registra né conserva file audio. Dettare non consuma domande IA; l’invio alla chat usa la quota normale. I permessi di modifica e salvataggio della manutenzione restano quelli esistenti.
+
+Riferimento API: https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition . Verifiche simulate di microfono, eventi, invio e salvataggio; la qualità della trascrizione e i permessi vanno verificati sul dispositivo dell’operatore.
