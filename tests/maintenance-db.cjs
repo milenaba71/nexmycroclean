@@ -1,0 +1,31 @@
+const fs=require('fs'),assert=require('node:assert/strict'),{PGlite}=require(process.env.PGLITE_PATH||'@electric-sql/pglite');
+(async()=>{
+ const db=new PGlite();await db.exec(`create role anon;create role authenticated;create schema auth;create schema laundry_private;
+ create function auth.uid() returns uuid language sql as $$select '00000000-0000-0000-0000-000000000001'::uuid$$;
+ create table laundry_production(id boolean primary key,data jsonb,revision bigint);create table laundry_audit(actor_email text,actor_id text,action text,details jsonb);
+ create table laundry_members(email text,name text,role text,active boolean);create table laundry_private.laundry_super_admin(email text);
+ create function laundry_private.require_permission(cap text) returns void language plpgsql as $$begin if current_setting('test.write')<>'yes' then raise exception 'FORBIDDEN';end if;end$$;
+ create function laundry_private.laundry_authenticated(a text,p jsonb) returns jsonb language sql as $$select '{"user":{"role":"operator","email":"operator@test"}}'::jsonb$$;
+ create function public.laundry_assistant_quota(p_consume boolean) returns jsonb language plpgsql as $$begin if current_setting('test.read')<>'yes' then raise exception 'FORBIDDEN';end if;if p_consume then raise exception 'MUST_NOT_CONSUME';end if;return '{}';end$$;
+ select set_config('test.write','yes',false),set_config('test.read','yes',false);`);
+ await db.exec(fs.readFileSync('tests/fixtures/maintenance-production.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261126154158_maintenance_assistant_history.sql','utf8'));
+ const original={machines:[{id:'m',name:'M1'}],tickets:[],operators:[{email:'private@test'}],tasks:[{id:'untouched'}]};await db.query('insert into laundry_production values(true,$1,1)',[JSON.stringify(original)]);
+ const rpc=async(p)=>{const revision=Number((await db.query('select revision from laundry_production')).rows[0].revision);return (await db.query("select laundry_private.production('ticket',$1) v",[JSON.stringify({revision,...p})])).rows[0].v};
+ let r=await rpc({machineId:'m',status:'open',blocking:true,note:'Cinghia rotta',maintenance:{kind:'fault',component:'Cinghia',errorCode:'E1',cause:'',work:'',parts:'',nextDate:''}}),t=r.data.tickets[0];
+ assert.equal(t.history[0].maintenance.component,'Cinghia');assert.equal(t.history[0].blocking,true);
+ r=await rpc({id:t.id,status:'resolved',blocking:false,note:'Sostituita cinghia',maintenance:{cause:'Usura confermata',work:'Sostituzione',parts:'Cinghia',nextDate:'2026-12-10'}});
+ assert.equal(r.data.tickets[0].maintenance.component,'Cinghia');assert.equal(r.data.tickets[0].history[0].maintenance.cause,'');
+ r=await rpc({id:t.id,status:'closed',note:'Verificato',blocking:false});assert.equal(r.data.tickets[0].maintenance.cause,'Usura confermata','old client must preserve fields');
+ await rpc({id:t.id,command:'archive'});
+ const read=async()=> (await db.query('select public.laundry_maintenance_history() v')).rows[0].v;
+ let snapshot=await read();assert.equal(snapshot.tickets.length,1);assert.equal(snapshot.tickets[0].archived,true);assert(snapshot.asOf);assert(!JSON.stringify(snapshot).includes('operator@test'));assert(!JSON.stringify(snapshot).includes('private@test'));assert(!snapshot.tasks);
+ await rpc({id:t.id,command:'restore'});
+ for(const maintenance of [{kind:'invalid'},{component:4},{evil:'value'},{cause:'a'.repeat(1001)},{nextDate:'2026-02-30'}])await assert.rejects(()=>rpc({id:t.id,status:'open',note:'Riapertura',maintenance}),/INVALID|range|date/i);
+ await assert.rejects(()=>rpc({id:t.id,status:'open',note:'Riapertura',revision:1,maintenance:{kind:'fault'}}),/REVISION_CONFLICT/);
+ await db.exec("select set_config('test.write','no',false)");await assert.rejects(()=>rpc({id:t.id,status:'open',note:'Riapertura',maintenance:{kind:'fault'}}),/FORBIDDEN/);
+ await db.exec("select set_config('test.read','no',false)");await assert.rejects(read,/FORBIDDEN/);
+ const row=(await db.query('select data from laundry_production')).rows[0].data;assert.deepEqual(row.tasks,original.tasks);assert.deepEqual(row.operators,original.operators);
+ for(const name of ['public.laundry_maintenance_history()','laundry_private.maintenance_history()']){const a=(await db.query("select has_function_privilege('anon',$1,'execute') anon, has_function_privilege('authenticated',$1,'execute') auth",[name])).rows[0];assert.equal(a.anon,false);assert.equal(a.auth,true)}
+ console.log('PASS: ticket save/history, old clients, archive, validation, revision/permission guards, read privacy, unchanged tasks and operators, RPC privileges');await db.close();
+})().catch(e=>{console.error(e);process.exit(1)});
