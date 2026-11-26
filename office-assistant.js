@@ -2,6 +2,7 @@
 (function () {
   const metrics = {all:'capi', entered:'capi entrati', fold:'capi pronti da piegare', repair:'capi da riparare', relabel:'capi da etichettare', verify:'capi da verificare', out:'capi usciti'};
   const examples = new Map([
+    ['Chat aziendale · insegna all’IA', 'conversation'],
     ['Fermi macchina e manutenzioni', 'maintenance'],
     ['Lavoro svolto per utente', 'users'],
     ['Quanti capi ci sono nei lotti attivi?', 'all'],
@@ -99,6 +100,11 @@
   function answer(plan, target) {
     if(plan.action==='edit'){previewEdit(plan,target);return}
     if(plan.metric==='users'){userWork(target);return}
+    if(plan.metric==='conversation'){
+      const id=generation,active=()=>dialog.open&&id===generation&&allowed();
+      target.textContent='Apertura chat aziendale…';
+      import('./assistant-memory.js?v=20261126-memory').then(()=>{if(active())return window.openCompanyAssistant(target,{active,showQuota})}).catch(()=>{if(active())target.textContent='Impossibile aprire la chat. Riprova.'});return;
+    }
     if(plan.metric==='maintenance'){
       const id=generation,active=()=>dialog.open&&id===generation&&allowed();
       target.textContent='Apertura manutenzioni…';
@@ -106,7 +112,7 @@
     }
     target.replaceChildren();
     if (!Object.hasOwn(metrics,plan.metric)) {
-      target.textContent='Posso analizzare fermi macchina e manutenzioni, oppure contare i capi per lotto, cliente, reparto e intervento. Per modificare, indica un solo codice prodotto o numero lotto e un solo valore. Campi supportati: nome utilizzatore, taglia, colore e note prodotto; colli, date e note lotto.';
+      target.textContent='Per dialogare sulle procedure e insegnare regole, apri «Chat aziendale · insegna all’IA». Qui posso analizzare fermi macchina e manutenzioni, oppure contare i capi per lotto, cliente, reparto e intervento. Per modificare, indica un solo codice prodotto o numero lotto e un solo valore. Campi supportati: nome utilizzatore, taglia, colore e note prodotto; colli, date e note lotto.';
       return;
     }
     let total=0;
@@ -174,7 +180,7 @@
   const button=document.createElement('button');button.type='button';button.textContent='🤖';button.setAttribute('aria-label','Apri assistente Mycroclean');button.title='Chiedi al gestionale';
   button.style.cssText='position:fixed;right:12px;bottom:56px;z-index:20;border:1px solid #ccd7e4;border-radius:50%;background:white;height:44px;width:44px;font-size:23px;cursor:pointer';
   const dialog=document.createElement('dialog');dialog.style.cssText='width:min(92vw,500px);max-height:80vh;overflow:auto;padding:18px;border:1px solid #ccd7e4;border-radius:12px';
-  dialog.innerHTML='<h2>Chiedi al gestionale</h2><p>Consulta i lotti oppure analizza guasti ricorrenti, fermi e manutenzioni delle macchine.</p><div data-examples></div><p data-quota aria-live="polite">Massimo 10 domande libere al giorno per utente abilitato.</p><label>Domanda<input type="text" maxlength="450" style="width:100%" placeholder="Quanti capi da riparare ha Marelli?"></label><small>La domanda viene interpretata da OpenAI. I conteggi restano nel gestionale; per analizzare manutenzioni, vengono inviate le relative note e i riepiloghi selezionati. Le modifiche richiedono abilitazione e conferma; nessun salvataggio automatico.</small><p><button class="btn" type="button" data-ask>Chiedi</button> <button class="btn secondary" type="button" data-close>Chiudi</button></p><div role="status"></div>';
+  dialog.innerHTML='<h2>Chiedi al gestionale</h2><p>Apri la chat aziendale per parlare con l’IA e insegnarle procedure, oppure consulta i dati operativi del gestionale.</p><div data-examples></div><p data-quota aria-live="polite">Massimo 10 domande libere al giorno per utente abilitato.</p><label>Domanda<input type="text" maxlength="450" style="width:100%" placeholder="Quanti capi da riparare ha Marelli?"></label><small>La domanda viene interpretata da OpenAI. I conteggi restano nel gestionale; per analizzare manutenzioni, vengono inviate le relative note e i riepiloghi selezionati. Le modifiche richiedono abilitazione e conferma; nessun salvataggio automatico.</small><p><button class="btn" type="button" data-ask>Chiedi</button> <button class="btn secondary" type="button" data-close>Chiudi</button></p><div role="status"></div>';
   const target=dialog.querySelector('[role=status]'),input=dialog.querySelector('input'),ask=dialog.querySelector('[data-ask]');
   const quotaLabel=dialog.querySelector('[data-quota]');
   function showQuota(remaining){

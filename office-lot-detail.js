@@ -47,4 +47,4 @@
  arrange();
 })();
 
-import('./office-assistant.js?v=20261126-maintenance').catch(() => {});
+import('./office-assistant.js?v=20261126-memory').catch(() => {});

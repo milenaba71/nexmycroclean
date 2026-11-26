@@ -1,0 +1,27 @@
+const fs=require('fs'),assert=require('node:assert/strict'),{PGlite}=require(process.env.PGLITE_PATH||'@electric-sql/pglite');
+(async()=>{
+ const db=new PGlite();await db.exec(`create role anon;create role authenticated;create schema laundry_private;create schema auth;
+ create function auth.uid() returns uuid language sql as $$select '00000000-0000-0000-0000-000000000001'::uuid$$;
+ create table laundry_audit(actor_email text,actor_id text,action text,details jsonb);
+ create function public.laundry_assistant_quota(p_consume boolean) returns jsonb language plpgsql as $$begin if current_setting('test.read')<>'yes' then raise exception 'FORBIDDEN';end if;if p_consume then raise exception 'NO_CONSUMPTION';end if;return '{}';end$$;
+ create function laundry_private.require_permission(cap text) returns void language plpgsql as $$begin if current_setting('test.super')<>'yes' then raise exception 'SUPER_ADMIN_ONLY';end if;end$$;
+ create function laundry_private.laundry_authenticated(a text,p jsonb) returns jsonb language sql as $$select jsonb_build_object('user',jsonb_build_object('email','test@example.test','isSuperAdmin',current_setting('test.super')='yes'))$$;
+ select set_config('test.read','yes',false),set_config('test.super','yes',false);`);
+ await db.exec(fs.readFileSync('supabase/migrations/20261126164725_assistant_knowledge_memory.sql','utf8'));
+ const rpc=async(a,p={})=>(await db.query('select public.laundry_assistant_knowledge($1,$2) v',[a,JSON.stringify(p)])).rows[0].v;
+ assert.deepEqual(await rpc('status'),{canTrain:true,total:0});
+ const p={id:'00000000-0000-0000-0000-000000000002',revision:0,title:'Controllo cinghia',body:'Per la cinghia della lavatrice contattare il manutentore.',source:'Procedura verificata',approved:true};
+ await assert.rejects(()=>rpc('save',{...p,approved:false}),/APPROVAL_REQUIRED/);assert.equal((await rpc('status')).total,0);
+ let r=await rpc('save',p);assert.equal(r.revision,1);assert.equal((await rpc('search',{query:'Quale controllo per le cinghie?'})).documents[0].id,p.id);
+ await assert.rejects(()=>rpc('save',p),/KNOWLEDGE_CONFLICT/);
+ await rpc('save',{...p,revision:1,body:'I controlli della cinghia devono essere eseguiti dal manutentore.'});
+ assert.equal((await rpc('list')).documents[0].revision,2);
+ await db.exec("select set_config('test.super','no',false)");assert.equal((await rpc('status')).canTrain,false);assert.equal((await rpc('list')).documents.length,1);
+ await assert.rejects(()=>rpc('save',{...p,revision:2}),/SUPER_ADMIN_ONLY/);await assert.rejects(()=>rpc('archive',{id:p.id,revision:2}),/SUPER_ADMIN_ONLY/);
+ await db.exec("select set_config('test.super','yes',false)");await rpc('archive',{id:p.id,revision:2});assert.equal((await rpc('search',{query:'cinghia'})).documents.length,0);assert.equal((await rpc('status')).total,0);
+ await rpc('save',{...p,revision:3});assert.equal((await rpc('status')).total,1,'archive is reversible');
+ const audit=(await db.query('select details from laundry_audit')).rows;assert.equal(audit.length,4);assert.equal(audit[1].details.before.revision,1);
+ await db.exec("select set_config('test.read','no',false)");await assert.rejects(()=>rpc('list'),/FORBIDDEN/);await assert.rejects(()=>rpc('search',{query:'cinghia'}),/FORBIDDEN/);
+ const grants=(await db.query("select has_function_privilege('anon','public.laundry_assistant_knowledge(text,jsonb)','execute') anon,has_table_privilege('authenticated','laundry_private.assistant_knowledge','select') direct")).rows[0];assert.deepEqual(grants,{anon:false,direct:false});
+ console.log('PASS: explicit approval, Italian retrieval, versions/concurrency, super-only training, authorized reads, archive/restore, audit, RLS/privileges');await db.close();
+})().catch(e=>{console.error(e);process.exit(1)});
