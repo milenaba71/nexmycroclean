@@ -13,6 +13,7 @@ const fs=require('fs'),assert=require('node:assert/strict'),{PGlite}=require(pro
  const p={id:'00000000-0000-0000-0000-000000000002',revision:0,title:'Controllo cinghia',body:'Per la cinghia della lavatrice contattare il manutentore.',source:'Procedura verificata',approved:true};
  await assert.rejects(()=>rpc('save',{...p,approved:false}),/APPROVAL_REQUIRED/);assert.equal((await rpc('status')).total,0);
  let r=await rpc('save',p);assert.equal(r.revision,1);assert.equal((await rpc('search',{query:'Quale controllo per le cinghie?'})).documents[0].id,p.id);
+ for(const original of ['Как проверить ремень LS3-08?','Ինչպե՞ս ստուգել LS3-08 գոտին։','تسمه LS3-08 را چگونه بررسی کنم؟'])assert.equal((await rpc('search',{query:'controllo cinghia LS3-08 '+original})).documents[0].id,p.id);
  await assert.rejects(()=>rpc('save',p),/KNOWLEDGE_CONFLICT/);
  await rpc('save',{...p,revision:1,body:'I controlli della cinghia devono essere eseguiti dal manutentore.'});
  assert.equal((await rpc('list')).documents[0].revision,2);

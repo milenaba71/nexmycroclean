@@ -5,11 +5,11 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
  const label=(text,input)=>{const l=el('label',text);l.append(input);input.style.width='100%';return l};
  const errorText=e=>/KNOWLEDGE_CONFLICT/.test(e?.message||'')?'La regola è stata aggiornata. Il tuo testo resta qui: riapri la memoria per confrontare la versione attuale.':/FORBIDDEN|PERMISSION_DENIED|SUPER_ADMIN/.test(e?.message||'')?'Questa operazione richiede il Super amministratore.':e?.message||'Operazione non completata.';
  let canTrain=false,epoch=0,sending=false,saving=false;const history=[];
- const nav=el('div'),view=el('div'),chat=el('div'),thread=el('div'),input=el('textarea'),status=el('p');input.maxLength=2000;input.rows=3;input.placeholder='Chiedi una procedura o descrivi il problema…';status.setAttribute('role','status');
+ const nav=el('div'),view=el('div'),chat=el('div'),thread=el('div'),input=el('textarea'),status=el('p');input.maxLength=2000;input.rows=3;input.dir='auto';input.placeholder='Scrivi la domanda nella tua lingua…';status.setAttribute('role','status');
  const teach=btn('Insegna all’IA',()=>edit());teach.hidden=true;
  const chatButton=btn('Chat aziendale',()=>{epoch++;view.replaceChildren(chat)}),memoryButton=btn('Memoria approvata',()=>list());
  nav.append(chatButton,memoryButton,teach);
- function paragraph(text){const p=el('p',text);p.style.whiteSpace='pre-wrap';return p}
+ function paragraph(text){const p=el('p',text);p.style.whiteSpace='pre-wrap';p.dir='auto';return p}
  function message(who,text,sources=[],question=''){
   const box=el('section');box.style.cssText='border:1px solid #dce2ef;border-radius:10px;padding:12px;margin:12px 0;overflow-wrap:anywhere';box.append(el('strong',who),paragraph(text));
   if(sources.length){const d=el('details');d.append(el('summary','Fonti aziendali utilizzate'));for(const s of sources)d.append(el('p',s.title+' · versione '+s.revision+' · '+new Date(s.updatedAt).toLocaleDateString('it-IT')));box.append(d)}
@@ -28,7 +28,7 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
   }catch(e){if(active())status.textContent=errorText(e)}finally{if(active()){sending=false;send.disabled=false}}
  });
  const clear=btn('Nuova conversazione',()=>{if(sending)return;history.length=0;thread.replaceChildren();input.value='';status.textContent='Conversazione azzerata. La memoria approvata resta salvata.'});
- chat.append(el('h3','La tua IA Mycroclean'),el('p','Parla delle procedure e dei problemi aziendali. L’IA consulta le regole approvate e distingue le proposte dalle informazioni confermate.'),el('small','Le domande, il contesto recente e le regole pertinenti vengono inviati a OpenAI. Questa conversazione si azzera chiudendo il pannello; la memoria approvata resta nel gestionale.'),thread,label('Messaggio',input),send,clear,status);
+ chat.append(el('h3','La tua IA Mycroclean'),el('p','Scrivi nella tua lingua: l’IA la riconosce e risponde nella stessa lingua. Puoi usare armeno, rumeno, ucraino, russo, inglese, farsi e altre lingue. Consulta anche le procedure italiane approvate; se una frase non è chiara, chiede una precisazione.'),el('small','Le domande, il contesto recente e le regole pertinenti vengono inviati a OpenAI. Questa conversazione si azzera chiudendo il pannello; la memoria approvata resta nel gestionale.'),thread,label('Messaggio',input),send,clear,status);
  input.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();send.click()}};
  target.replaceChildren(nav,view);view.append(chat);
  async function rpc(action,p={}){const r=await appSupabase.rpc('laundry_assistant_knowledge',{p_action:action,p});if(r.error)throw r.error;return r.data}

@@ -4,6 +4,12 @@ Aggiornamento: 26 novembre 2026.
 
 Aprire il robot **🤖 → Chat aziendale · insegna all’IA**. È una conversazione libera sulle procedure e sui problemi aziendali, con consultazione delle regole approvate. Per conteggi attuali, fermi macchina o modifiche ai record restano disponibili i comandi specifici nella schermata principale dell’assistente.
 
+## Domande in più lingue
+
+La chat riconosce la lingua della domanda e risponde nella stessa lingua, salvo una richiesta esplicita diversa. Include armeno, rumeno, ucraino, russo, inglese e farsi; la comprensione dipende dal modello e non è garantita per ogni lingua, dialetto o frase ambigua. In caso di dubbio deve chiedere chiarimenti. Il testo farsi usa la direzione di scrittura automatica.
+
+La memoria aziendale può restare in italiano. Codici, barcode, nomi delle macchine e identificativi devono restare invariati nelle risposte. I nomi dei pulsanti sono riportati come appaiono nel gestionale, con spiegazione nella lingua dell’utente. L’interfaccia del gestionale rimane in italiano. Una domanda consuma una sola unità della quota, anche con la ricerca multilingue; non avvia operazioni di produzione. La riformulazione è una seconda chiamata al modello, eseguita solo dopo autenticazione e verifica della quota. Le verifiche automatiche coprono il percorso di ricerca e i testi Unicode; non certificano la qualità linguistica del modello in tutte le lingue.
+
 ## Insegnare una procedura
 
 Solo il **Super amministratore** può approvare o cambiare la memoria condivisa:
@@ -20,7 +26,7 @@ In **Memoria approvata** si possono cercare, modificare e disattivare regole sup
 
 La memoria approvata è permanente nel database del gestionale. La conversazione corrente resta solo nel pannello aperto ed è azzerata quando lo si chiude o si apre un’altra funzione. **Nuova conversazione** cancella il contesto della chat, non le regole approvate. Dire “ricorda” in chat, da solo, non salva una regola.
 
-È memoria aziendale consultata durante la risposta, non un addestramento dei pesi del modello OpenAI. La ricerca testuale in italiano seleziona fino a cinque regole pertinenti; termini molto diversi o una domanda ambigua possono richiedere una riformulazione. Le fonti utilizzate sono indicate nella risposta con titolo e versione. Se manca una procedura approvata, l’IA deve dichiararlo; può offrire suggerimenti esplicitamente presentati come proposte da approvare.
+È memoria aziendale consultata durante la risposta, non un addestramento dei pesi del modello OpenAI. La domanda viene prima riformulata in parole chiave italiane per cercare anche le procedure scritte in italiano, mantenendo i termini originali nella ricerca. La ricerca seleziona fino a cinque regole pertinenti; termini molto diversi o una domanda ambigua possono richiedere una riformulazione. Le fonti utilizzate sono indicate nella risposta con titolo e versione. Se manca una procedura approvata, l’IA deve dichiararlo; può offrire suggerimenti esplicitamente presentati come proposte da approvare.
 
 Non vengono pre-caricate procedure non approvate. La chat non cambia prodotti, lotti, macchine, utenti o permessi. Le modifiche operative continuano a usare i percorsi dedicati con anteprima, autorizzazioni e conferma.
 
