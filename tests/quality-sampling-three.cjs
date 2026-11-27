@@ -59,5 +59,34 @@ for(const code of ['1','2','3','4','unknown']){
 await assert.rejects(()=>call('read',{scan_code:''}),/INVALID_BARCODE/);
 await assert.rejects(()=>call('read',{lot_id:999,scan_code:'1'}),/LOT_NOT_FOUND/);
 await assert.rejects(()=>update([{...rows[0],state:'Uscito'},...rows.slice(1)]),/QUALITY_RELEASE_REQUIRED/);
+// Wash-limit returns: real quality RPC and exit trigger, without resetting wear or discard.
+await pg.exec(fs.readFileSync('supabase/migrations/20261127111631_wash_limit_return_flow.sql','utf8'));
+let lid=100;
+for(const wash of [80,81,150])for(const rental of [false,true,null]){
+ lid++;const code='return-'+lid,entry={code,state:'Entrato',completed:false,discard:true,washed:true,washBatchId:'batch',processingId:'water'};
+ await pg.query('insert into laundry_products values($1,$2)',[code,JSON.stringify({wash,max:80,rental,raw:{SCARTO:'SI'}})]);
+ await pg.query('insert into laundry_lots values($1,$2)',[lid,JSON.stringify({rows:[entry]})]);
+ assert.equal(await scopedReady(lid,entry),false);
+ const folded={...entry,state:'In lavorazione',completed:true,foldedAt:'today'};
+ const setRows=async(row)=>pg.query("update laundry_lots set data=jsonb_set(data,'{rows}',$2) where id=$1",[lid,JSON.stringify([row])]);
+ await setRows(folded);assert.equal(await scopedReady(lid,folded),true);
+ for(const flag of ['repair','relabel','verify','rewashPending','discardReview'])assert.equal(await scopedReady(lid,{...folded,[flag]:true}),false,flag);
+ assert.equal(await scopedReady(lid,{...folded,foldedAt:null}),false);
+ assert.equal(await scopedReady(lid,{...folded,requiresDrying:true,dryState:'waiting'}),false);
+ await assert.rejects(()=>setRows({...folded,state:'Uscito'}),/QUALITY_RELEASE_REQUIRED/);
+ const before=await call('read',{lot_id:lid});assert(before.eligible.includes(code));
+ await call('record',{lot_id:lid,revision:before.revision,rows:before.rows,sample_code:code,outcome:'pass',checks,sample_count:1});
+ await setRows({...folded,state:'Uscito'});
+ const saved=(await pg.query('select data from laundry_lots where id=$1',[lid])).rows[0].data.rows[0];
+ assert.equal(saved.state,'Uscito');assert.equal(saved.discard,true);
+ assert.equal((await pg.query('select data from laundry_products where id=$1',[code])).rows[0].data.wash,wash);
+}
+assert.equal(await scopedReady(44,{...rows[0],discard:true,discardForReturn:true}),false,'unrelated discard remains blocked');
+await pg.query('insert into laundry_products values($1,$2)',['custom',JSON.stringify({wash:81,max:100})]);
+assert.equal(await scopedReady(200,{...rows[0],code:'custom',discard:true}),false);
+await pg.exec("update laundry_products set data=data||'{\"wash\":101}' where id='custom'");
+assert.equal(await scopedReady(200,{...rows[0],code:'custom',discard:true}),true);
+for(const role of ['anon','authenticated'])assert.equal((await pg.query("select has_function_privilege($1,'laundry_private.quality_row_ready_for_lot(bigint,jsonb)','EXECUTE') ok",[role])).rows[0].ok,false);
+console.log('PASS wash-limit returns: entry, folding, quality, exit; discard/count preserved; independent holds and private permissions retained');
 console.log('PASS compact scan matches full quality status; unknown rejected; final exit guard remains active');
 console.log('PASS: bounded distinct samples, first failure expansion, corrections, repeat exits, legacy releases, readiness, rewash/identity invalidation, concurrent writes and permissions');await pg.close();})().catch(e=>{console.error(e);process.exit(1)});

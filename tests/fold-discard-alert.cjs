@@ -3,6 +3,7 @@ const s=fs.readFileSync('operator-view.js','utf8');
 const alerts=[];let oldCalls=0;
 const ctx={F:{active:true,screen:'lot',phase:'fold'},stage:'Lavorazione',current:{id:1,rows:[]},db:{garments:[]},productIsDiscard:g=>g.raw?.SCARTO==='SI',warningCheck:async()=>null,checkedProcess:async()=>{oldCalls++;return null},updatePhaseProgress:()=>{},acknowledge:async(...args)=>alerts.push(args)};
 vm.createContext(ctx);
+const discard=fs.readFileSync('discard.js','utf8');vm.runInContext(discard.slice(discard.indexOf('function productAtWashLimit'),discard.indexOf('function productIsDiscard')),ctx);
 vm.runInContext(s.slice(s.indexOf('const foldDiscardMessage='),s.indexOf('function acknowledge(')),ctx);
 vm.runInContext(s.split('\n').find(l=>l.startsWith('const oldWarning=')),ctx);
 vm.runInContext(s.split('\n').find(l=>l.startsWith('const oldChecked=')),ctx);
