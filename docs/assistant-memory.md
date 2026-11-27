@@ -22,6 +22,23 @@ Sotto una risposta dell’IA, **Correggi / insegna la regola** apre una scheda i
 
 In **Memoria approvata** si possono cercare, modificare e disattivare regole superate. Ogni modifica ha una versione e uno storico nell’audit. Una modifica concorrente viene rifiutata conservando il testo nel modulo. La disattivazione impedisce l’uso nelle nuove risposte e non elimina lo storico.
 
+## Caricare un PDF
+
+Percorso: **🤖 → Chat aziendale · insegna all’IA → Insegna all’IA → 📄 Carica PDF**. Il pulsante è riservato al Super amministratore; anche il salvataggio è verificato dal server con gli stessi permessi delle regole manuali.
+
+1. Selezionare un PDF con testo selezionabile e premere **Leggi PDF**.
+2. Controllare titolo e testo estratto, correggere eventuali errori di lettura (soprattutto tabelle e colonne) e deselezionare le sezioni non pertinenti.
+3. Controllare l’eventuale avviso sulle pagine senza testo: immagini, grafici e scansioni non vengono interpretati. Un PDF completamente scansionato richiede prima una copia con testo OCR.
+4. Spuntare la conferma di verifica e premere **Approva e memorizza le sezioni selezionate**. Prima di questa azione non viene salvata alcuna regola.
+
+Limiti per documento: 10 MB, 50 pagine e 80.000 caratteri. Il testo lungo viene suddiviso automaticamente in sezioni modificabili fino a 4.000 caratteri, con titolo, nome del file e pagina. Ogni sezione salvata è una regola consultabile/modificabile/disattivabile da **Memoria approvata**. Non vengono riaddestrati i pesi del modello.
+
+La lettura avviene nel browser con PDF.js 5.7.284, caricato da jsDelivr soltanto quando necessario. Il PDF originale non è archiviato e non viene inviato a OpenAI per l’importazione; si salvano nel gestionale solo i testi approvati. Le sezioni pertinenti potranno essere inviate a OpenAI durante le domande. Nessuna quota di domande viene consumata dalla lettura o dall’approvazione.
+
+Il salvataggio è sequenziale: in caso di errore sono mostrate le sezioni già memorizzate e quelle rimaste in anteprima. Riprovare nello stesso pannello conserva gli identificativi delle sezioni ed evita doppi inserimenti; in caso di conflitto verificare **Memoria approvata**. Chiudere il pannello perde le sezioni ancora non salvate. Importare nuovamente il file da zero crea nuove regole, quindi verificare quelle esistenti prima di ripetere l’importazione.
+
+Verifiche: estrazione da PDF reale con testo e pagina vuota, limiti, file non validi e PDF senza testo, anteprima/approvazione, permessi, salvataggio parziale e tentativi ripetuti (`tests/assistant-pdf.cjs`).
+
 ## Cosa ricorda
 
 La memoria approvata è permanente nel database del gestionale. La conversazione corrente resta solo nel pannello aperto ed è azzerata quando lo si chiude o si apre un’altra funzione. **Nuova conversazione** cancella il contesto della chat, non le regole approvate. Dire “ricorda” in chat, da solo, non salva una regola.

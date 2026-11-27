@@ -103,7 +103,7 @@
     if(plan.metric==='conversation'){
       const id=generation,active=()=>dialog.open&&id===generation&&allowed();
       target.textContent='Apertura chat aziendale…';
-      import('./assistant-memory.js?v=20261126-voice').then(()=>{if(active())return window.openCompanyAssistant(target,{active,showQuota})}).catch(()=>{if(active())target.textContent='Impossibile aprire la chat. Riprova.'});return;
+      import('./assistant-memory.js?v=20261127-pdf').then(()=>{if(active())return window.openCompanyAssistant(target,{active,showQuota})}).catch(()=>{if(active())target.textContent='Impossibile aprire la chat. Riprova.'});return;
     }
     if(plan.metric==='maintenance'){
       const id=generation,active=()=>dialog.open&&id===generation&&allowed();

@@ -43,6 +43,12 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
    if(data.documents.length===100)results.append(el('p','Mostrate le prime 100 regole. Usa la ricerca per restringere l’elenco.'));
   }catch(e){if(active()&&id===epoch)view.replaceChildren(paragraph(errorText(e)),btn('Riprova',()=>list(query)))}
  }
+ async function importPdf(){
+  if(!canTrain||saving)return;voice?.cancel();const id=++epoch;view.textContent='Apertura caricamento PDF…';
+  try{await import('./assistant-pdf.js?v=20261127-pdf');if(!active()||id!==epoch)return;
+   await window.openAssistantPDF(view,{active:()=>active()&&id===epoch,rpc,back:()=>edit(),setBusy:value=>{saving=value;chatButton.disabled=memoryButton.disabled=teach.disabled=value}});
+  }catch(e){if(active()&&id===epoch)view.replaceChildren(paragraph('Caricamento PDF non disponibile. Riprova.'),btn('Torna indietro',()=>edit()))}
+ }
  function edit(doc={}){
   if(!canTrain||saving)return;voice?.cancel();const id=++epoch,draft={id:doc.id||crypto.randomUUID(),revision:doc.revision||0};
   const form=el('form'),title=el('input'),body=el('textarea'),source=el('input'),result=el('p');
@@ -51,7 +57,7 @@ window.openCompanyAssistant=async function(target,{active,showQuota}){
   const save=el('button','Approva e memorizza');save.type='submit';save.className='btn';
   const cancel=btn('Annulla',()=>{if(!saving){epoch++;view.replaceChildren(chat)}});
   form.append(label('Titolo della regola',title),label('Istruzione aziendale verificata',body),label('Fonte / documento di riferimento',source),el('p','Approvando rendi questa regola disponibile all’IA per gli utenti abilitati. Nessun prodotto, lotto o macchina viene modificato.'),save,cancel,result);
-  view.replaceChildren(el('h3',doc.id?'Aggiorna ciò che l’IA sa':'Insegna all’IA'),form);
+  view.replaceChildren(el('h3',doc.id?'Aggiorna ciò che l’IA sa':'Insegna all’IA'),...(!doc.id?[btn('📄 Carica PDF',()=>{if(!title.value&&!body.value&&!source.value)importPdf();else result.textContent='Per conservare il testo scritto, salvalo prima oppure torna a Insegna all’IA per caricare il PDF.'})]:[]),form);
   form.onsubmit=async e=>{e.preventDefault();if(saving||!active()||id!==epoch)return;saving=true;save.disabled=cancel.disabled=chatButton.disabled=memoryButton.disabled=teach.disabled=true;result.textContent='Memorizzazione…';
    try{await rpc('save',{...draft,title:title.value,body:body.value,source:source.value,approved:true});if(active()&&id===epoch){view.replaceChildren(el('h3','Regola approvata e memorizzata'),el('p','L’IA potrà consultarla dalle prossime domande. Non è necessario riaddestrare il modello.'),btn('Torna alla chat',()=>{epoch++;view.replaceChildren(chat)}),btn('Apri memoria',()=>list()))}}
    catch(e){if(active()&&id===epoch)result.textContent=errorText(e)}finally{saving=false;save.disabled=cancel.disabled=chatButton.disabled=memoryButton.disabled=teach.disabled=false}

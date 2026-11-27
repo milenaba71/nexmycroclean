@@ -47,4 +47,4 @@
  arrange();
 })();
 
-import('./office-assistant.js?v=20261126-voice').catch(() => {});
+import('./office-assistant.js?v=20261127-pdf').catch(() => {});
