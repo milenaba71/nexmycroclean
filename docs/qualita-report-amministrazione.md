@@ -37,3 +37,10 @@ Apri il lotto, espandi **Riepilogo del lotto** e premi **Stampa riepilogo lotto*
 
 ## Interventi per singolo prodotto
 Nel reparto cucito e nel riepilogo del lotto trovi **Interventi eseguiti per prodotto**. Ogni riga riporta codice/tag (con gli zeri iniziali), capo, utilizzatore, intervento, quantità, minuti, importo, operatore, data e note. La stessa tabella compare nella stampa del riepilogo. Completamenti senza consuntivo e sostituzioni sono in sezioni separate.
+
+### Correzione ed eliminazione di una registrazione (27/11/2026)
+Nel reparto cucito, apri il prodotto. Accanto a **Correggi intervento** trovi **Elimina intervento**. Può usarlo chi ha il permesso di lavorare sui lotti; i lotti archiviati non sono modificabili. Il comando elimina la singola registrazione dai consuntivi, non il prodotto.
+
+Indica il motivo e scegli **Elimina solo la registrazione errata** per un doppione, oppure **Elimina e rimetti l’attività da fare** se il lavoro va rifatto. La seconda opzione riapre soltanto riparazione, etichettatura o verifica dell’intervento scelto; non modifica lavaggio, piegatura o altre attività. Un capo già uscito o dismesso non può essere riaperto da questo comando. Il registro conserva l’annullamento e l’operatore; l’audit conserva la registrazione precedente.
+
+**Salva e aggiungi altro** lascia aperta l’attività scelta. **Salva intervento e completa** la chiude. Per registrare intenzionalmente lo stesso tipo già presente sul capo, spunta **Confermo di ripetere un intervento già registrato**. In caso di conferma del salvataggio non ricevuta, premi di nuovo Salva nella stessa finestra: viene verificata la stessa richiesta, senza aggiungere doppioni. I salvataggi multipli sono applicati tutti insieme oppure nessuno; quantità, minuti e importi si aggiornano solo dopo conferma del database.

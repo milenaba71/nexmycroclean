@@ -1,0 +1,25 @@
+const fs=require('fs'),assert=require('node:assert/strict'),{JSDOM}=require(process.env.JSDOM_PATH||'jsdom');
+const tick=()=>new Promise(r=>setTimeout(r,0));
+(async()=>{const dom=new JSDOM('<dialog id="modal"></dialog>',{runScripts:'outside-only'}),w=dom.window;
+const work={id:'w',kind:'relabel',repairTypeId:'t',name:'Barcode',unit:'piece',quantity:1,priceMills:1200,costMills:1200,minutesHundredths:300,completedAt:'2026-11-27T10:00:00Z'};
+const lot={id:1,notes:'keep',rows:[{code:'A',state:'Entrato',relabel:false,repairWork:[work]}],events:[]};let allowed=true,redraw=0,calls=[],respond;
+Object.assign(w,{db:{lots:[structuredClone(lot)],garments:[{id:'A'}],processing:[{id:'t',name:'Barcode',repairActive:true,unit:'piece',priceMills:1200}]},cloudRevision:1,cloudUser:{name:'Test',email:'test@example.invalid'},current:null,lotActionBusy:false,repairProductCode:'A',page:'Riparazioni',clone:x=>JSON.parse(JSON.stringify(x)),userCan:()=>allowed,lotMutationAllowed:()=>!w.lotActionBusy&&allowed,cloudFlush:async()=>{},$:s=>w.document.querySelector(s),show:html=>{const m=w.$('#modal');m.innerHTML=html;m.setAttribute('open','')},esc:s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),lotno:l=>'L'+l.id,repairMinutes:n=>String(n/100),repairDate:s=>s,euro3:n=>String(n/1000),repairTypes:()=>w.db.processing,notify:msg=>w.notice=msg,repairProductDetail:()=>redraw++,repairDetail:()=>redraw++,repairTotalsPanel:()=>'',productCodeLink:c=>c,repairCall:(id,c)=>id+",'"+c+"'",saveRepairWork(){},finishWithoutRepairCost(){},appSupabase:{rpc:async(name,p)=>{calls.push({name,p:structuredClone(p)});return respond(p)}}});
+w.cloudBase=structuredClone(w.db);w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')};
+const costs=fs.readFileSync('repair-costs.js','utf8');w.eval(costs.slice(costs.indexOf('function registerRepairWork('),costs.indexOf('function repairWorkDefaults(')));w.eval(fs.readFileSync('sewing-details.js','utf8')+'\n'+fs.readFileSync('sewing-actions.js','utf8'));
+const button={dataset:{lot:'1',code:'A',work:'w'}};assert(w.sewingDetailsPanel(lot,'A').includes('Elimina intervento'));
+w.deleteSewingWork(button);let form=w.$('#sewingDelete');assert.equal(form.elements.reopen.value,'yes');form.elements.reason.value='erroneous entry';let resolve;respond=()=>new Promise(r=>resolve=r);
+const p=form.onsubmit({preventDefault(){}});await tick();const again=form.onsubmit({preventDefault(){}});await again;assert.equal(calls.length,1);assert.equal(w.db.lots[0].rows[0].repairWork.length,1,'no optimistic removal');
+const deleted=structuredClone(lot);deleted.rows[0].repairWork=[];deleted.rows[0].relabel=true;
+resolve({data:{lot:deleted,products:[{id:'A'}],baseRevision:1,revision:2}});await p;assert.equal(w.db.lots[0].rows[0].repairWork.length,0);assert.equal(w.cloudRevision,2);assert.equal(redraw,1);
+// Unrelated revisions must not be acknowledged by a partial response.
+w.sewingApplyResult({lot:deleted,products:[],baseRevision:8,revision:9});assert.equal(w.cloudRevision,2);
+// Explicit duplicate choice; same payload ID reused across network uncertainty.
+w.registerRepairWork(1,'A','relabel');form=w.$('#modal form');form.elements.type.value='t';form.elements.quantity.value='1';form.elements.minutes.value='3';calls=[];respond=()=>({error:{message:'Network failure'}});
+await w.saveRepairWork({target:form,preventDefault(){},submitter:form.querySelector('button')},1,'A','relabel');assert.equal(calls.length,2);assert.equal(calls[0].p.p_payload.requestId,calls[1].p.p_payload.requestId);assert.equal(w.db.lots[0].rows[0].repairWork.length,0);assert(form.elements.type.disabled);const id=calls[0].p.p_payload.requestId;
+respond=()=>({data:{lot,products:[],baseRevision:2,revision:3}});await w.saveRepairWork({target:form,preventDefault(){},submitter:form.querySelector('button')},1,'A','relabel');assert.equal(calls.at(-1).p.p_payload.requestId,id);assert.equal(w.db.lots[0].rows[0].repairWork.length,1);
+// Definite failure keeps form editable and does not write to local model.
+w.editSewingWork(button);form=w.$('#sewingCorrection');form.elements.quantity.value='2';respond=()=>({error:{code:'P0001',message:'SEWING_WORK_CHANGED'}});await form.onsubmit({preventDefault(){}});assert.equal(w.db.lots[0].rows[0].repairWork[0].quantity,1);assert.equal(form.elements.quantity.disabled,false);assert(form.textContent.includes('è cambiato'));
+// Duplicate deletion defaults to preserving completion.
+w.db.lots[0].rows[0].repairWork.push({...work,id:'w2'});w.deleteSewingWork(button);assert.equal(w.$('#sewingDelete').elements.reopen.value,'no');
+allowed=false;w.$('#modal').close();w.deleteSewingWork(button);assert.equal(w.$('#modal').open,false);assert(!w.sewingDetailsPanel(lot,'A').includes('Elimina intervento'));
+console.log('PASS sewing UI: visible deletion, reopen choice, double click, server-confirmed state, safe partial revision, ambiguous retry, errors, permissions');w.close();})().catch(e=>{console.error(e);process.exit(1)});
